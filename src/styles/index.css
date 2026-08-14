@@ -1,0 +1,3220 @@
+/* =========================================================================
+   Sky楽譜エディター — スタイル
+   ========================================================================= */
+
+:root,
+[data-theme='light'] {
+  --bg: #f4f6fb;
+  --surface: #ffffff;
+  --surface-2: #f8f9fc;
+  --border: #e3e7ef;
+  --text: #1f2733;
+  --text-muted: #6b7480;
+  --primary: #3b5bdb;
+  --primary-hover: #364fc7;
+  --success: #2f9e6f;
+  --success-hover: #268660;
+  --warning: #e8850c;
+  --warning-hover: #cf7307;
+  --warning-active: #d35400;
+  --danger: #e03131;
+  --shadow: 0 1px 3px rgba(20, 30, 55, 0.08), 0 6px 20px rgba(20, 30, 55, 0.06);
+  --shadow-sticky: 0 2px 10px rgba(20, 30, 55, 0.07);
+  /* ボタン・入力欄の高さを1つに統一する。同じ帯に高さの違う操作を
+     並べないための基準値 */
+  --control-h: 2.15rem;
+
+  /* ノートグリッド */
+  --cell-fill: #eef0f5;
+  --cell-stroke: #c7cdd8;
+  --cell-fill-empty: #f6f7fa;
+  --cell-stroke-empty: #e4e7ee;
+  --symbol: #4a5261;
+  --symbol-empty: #b3b9c4;
+  --cell-fill-hl: #F2C078;
+  --cell-stroke-hl: #A65D0B;
+  --symbol-hl: #3c3023;
+  --cell-fill-hl-2: #78AAF2;
+  --cell-stroke-hl-2: #0B54A6;
+  --symbol-hl-2: #1D2E42;
+  --number: #6b7480;
+  --card-bg: #ffffff;
+}
+
+/* Reactがdata-themeを設定する前も、初回表示だけはシステム設定に
+   合わせる。設定値がある場合は属性付きのルールが優先される。 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #10131c;
+    --surface: #1a1e2a;
+    --surface-2: #212636;
+    --border: #2c3244;
+    --text: #e7eaf2;
+    --text-muted: #99a1b3;
+    --primary: #5c7cfa;
+    --primary-hover: #4c6ef5;
+    --success: #3fb182;
+    --success-hover: #4cc493;
+    --warning: #f0a13a;
+    --warning-hover: #f5b25a;
+    --warning-active: #e8843d;
+    --danger: #ff6b6b;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+    --shadow-sticky: 0 2px 10px rgba(0, 0, 0, 0.45);
+    --cell-fill: #2a3040;
+    --cell-stroke: #3c435a;
+    --cell-fill-empty: #1f2432;
+    --cell-stroke-empty: #2b3142;
+    --symbol: #c2c9d8;
+    --symbol-empty: #5a6478;
+    --cell-fill-hl: #F2C078;
+    --cell-stroke-hl: #A65D0B;
+    --symbol-hl: #3c3023;
+    --cell-fill-hl-2: #78AAF2;
+    --cell-stroke-hl-2: #0B54A6;
+    --symbol-hl-2: #1D2E42;
+    --number: #8790a0;
+    --card-bg: #1c2130;
+  }
+}
+
+[data-theme='dark'] {
+  --bg: #10131c;
+  --surface: #1a1e2a;
+  --surface-2: #212636;
+  --border: #2c3244;
+  --text: #e7eaf2;
+  --text-muted: #99a1b3;
+  --primary: #5c7cfa;
+  --primary-hover: #4c6ef5;
+  --success: #3fb182;
+  --success-hover: #4cc493;
+  --warning: #f0a13a;
+  --warning-hover: #f5b25a;
+  --warning-active: #e8843d;
+  --danger: #ff6b6b;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-sticky: 0 2px 10px rgba(0, 0, 0, 0.45);
+
+  --cell-fill: #2a3040;
+  --cell-stroke: #3c435a;
+  --cell-fill-empty: #1f2432;
+  --cell-stroke-empty: #2b3142;
+  --symbol: #c2c9d8;
+  --symbol-empty: #5a6478;
+  /* 押鍵ハイライトはPDFの印刷用プリセットと同一値。明暗どちらのテーマでも
+     通常セルとの輝度比が確保できるため、テーマごとに分けていない */
+  --cell-fill-hl: #F2C078;
+  --cell-stroke-hl: #A65D0B;
+  --symbol-hl: #3c3023;
+  --cell-fill-hl-2: #78AAF2;
+  --cell-stroke-hl-2: #0B54A6;
+  --symbol-hl-2: #1D2E42;
+  --number: #8790a0;
+  --card-bg: #1c2130;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) {
+    color-scheme: dark;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: 'Noto Sans JP', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  min-height: 100vh;
+}
+
+.app__inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+/* 編集終了ボタンが画面下端に固定されるので、その分だけ本文の
+   下余白を足す。足さないとフッターの末尾が最後まで読めない */
+.app--edit-mode .app__inner {
+  padding-bottom: 7rem;
+}
+
+/* ---------- 固定（sticky）コンテナ ---------- */
+/* ツールバーはここに含めない（App.jsx 参照）。中身が無いとき
+   （下書き未読込かつステータス無し）は帯だけが残らないよう畳む */
+.app__sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg); /* スクロール時に下が透けないよう、アプリ背景と同色に設定 */
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem; /* ステータスバーと再生バーの間隔 */
+}
+
+.app__sticky-header:empty {
+  display: none;
+}
+
+/* ---------- ツールバー ---------- */
+.toolbar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  backdrop-filter: saturate(1.2);
+}
+
+.toolbar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.toolbar__group--right {
+  margin-left: auto;
+}
+
+.toolbar__tabs {
+  display: flex;
+  align-items: end;
+  gap: 0.15rem;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+
+.toolbar__tab {
+  appearance: none;
+  min-height: 2.5rem;
+  padding: 0 0.9rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toolbar__tab:hover {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--text);
+}
+
+.toolbar__tab[aria-selected='true'] {
+  border-bottom-color: var(--primary);
+  color: var(--primary);
+}
+
+.toolbar__tab:focus-visible {
+  outline: none;
+  border-radius: 4px 4px 0 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.toolbar__tabpanel,
+.toolbar__settings-grid {
+  min-width: 0;
+}
+
+.toolbar__settings-grid {
+  display: grid;
+  gap: 0.8rem;
+  align-items: start;
+}
+
+/* PDF設定のdialogは同じ設定を別の場所で扱う画面なので、
+   節の見た目をツールバーの設定パネルと共有する */
+.toolbar__section,
+.pdf-preset-dialog__section {
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.toolbar__section-title,
+.pdf-preset-dialog__section-title {
+  margin: 0 0 0.65rem;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.toolbar__section-toggle {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.toolbar__section-toggle-icon {
+  display: none;
+}
+
+.toolbar__section-toggle:focus-visible {
+  outline: none;
+  border-radius: 4px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.toolbar__section-panel[hidden] {
+  display: none;
+}
+
+.toolbar__design-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(12rem, 1fr);
+  gap: 1rem;
+  min-width: 0;
+}
+
+.toolbar__design-column {
+  min-width: 0;
+}
+
+.toolbar__subsection-title {
+  margin: 0 0 0.65rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.toolbar__settings-grid--pdf {
+  grid-template-areas:
+    'design design'
+    'typography scoreinfo'
+    'page paper'
+    'action action';
+}
+
+.toolbar__section--pdf-design { grid-area: design; }
+.toolbar__section--pdf-typography { grid-area: typography; }
+.toolbar__section--pdf-score-info { grid-area: scoreinfo; }
+.toolbar__section--pdf-page { grid-area: page; }
+.toolbar__section--pdf-paper { grid-area: paper; }
+
+.toolbar__info-grid,
+.toolbar__playback-grid,
+.toolbar__typography-grid,
+.toolbar__layout-grid,
+.toolbar__score-info-grid,
+.toolbar__page-grid {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.toolbar__info-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.toolbar__playback-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.toolbar__typography-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.toolbar__playback-grid .field--compact,
+.toolbar__typography-grid .field--compact,
+.toolbar__layout-grid .field--compact,
+.toolbar__score-info-grid .field--compact,
+.toolbar__page-grid .field--compact {
+  min-width: 0;
+}
+
+.toolbar__playback-grid .field--compact .text-input,
+.toolbar__typography-grid .field--compact .text-input,
+.toolbar__layout-grid .field--compact .text-input,
+.toolbar__score-info-grid .field--compact .text-input,
+.toolbar__page-grid .field--compact .text-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.toolbar__action-bar,
+.toolbar__action-cluster {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.toolbar__action-bar {
+  flex-wrap: wrap;
+}
+
+.toolbar__action-cluster {
+  flex-wrap: wrap;
+}
+
+.toolbar__action-cluster--save,
+.toolbar__action-cluster--pdf-export {
+  margin-left: auto;
+}
+
+.toolbar__action-cluster--pdf-preset {
+  flex: 0 1 auto;
+}
+
+.toolbar__action-separator {
+  width: 1px;
+  height: 1.3rem;
+  background: var(--border);
+}
+
+.toolbar__appearance-basics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.toolbar__grid-style-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.toolbar__grid-style-select {
+  max-width: 14rem;
+}
+
+.toolbar__grid-style-select .text-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.toolbar__grid-style-custom {
+  min-width: 0;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+}
+
+.toolbar__grid-style-custom-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-width: 0;
+  margin-bottom: 0.55rem;
+}
+
+.toolbar__grid-style-custom-header h4,
+.toolbar__grid-style-custom-group h5 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.toolbar__grid-style-custom-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.toolbar__grid-style-custom-group {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.pdf-range-field {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.pdf-range-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.pdf-range-label label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.pdf-range-label output {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-range-input {
+  width: 100%;
+  min-width: 0;
+  height: var(--control-h);
+  -webkit-appearance: none;
+  appearance: none;
+  background: none;
+  outline: none;
+}
+
+.pdf-range-input--compact {
+  width: 8rem;
+  min-width: 8rem;
+}
+
+.pdf-range-input--fluid {
+  width: 100%;
+}
+
+.pdf-range-input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.pdf-range-input::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.pdf-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+}
+
+.pdf-range-input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+}
+
+.pdf-range-input::-webkit-slider-thumb:hover,
+.pdf-range-input:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.pdf-range-input::-moz-range-thumb:hover,
+.pdf-range-input:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.pdf-range-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pdf-range-input:disabled::-webkit-slider-thumb,
+.pdf-range-input:disabled::-moz-range-thumb {
+  cursor: not-allowed;
+}
+
+.toolbar__segmented-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.toolbar__segmented-field legend {
+  margin-bottom: 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.toolbar__grid-number-settings {
+  margin-top: 0.9rem;
+}
+
+.toolbar__segmented-options {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(4rem, 1fr));
+  height: var(--control-h);
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.toolbar__segmented-option {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.toolbar__segmented-option + .toolbar__segmented-option {
+  border-left: 1px solid var(--border);
+}
+
+.toolbar__segmented-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.toolbar__segmented-option span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 0.7rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.toolbar__segmented-option input:checked + span {
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface-2));
+  color: var(--primary);
+  font-weight: 650;
+}
+
+.toolbar__segmented-option input:focus-visible + span {
+  position: relative;
+  z-index: 1;
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.toolbar__palette-field {
+  order: 1;
+}
+
+.toolbar__pdf-font {
+  order: 2;
+}
+
+.toolbar__background-controls {
+  order: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-width: 0;
+  align-self: stretch;
+}
+
+.toolbar__background-field {
+  width: 100%;
+}
+
+.toolbar__palette-panel {
+  order: 4;
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+}
+
+.toolbar__palette-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.toolbar__palette-panel-header h3,
+.toolbar__palette-group h4 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.toolbar__palette-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.toolbar__palette-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 0.55rem;
+  min-width: 0;
+}
+
+.toolbar__palette-group {
+  min-width: 0;
+}
+
+.toolbar__palette-group-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.toolbar__palette-group-header > span {
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.toolbar__palette-strip,
+.toolbar__palette-labels {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.toolbar__palette-strip {
+  overflow: hidden;
+  height: 2.1rem;
+  margin-top: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--text) 38%, var(--border));
+  border-radius: 6px;
+}
+
+.toolbar__palette-segment,
+.toolbar__palette-labels > * {
+  grid-column: span 2;
+  min-width: 0;
+}
+
+.toolbar__palette-segment {
+  position: relative;
+  height: 100%;
+}
+
+.toolbar__palette-segment:nth-child(n + 4),
+.toolbar__palette-labels > :nth-child(n + 4) {
+  grid-column: span 3;
+}
+
+.toolbar__palette-segment + .toolbar__palette-segment {
+  border-left: 1px solid color-mix(in srgb, var(--text) 38%, var(--border));
+}
+
+.toolbar__palette-segment.is-editable {
+  cursor: pointer;
+}
+
+.toolbar__palette-segment.is-editable:hover {
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.toolbar__palette-segment:has(.toolbar__palette-color-input:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.toolbar__palette-color-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.toolbar__palette-color-input:disabled {
+  cursor: default;
+}
+
+.toolbar__palette-labels {
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.toolbar__palette-labels > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar__palette-labels label {
+  cursor: pointer;
+}
+
+.toolbar__palette-group--two-layer .toolbar__palette-strip,
+.toolbar__palette-group--two-layer .toolbar__palette-labels {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.toolbar__palette-group--two-layer .toolbar__palette-segment,
+.toolbar__palette-group--two-layer .toolbar__palette-labels > * {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.toolbar__palette-group--two-layer .toolbar__palette-segment:nth-child(1) {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+
+.toolbar__palette-group--two-layer .toolbar__palette-segment:nth-child(2),
+.toolbar__palette-group--two-layer .toolbar__palette-labels > :nth-child(2) {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.toolbar__palette-group--two-layer .toolbar__palette-segment:nth-child(3),
+.toolbar__palette-group--two-layer .toolbar__palette-labels > :nth-child(3) {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.toolbar__palette-group--two-layer .toolbar__palette-segment:nth-child(4),
+.toolbar__palette-group--two-layer .toolbar__palette-labels > :nth-child(4) {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.toolbar__palette-group--two-layer .toolbar__palette-segment:nth-child(5),
+.toolbar__palette-group--two-layer .toolbar__palette-labels > :nth-child(5) {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.toolbar__background-opacity {
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+}
+
+.toolbar__background-opacity.field--stack {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.toolbar__background-opacity .pdf-range-label {
+  width: 6.75rem;
+  min-width: 6.75rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.toolbar__background-opacity .pdf-range-input {
+  margin: 0;
+}
+
+.toolbar__layout-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.toolbar__score-info-grid,
+.toolbar__page-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.toolbar__pdf-action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  grid-area: action;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+  padding: 0.8rem 0.8rem calc(0.8rem + env(safe-area-inset-bottom, 0px));
+  background: var(--surface-2);
+  border-top: 1px solid var(--border);
+}
+
+.toolbar__pdf-action-note {
+  margin: 0;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+@media (min-width: 960px) {
+  .toolbar__settings-grid--score {
+    grid-template-columns: minmax(0, 1fr) minmax(17rem, 20rem);
+    align-items: stretch;
+  }
+
+  .toolbar__settings-grid--pdf {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .toolbar__section--pdf-typography,
+  .toolbar__section--pdf-score-info,
+  .toolbar__section--pdf-page,
+  .toolbar__section--pdf-paper {
+    align-self: stretch;
+  }
+
+  .toolbar__section--score-actions {
+    grid-column: 1 / -1;
+  }
+
+  .toolbar__info-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .toolbar__info-grid .field--title {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 959px) {
+  .toolbar__settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbar__settings-grid--pdf {
+    grid-template-areas:
+      'design'
+      'typography'
+      'scoreinfo'
+      'page'
+      'paper'
+      'action';
+  }
+
+  .toolbar__info-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .toolbar__info-grid .field--title {
+    grid-column: 1 / -1;
+  }
+
+  .toolbar__appearance-basics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .toolbar__layout-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .toolbar__palette-actions {
+    justify-content: end;
+  }
+}
+
+@media (min-width: 641px) {
+  .toolbar__background-controls--empty {
+    justify-content: flex-end;
+  }
+
+  .toolbar__background-field .pdf-bg-menu {
+    align-self: center;
+  }
+
+  .toolbar__background-opacity.field--stack {
+    flex-direction: column;
+    align-items: stretch;
+    align-self: center;
+    gap: 0.2rem;
+    width: min(16.5rem, 100%);
+  }
+
+  .toolbar__background-opacity .pdf-range-label {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (min-width: 960px) {
+  .toolbar__appearance-basics {
+    grid-template-columns: minmax(12rem, 16rem) minmax(17rem, 1fr);
+  }
+
+  .toolbar__palette-field {
+    grid-column: auto;
+  }
+
+  .toolbar__background-opacity.field--stack {
+    flex-wrap: nowrap;
+  }
+
+  .toolbar__background-controls .pdf-bg-menu--single {
+    width: min(5.5rem, 100%);
+  }
+
+  .toolbar__background-controls .pdf-bg-menu--double {
+    width: min(11rem, 100%);
+  }
+}
+
+/* 欧文と和文を同じ字送りで組むと和文だけが窮屈に見えるため、
+   ウェイトとトラッキングの差で語を切り分ける（色は使わない。
+   「Sky」を強調色にすると公式ロゴのように見えてしまうため） */
+.toolbar__brand {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.38rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.toolbar__brand-latin {
+  font-size: 1.16rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.toolbar__brand-jp {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  /* 和文は開いて組む。palt で字面に応じた詰めを効かせた上で
+     均一に空けると、ベタ組みより見出しらしく落ち着く */
+  font-feature-settings: 'palt' 1;
+  letter-spacing: 0.14em;
+  /* トラッキングは最後の字の右にも入るため、その分だけ戻して
+     縦罫との間隔を左右で揃える */
+  margin-right: -0.14em;
+}
+
+.toolbar__row--primary .theme-menu > .btn,
+.toolbar__row--primary .toolbar__group--right > .btn {
+  min-height: 1.75rem;
+}
+
+.field {
+  gap: 0.4rem;
+}
+
+.field label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.field--bpm .text-input {
+  width: 5.5rem;
+}
+
+.field label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* ラベルを入力の上に置く。横並びだと入力幅が全フィールドで同じになり、
+   最も長くなる曲名が作曲者と同じ幅に押し込められていた */
+.field--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+.field--stack .text-input {
+  width: 100%;
+  min-width: 0;
+}
+.field--title {
+  flex: 2 1 16rem;
+}
+.field--compact {
+  flex: 0 0 auto;
+}
+.field--compact .text-input {
+  width: auto;
+  min-width: 6rem;
+}
+.field--pitch .text-input {
+  min-width: 5rem;
+}
+
+.pdf-notes {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.pdf-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* カスタム配色のコントラスト不足は禁止ではなく警告なので、色だけ変えて
+   目立たせる（出力を止める赤 = --danger ではなく --warning を使う） */
+.pdf-note--warning {
+  color: var(--warning);
+}
+
+/* 背景画像のプレビュー兼メニュー起点。「変更」「外す」を常時ボタンで
+   並べる代わりに、プレビューをタップして開くメニューにまとめている。
+   2面付けを親幅いっぱい、1面付けをその半幅にすると、A4横・A4縦の比率でも
+   高さが一致する。data:URLをそのまま<img>に渡し、現行CSPのdata:許可内に保つ。 */
+.pdf-bg-control {
+  align-self: stretch;
+}
+
+.toolbar__background-field > .btn.pdf-bg-control {
+  width: auto;
+  align-self: center;
+}
+
+.pdf-bg-menu {
+  position: relative;
+  max-width: 100%;
+}
+
+.pdf-bg-menu--single {
+  width: 50%;
+}
+
+.pdf-bg-menu--double {
+  width: 100%;
+}
+
+.pdf-bg-menu__trigger {
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.pdf-bg-menu--single .pdf-bg-menu__trigger {
+  aspect-ratio: 210 / 297;
+}
+
+.pdf-bg-menu--double .pdf-bg-menu__trigger {
+  aspect-ratio: 297 / 210;
+}
+
+.pdf-bg-menu__trigger img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pdf-bg-menu__panel {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-width: 6rem;
+  padding: 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.pdf-bg-menu__item {
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* 「変更」「外す」とも同じ通常色で反応させる（以前は「外す」だけ赤く
+   していた）。パネルの地は --surface のため、--surface-2 では
+   明色テーマで見分けが付かない（#ffffff と #f8f9fc）。ボタンの hover と
+   同じく --primary を少し混ぜた色にして、どちらの項目でも変化が分かるようにする */
+.pdf-bg-menu__item:hover,
+.pdf-bg-menu__item:focus-visible {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-2));
+  outline: none;
+}
+
+.theme-menu {
+  position: relative;
+}
+
+.theme-menu__panel {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-width: 7rem;
+  padding: 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.theme-menu__item {
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.theme-menu__item:hover,
+.theme-menu__item:focus-visible,
+.theme-menu__item[aria-checked='true'] {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-2));
+  outline: none;
+}
+
+/* 意味の異なる操作どうしの間に置く縦罫 */
+.v-sep {
+  width: 1px;
+  align-self: stretch;
+  min-height: 1.3rem;
+  background: var(--border);
+  margin: 0 0.2rem;
+  flex: 0 0 auto;
+}
+
+/* display: block（flexアイテムとしては自動的にブロック化されるので
+   縦中央揃えは親 .toolbar__group の align-items: center に任せる）。
+   inline-flex だと中のテキストが匿名flexアイテム扱いになり、
+   text-overflow: ellipsis が効かず「...」の出ないただのクリップに
+   なっていたため、通常のブロックへ変更した。line-height を高さに
+   合わせることで、中の1行テキストがその高さの中で自然に縦中央になる */
+.file-name {
+  display: block;
+  line-height: var(--control-h);
+  padding: 0 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 未読み込みは「入っていない枠」として点線で示す。「未読み込み」は
+   ファイル名と違って読む起点を持たない固定文言なので中央寄せにする
+   （ファイル名側は先頭を読ませたいので左寄せのまま） */
+.file-name--empty {
+  border-style: dashed;
+  background: transparent;
+  text-align: center;
+}
+
+.text-input {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.42rem 0.6rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  min-width: 8rem;
+  min-height: var(--control-h);
+}
+
+select.text-input {
+  cursor: pointer;
+}
+
+.text-input:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+/* ---------- ボタン共通 ---------- */
+/* 高さは --control-h の1種類だけにし、強弱は色・横幅・字送りで付ける。
+   高さを変えると同じ帯に並んだときに段差ができるため */
+.btn {
+  --btn-bg: var(--surface-2);
+  --btn-fg: var(--text);
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  min-height: var(--control-h);
+  padding: 0 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  line-height: 1.3;
+  cursor: pointer;
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  transition: background-color 0.15s ease, color 0.15s ease,
+    border-color 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn--sm {
+  padding: 0 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.btn--lg {
+  padding: 0 1.3rem;
+  font-size: 0.95rem;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.btn--ghost {
+  --btn-bg: var(--surface-2);
+  --btn-fg: var(--text);
+  border-color: var(--border);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  --btn-bg: color-mix(in srgb, var(--primary) 8%, var(--surface-2));
+}
+
+.btn--primary {
+  --btn-bg: var(--primary);
+  --btn-fg: #fff;
+}
+.btn--primary:hover:not(:disabled) {
+  --btn-bg: var(--primary-hover);
+}
+
+.btn--success {
+  --btn-bg: var(--success);
+  --btn-fg: #fff;
+}
+.btn--success:hover:not(:disabled) {
+  --btn-bg: var(--success-hover);
+}
+
+/* 未保存の変更を示す点。文字の「•」はフォントによって大きさも
+   縦位置も変わるため、要素として描いて色をボタンの文字色に揃える */
+.btn__dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.btn--warning-active {
+  --btn-bg: var(--warning-active);
+  --btn-fg: #fff;
+}
+
+/* トグルは色を変えず「押し込まれた面」で示す。緑や橙を使うと
+   保存・警告と役割が衝突する（.break-btn.active と同じ表現） */
+.btn--toggle {
+  --btn-bg: var(--surface-2);
+  --btn-fg: var(--text-muted);
+  border-color: var(--border);
+}
+.btn--toggle:hover:not(:disabled) {
+  --btn-bg: color-mix(in srgb, var(--primary) 8%, var(--surface-2));
+}
+.btn--toggle[aria-pressed='true'] {
+  --btn-bg: color-mix(in srgb, var(--primary) 14%, var(--surface-2));
+  --btn-fg: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.btn--toggle[aria-pressed='true']:hover:not(:disabled) {
+  --btn-bg: color-mix(in srgb, var(--primary) 20%, var(--surface-2));
+}
+
+/* 破壊的操作。常時赤くすると視線を奪うので、触れたときだけ赤を出す */
+.btn--danger-ghost {
+  --btn-bg: var(--surface-2);
+  --btn-fg: var(--text-muted);
+  border-color: var(--border);
+}
+.btn--danger-ghost:hover:not(:disabled) {
+  --btn-bg: color-mix(in srgb, var(--danger) 12%, var(--surface-2));
+  --btn-fg: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+}
+
+/* アイコンは装飾なので、押された座標の判定はボタン自身に集約させる。
+   これが無いと click/pointer イベントの target が <svg>/<path> になり、
+   GridOverlay のスワイプ・背景タップ判定が要素を辿り直すことになる */
+.btn svg,
+.icon-btn svg,
+.status-bar__close svg,
+.history-fab__btn svg,
+.grid-card__tap svg {
+  pointer-events: none;
+}
+
+.file-label {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ---------- ステータス ---------- */
+.status-bar {
+  /* 上下の間隔は .app__sticky-header の gap が持つ */
+  padding: 0.7rem 1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  border: 1px solid transparent;
+}
+.status-info {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.status-loading {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+.status-success {
+  background: color-mix(in srgb, var(--success) 14%, var(--surface));
+  border-color: color-mix(in srgb, var(--success) 32%, transparent);
+}
+.status-warning {
+  background: color-mix(in srgb, var(--warning) 16%, var(--surface));
+  border-color: color-mix(in srgb, var(--warning) 34%, transparent);
+}
+.status-error {
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger) 34%, transparent);
+}
+
+.status-bar--toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 640px;
+  box-shadow: var(--shadow);
+  /* 下の楽譜が透けないよう、各 .status-* の背景は不透明のまま使う */
+  animation: status-toast-in 0.18s ease-out;
+}
+
+.status-bar__message {
+  flex: 1;
+  min-width: 0;
+  /* 長いエラーメッセージが1行に潰れて見切れないようにする */
+  overflow-wrap: anywhere;
+}
+
+/* 通知に載せる操作（取り消しなど）。閉じる✕より前に置き、
+   文章と同じ帯の中で押せるようにする */
+.status-bar__action {
+  appearance: none;
+  background: none;
+  border: 1px solid currentColor;
+  color: inherit;
+  border-radius: 6px;
+  padding: 0.1rem 0.6rem;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+.status-bar__action:hover {
+  opacity: 1;
+}
+.status-bar__action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.status-bar__close {
+  appearance: none;
+  border: none;
+  background: none;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  padding: 0 0.15rem;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.status-bar__close:hover {
+  opacity: 1;
+}
+.status-bar__close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+  border-radius: 4px;
+}
+
+@keyframes status-toast-in {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- 出力エリア ---------- */
+.output {
+  margin-top: 1.25rem;
+}
+
+.score-canvas {
+  display: flex;
+  flex-direction: column;
+  /* 行の上下に --ring-space の余白が入るぶん、行間の見た目が 1.4rem の
+     ままになるよう gap 側で足しておく */
+  gap: calc(1.4rem + 2 * var(--ring-space));
+
+  /* 一覧全体を中央に置き、行の中は左揃えのまま（最終行や改行マークで
+     途中改行した行の左端が、上の行と縦に揃う）。
+     幅は「1行に入る枚数」から calc で決め打ちする。子要素の実測幅から
+     決める方法（width: fit-content）は、仮想化による行の出入りのたびに
+     親の幅が再計算されうるため使わない。
+     --columns は ScoreCanvas が渡す（3拍子なら3、それ以外は4） */
+  --card-width: 288px;
+  --cell-gap: 0.5rem;
+  /* 再生中カード（.grid-card.is-playing）の外枠と改行マーク
+     （.has-break）が行の外へはみ出す量。この幅だけ行の内側に余白を確保する
+     （経緯は .score-row の padding のコメント） */
+  --ring-space: 6px;
+  --insert-unit: 0px; /* 挿入ボタンとその右の余白。編集モードでのみ幅を持つ */
+  --row-tail: 0px; /* 行末の挿入ボタン。編集モードでのみ幅を持つ */
+  width: calc(
+    var(--columns, 4) * (var(--insert-unit) + var(--card-width)) +
+      (var(--columns, 4) - 1) * var(--cell-gap) + var(--row-tail)
+  );
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+/* 挿入ボタンは InsertButton の svg と同じ 26px */
+.output.edit-mode .score-canvas {
+  --insert-unit: calc(26px + var(--cell-gap));
+  --row-tail: calc(var(--cell-gap) + 26px);
+}
+
+.score-row {
+  display: flex;
+  /* モバイル幅と同じ「折り返さずカードを縮める」モデルに統一する。
+     折り返しを許すと、ウィンドウ幅が columns 列ぶんの計算値を下回った
+     瞬間に行の高さが可変になり、一様高さを前提にした仮想化が成立しない */
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--cell-gap);
+  /* 行を再描画の境界にする。これが無いと、再生中カード（.is-playing）の
+     見た目の変化に伴う再ラスタライズが行を越えて広がり、フォーカスより
+     下の行のカードまで細かく揺れて見える（実機で確認）。
+     size は含めない。含めると行の高さの推定値が必要になり、その推定値と
+     実寸のずれが行ごとのスクロールのかくつきになる（content-visibility を
+     撤去した理由そのもの）。paint を含めても、行からはみ出す再生中カードの
+     青枠は下の --ring-space の余白に収まるため、枠が切り取られる問題は再発しない */
+  contain: layout paint;
+  /* 行の内側に余白を取り、同じ幅の負のマージンで行が占める位置を戻す
+     （カード幅の計算根拠になる内容量は変わらない）。元は paint containment に
+     切り取られる再生中カードの外枠・改行マークの縦線を行の中へ収めるための
+     指定。containment が無くなった今も、この padding と
+     .score-canvas 側の gap の加算が噛み合って現在の行間を作っているため、
+     3つはまとめてでなければ動かせない */
+  padding: var(--ring-space);
+  margin: calc(-1 * var(--ring-space));
+}
+
+.score-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--cell-gap);
+  min-width: 0;
+  /* 幅を「その行にある枚数」で等分すると、改行マークや最終行で枚数が
+     減った行だけカードが大きくなる。--columns 個並んだときの1個分に
+     固定して、どの行でも同じ大きさにする。.score-canvas の幅計算
+     （--insert-unit・--row-tail・--cell-gap）と同じ変数を使い、
+     十分広い幅ではちょうど --card-width（288px）に一致させる */
+  flex: 0 0
+    calc(
+      (100% - var(--row-tail) - (var(--columns, 4) - 1) * var(--cell-gap)) /
+        var(--columns, 4)
+    );
+}
+
+/* ---------- グリッドカード ---------- */
+.grid-card {
+  /* 288px 固定ではなく .score-cell の幅（.score-canvas の calc 由来）に
+     追従して縮む。十分広い幅では .score-cell の flex-basis が
+     ちょうど --card-width になるため、見た目は変わらない */
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 0.6rem 0.7rem 0.75rem;
+  position: relative;
+  transition: border-color 0.15s ease;
+}
+
+.grid-card.has-break {
+  box-shadow: var(--shadow), 4px 0 0 -1px var(--primary);
+}
+
+.grid-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 1.6rem;
+}
+
+.grid-card__header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.grid-card__number {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--number);
+}
+
+.grid-card__controls {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.icon-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.icon-btn:hover {
+  color: var(--text);
+}
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.break-btn.active {
+  background: color-mix(in srgb, var(--primary) 16%, var(--surface-2));
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+/* タッチ端末には hover が無く、hover でだけ赤くすると
+   スマートフォンでは削除ボタンが灰色のまま区別できない。
+   編集モード中しか出ない要素なので、常時赤でも視線を奪い続けはしない */
+.delete-btn {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface-2));
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+}
+.delete-btn:hover {
+  background: color-mix(in srgb, var(--danger) 24%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--danger) 60%, transparent);
+}
+
+/* ノートグリッド SVG */
+.note-grid-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0.15rem 0 0.4rem;
+}
+
+.sky-cell-frame {
+  fill: var(--cell-fill);
+  stroke: var(--cell-stroke);
+  stroke-width: 1;
+  transition: fill 0.1s ease, stroke 0.1s ease;
+}
+.sky-symbol {
+  fill: none;
+  stroke: var(--symbol);
+  stroke-width: 2.5;
+  pointer-events: none;
+  transition: stroke 0.1s ease;
+}
+
+.grid-card.is-empty .sky-cell-frame {
+  fill: var(--cell-fill-empty);
+  stroke: var(--cell-stroke-empty);
+}
+.grid-card.is-empty .sky-symbol {
+  stroke: var(--symbol-empty);
+}
+
+.sky-button {
+  cursor: pointer;
+}
+.sky-button:focus-visible {
+  outline: none;
+}
+.sky-button:focus-visible .sky-cell-frame {
+  stroke: var(--primary);
+  stroke-width: 2.5;
+}
+.sky-button.highlight .sky-cell-frame {
+  fill: var(--cell-fill-hl);
+  stroke: var(--cell-stroke-hl);
+  stroke-width: 2;
+}
+.sky-button.highlight .sky-symbol {
+  stroke: var(--symbol-hl);
+}
+.sky-button.highlight-layer2 .sky-cell-frame {
+  fill: var(--cell-fill-hl-2);
+  stroke: var(--cell-stroke-hl-2);
+  stroke-width: 2;
+}
+.sky-button.highlight-layer2 .sky-symbol {
+  stroke: var(--symbol-hl-2);
+}
+/* 押鍵セルは .sky-button.highlight（同詳細度・後勝ち）にフォーカスリングの
+   枠線を打ち消されるため、矢印キーで移動しても青枠が見えなくなる。
+   押鍵かつフォーカス時だけを狙って、枠線をここで決め直す。 */
+.sky-button.highlight:focus-visible .sky-cell-frame {
+  stroke: var(--primary);
+  stroke-width: 2.5;
+}
+
+.grid-card__text {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  border-radius: 7px;
+  padding: 0.4rem 0.5rem;
+  font-size: 1.05rem;
+  font-family: inherit;
+  text-align: center;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+/* 未入力のときだけ「ここに書ける」を最小限に示す。placeholder は
+   半角スペース1文字（GridCard.jsx側）なので文字としては表示されない */
+.grid-card__text:placeholder-shown {
+  border-bottom-color: color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 0;
+}
+.grid-card__text:hover,
+.grid-card__text:focus-visible {
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+.grid-card__text:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+/* 挿入ボタン */
+.insert-button {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--success);
+  display: inline-flex;
+  transition: transform 0.1s ease, opacity 0.15s ease;
+  flex: 0 0 auto;
+}
+.insert-button:hover {
+  transform: scale(1.12);
+}
+.insert-button:focus-visible {
+  outline: none;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 40%, transparent);
+}
+.insert-button circle {
+  fill: var(--success);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+.insert-button line {
+  stroke: #fff;
+  stroke-width: 3;
+}
+
+/* 編集モードの視覚的手がかり */
+.output.edit-mode .grid-card {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+}
+
+/* ---------- 空状態 ---------- */
+.empty-state {
+  text-align: center;
+  padding: 3.5rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.empty-state__mark rect {
+  fill: color-mix(in srgb, var(--primary) 22%, var(--surface-2));
+}
+.empty-state__title {
+  margin: 1rem 0 0.25rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+.empty-state__body {
+  margin: 0 0 1.25rem;
+  color: var(--text-muted);
+}
+.empty-state__hint {
+  margin: -0.75rem 0 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.empty-state__actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ---------- レスポンシブ ---------- */
+@media (max-width: 640px) {
+  /* 入力欄が iOS 対策で 16px になるぶん背が高くなるため、
+     操作系の基準高さも合わせて上げる（指で押す的としても妥当な大きさ） */
+  :root {
+    --control-h: 2.45rem;
+  }
+
+  .app__inner {
+    padding: 1rem 0.4rem 3rem;
+  }
+
+  .app--edit-mode .app__inner {
+    padding-bottom: 6rem;
+  }
+
+  /* 見出しの右にはテーマ・開閉というアプリ自身の操作だけを置き、
+     文書の操作（開く／新規／ファイル名）は2行目に全幅でまとめる。
+     見出しに 100% を与えて独立させると、残り2グループが中身の幅の
+     まま2行目・3行目に散り、余りが右に溜まる */
+  .toolbar__brand {
+    flex: 0 1 auto;
+    min-width: 0;
+    /* 320px 級の幅で入りきらないときは、字を切り詰めるより
+       和文を下に落とす */
+    flex-wrap: wrap;
+  }
+
+  .toolbar__brand + .v-sep {
+    display: none;
+  }
+
+  .toolbar__brand-latin {
+    font-size: 1.08rem;
+  }
+
+  .toolbar__brand-jp {
+    font-size: 0.84rem;
+    letter-spacing: 0.1em;
+    margin-right: -0.1em;
+  }
+
+  /* --- 1行目：見出し ─── テーマ・開閉（右端） --- */
+  /* 折り返し後の行を右寄せに戻す。下の .toolbar__group--right の
+     margin-left: 0 は展開時の操作行のためのもので、こちらは打ち消す */
+  .toolbar__row--primary .toolbar__group--right {
+    order: 1;
+    margin-left: auto;
+  }
+
+  /* --- 2行目：文書の操作 --- */
+  /* 全幅を与えたうえで内部の折り返しを禁じる。許すとファイル名の
+     長さ次第でこのグループが2行に割れ、右のグループが3行目へ落ちる。
+     min-width: 0 が無いと、自身も flex コンテナであるこのグループの
+     「自動最小サイズ」が中のボタン（flex-shrink: 0）の合計幅になり、
+     ファイル名がいくら縮もうとしても行自体がツールバー外へはみ出す */
+  .toolbar__row--primary > .toolbar__group:not(.toolbar__group--right) {
+    order: 2;
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  /* ボタンは実寸を保ち、余った幅はファイル名だけに吸わせる */
+  .toolbar__row--primary > .toolbar__group > .btn {
+    flex: 0 0 auto;
+  }
+
+  /* ファイル名の見た目（枠・背景・パディング）は元のチップのまま。
+     伸縮とはみ出し対策だけをここで足す。max-width は解除したままにする
+     （14rem で頭打ちにすると、行に余った幅がまた右に空く） */
+  .toolbar__row--primary .file-name {
+    flex: 1 1 4rem;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .toolbar__tabs {
+    width: 100%;
+    gap: 0;
+  }
+
+  .toolbar__tab {
+    flex: 1 1 50%;
+    min-height: 2.6rem;
+    padding: 0 0.5rem;
+  }
+
+  .toolbar__tabpanel {
+    width: 100%;
+  }
+
+  .toolbar__design-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbar__settings-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbar__settings-grid--pdf {
+    grid-template-areas:
+      'design'
+      'typography'
+      'scoreinfo'
+      'page'
+      'paper'
+      'action';
+  }
+
+  .toolbar__section {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .toolbar__info-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbar__typography-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbar__layout-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbar__score-info-grid,
+  .toolbar__page-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbar__appearance-basics {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .toolbar__grid-style-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbar__grid-style-select {
+    max-width: none;
+  }
+
+  .toolbar__grid-style-custom-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbar__background-field {
+    align-self: stretch;
+  }
+
+  .toolbar__background-field .pdf-bg-menu {
+    align-self: center;
+  }
+
+  .toolbar__background-controls {
+    align-items: stretch;
+    gap: 0.7rem;
+  }
+
+  .toolbar__background-field > .btn.pdf-bg-control {
+    width: 100%;
+    align-self: stretch;
+  }
+
+  .toolbar__background-opacity {
+    align-self: stretch;
+  }
+
+  .toolbar__appearance-basics > .toolbar__group,
+  .toolbar__palette-panel,
+  .toolbar__palette-groups,
+  .toolbar__palette-group,
+  .toolbar__palette-strip,
+  .toolbar__palette-labels,
+  .toolbar__palette-segment {
+    min-width: 0;
+  }
+
+  .toolbar__palette-panel-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .toolbar__palette-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .toolbar__palette-actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .toolbar__palette-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbar__palette-strip {
+    width: 100%;
+    height: 2.6rem;
+  }
+
+  .toolbar__palette-labels {
+    width: 100%;
+  }
+
+  .toolbar__background-opacity.field--stack {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar__background-opacity .pdf-range-label {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .toolbar__section-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: var(--control-h);
+    cursor: pointer;
+  }
+
+  .toolbar__section-title {
+    margin-bottom: 0;
+  }
+
+  .toolbar__settings-grid--score .toolbar__section-title {
+    display: flex;
+    align-items: center;
+    min-height: var(--control-h);
+    margin-bottom: 0.65rem;
+  }
+
+  /* sectionの縦余白を開閉で変えないことで、見出しの位置を固定する。
+     楽譜側も同じ基準にして、タブを切り替えても見出しの余白を揃える */
+  .toolbar__settings-grid--score > .toolbar__section,
+  .toolbar__settings-grid--pdf > .toolbar__section {
+    padding-block: 0;
+    padding-bottom: 0.8rem;
+  }
+
+  .toolbar__section-toggle {
+    min-height: calc(var(--control-h) - 2px);
+  }
+
+  .toolbar__settings-grid--score .toolbar__section-title {
+    min-height: calc(var(--control-h) - 2px);
+  }
+
+  /* 折りたたみ時はsection全体をPDF生成ボタンと同じ高さにする。
+     sectionの境界線ぶんだけ見出し側を縮めることで、外寸を揃える */
+  .toolbar__settings-grid--pdf > .toolbar__section:has(> .toolbar__section-panel[hidden]) {
+    height: var(--control-h);
+    padding-bottom: 0;
+  }
+
+  .toolbar__section-toggle[aria-expanded='true'] {
+    margin-bottom: 0.65rem;
+  }
+
+  .toolbar__section-toggle-icon {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    margin-left: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .toolbar__pdf-action-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar__action-cluster--pdf-export {
+    margin-left: 0;
+  }
+
+  .toolbar__action-cluster--pdf-export .btn {
+    width: 100%;
+  }
+
+  .toolbar__action-bar--score {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .toolbar__action-cluster--history,
+  .toolbar__action-cluster--edit {
+    grid-column: span 2;
+  }
+
+  .toolbar__action-cluster--save {
+    grid-column: span 2;
+    margin-left: 0;
+  }
+
+  .toolbar__action-cluster--save .btn {
+    width: 100%;
+  }
+
+  .toolbar__action-cluster--history,
+  .toolbar__action-cluster--edit {
+    min-width: 0;
+  }
+
+  .toolbar__action-cluster--history .btn,
+  .toolbar__action-cluster--edit .btn {
+    flex: 1 1 auto;
+  }
+
+  .toolbar__action-separator {
+    flex: 0 0 1px;
+  }
+
+  .toolbar__settings-grid .toolbar__group {
+    min-width: 0;
+  }
+
+  /* 1行あたりの枚数は splitIntoRows が JS で確定させているため、
+     カードを固定幅から可変幅に切り替えるだけで4枚（3拍子なら3枚）が
+     1行に収まる。CSS の折り返しに任せると枚数が画面幅次第になるので
+     nowrap で禁じる */
+  .score-canvas {
+    width: 100%;
+  }
+  .score-row {
+    flex-wrap: nowrap;
+    gap: var(--row-gap);
+    --row-gap: 0.25rem;
+    /* 編集モードでは行末に挿入ボタンが1つ付く（.insert-button svg の 14px） */
+    --row-tail-mobile: 0px;
+  }
+  .output.edit-mode .score-row {
+    --row-tail-mobile: calc(14px + var(--row-gap));
+  }
+  /* 幅を「その行にある枚数」で等分すると、改行マークや最終行で枚数が
+     減った行だけカードが大きくなる。--columns 個並んだときの1個分に
+     固定して、どの行でも同じ大きさにする */
+  .score-cell {
+    flex: 0 0
+      calc(
+        (100% - var(--row-tail-mobile) - (var(--columns, 4) - 1) * var(--row-gap)) /
+          var(--columns, 4)
+      );
+    min-width: 0;
+    gap: 0.15rem;
+  }
+  .grid-card {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    padding: 0.25rem 0.3rem 0.3rem;
+    border-radius: 8px;
+  }
+  .grid-card.has-break {
+    box-shadow: var(--shadow), 3px 0 0 -1px var(--primary);
+  }
+
+  /* カード幅が 90px 前後まで縮むので、ヘッダの操作系も同じだけ詰める */
+  .grid-card__header {
+    min-height: 0;
+  }
+  .grid-card__header-left,
+  .grid-card__controls {
+    gap: 0.1rem;
+  }
+  .grid-card__number {
+    font-size: 0.62rem;
+  }
+  .icon-btn {
+    width: 1.25rem;
+    height: 1.25rem;
+    font-size: 0.6rem;
+    border-radius: 4px;
+  }
+  .icon-btn svg {
+    width: 0.8rem;
+    height: 0.8rem;
+  }
+  .insert-button svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* 一覧（GridCardCompact）のヘッダは番号と削除ボタンの2つだけなので、
+     折り返しは不要。番号を左上、削除ボタンを右上に離して置く */
+  .output.edit-mode .grid-card__header {
+    justify-content: space-between;
+  }
+
+  /* iOS Safari は font-size が 16px 未満の入力にフォーカスすると画面を
+     自動拡大する。カードが狭くても 16px を下回らせない。
+     ズーム自体を禁じる（viewport の maximum-scale）方法は、利用者から
+     拡大手段を奪うため採らない */
+  .grid-card__text {
+    font-size: 16px;
+    padding: 0.25rem 0.2rem;
+    border-radius: 5px;
+  }
+  .text-input {
+    font-size: 16px;
+    min-width: 6rem;
+  }
+
+  .toolbar__group--right {
+    margin-left: 0;
+  }
+
+  .playback-bar__play {
+    min-width: 9.5rem;
+    font-size: 0.875rem;
+  }
+
+  /* ---------- 一覧カード（タップで拡大表示） ---------- */
+  .grid-card__tap {
+    appearance: none;
+    border: none;
+    background: none;
+    padding: 0;
+    width: 100%;
+    display: block;
+    cursor: pointer;
+    text-align: inherit;
+    color: inherit;
+    font: inherit;
+  }
+  .grid-card__tap:focus-visible {
+    outline: none;
+    border-radius: 6px;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+  }
+
+  /* 入力欄ではなく読み取り専用の表示なので 16px の iOS 自動拡大対策は不要 */
+  .grid-card__text-view {
+    display: block;
+    /* line-height と min-height を同じ値にする。片方だけだと、空欄時は
+       min-height が、1行入っている時は行ボックスの高さ（未指定なら body の
+       line-height を継承）がそれぞれ効いてしまい、両者が食い違う */
+    line-height: 1.3em;
+    min-height: 1.3em;
+    font-size: 0.72rem;
+    text-align: center;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ---------- 拡大表示（GridOverlay）: 一覧向けの縮小指定を打ち消す ---------- */
+  .grid-overlay .grid-card {
+    width: auto;
+    padding: 0.6rem 0.7rem 0.75rem;
+    border-radius: 12px;
+  }
+  .grid-overlay .icon-btn {
+    width: 2.1rem;
+    height: 2.1rem;
+    font-size: 0.95rem;
+    border-radius: 6px;
+  }
+  .grid-overlay .icon-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+  .grid-overlay .grid-card__number {
+    font-size: 0.95rem;
+  }
+  .grid-overlay .grid-card__header-left,
+  .grid-overlay .grid-card__controls {
+    gap: 0.4rem;
+  }
+  /* iOS Safari は font-size が 16px 未満の入力にフォーカスすると画面を自動拡大する */
+  .grid-overlay .grid-card__text {
+    font-size: 16px;
+    padding: 0.5rem;
+  }
+}
+
+/* ---------- グリッド拡大表示（スマートフォン専用） ---------- */
+/* トラック（前後グリッドを含む3枠）を横に動かすカルーセル構造。
+   ルートは visualViewport に合わせた height/translateY（項目1）、
+   トラックはスワイプの translateX、と役割ごとに要素を分けている。 */
+.grid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100; /* .app__sticky-header が 20 */
+  /* トラックが画面外へ送り出したスライドを隠す */
+  overflow: hidden;
+  background: color-mix(in srgb, #000 55%, transparent);
+  overscroll-behavior: contain;
+  /* 背景（グリッド外）からのスワイプも移動に使うので、縦スクロールだけ
+     ブラウザに任せる。ルート自身の height/transform は visualViewport
+     に合わせて JS 側で書き換える（GridOverlay.jsx 参照） */
+  touch-action: pan-y;
+  /* 矢印ボタンの的の大きさと、カードを縮める余白の幅を1箇所にまとめる。
+     別々の数値で持つと片方だけ直した瞬間に黙って重なる。他のFAB
+     （.history-fab / .scroll-top-fab）と同じ的の大きさ */
+  --arrow-size: 2.75rem;
+  --arrow-inset: 0.25rem;
+}
+
+/* 実際に見えている領域そのもの。position:fixed の .grid-overlay は
+   inset:0 のままレイアウトビューポート全面の背景を保ち、visualViewport
+   への追従（高さ・位置）はこの内側の要素だけが JS 側で書き換える
+   （GridOverlay.jsx 参照）。 */
+.grid-overlay__viewport {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 100%; /* visualViewport 非対応ブラウザではこのまま全面になる */
+}
+
+.grid-overlay__track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  /* 基準位置。スライド1枚分だけ左に寄せて中央の1枚を見せる */
+  transform: translateX(-100%);
+  will-change: transform;
+}
+
+/* 動いていない間は前後のスライドをフォーカス順序とアクセシビリティ
+   ツリーから外す。動き始めたとき（is-moving）だけ見せる */
+.grid-overlay__track:not(.is-moving) .grid-overlay__slide[aria-hidden='true'] {
+  visibility: hidden;
+}
+
+/* 中央枠の DOM ノードは index が変わっても再利用されるため、鍵の
+   fill/stroke に transition がかかり、入れ替えの瞬間だけ移動先の
+   鍵盤が点滅して見える。入れ替わりの1フレームだけ止める
+   （GridOverlay.jsx 参照） */
+.grid-overlay__track.is-swapping * {
+  transition: none !important;
+}
+
+.grid-overlay__slide {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 「グリッド外をタップして閉じる」ための余白。狭いと閉じにくい。
+     左右は矢印（画面端に固定）が収まる幅から導く。矢印の幅と別々の
+     数値で持たないこと（--arrow-size / --arrow-inset 参照） */
+  padding-block: 3rem;
+  padding-inline: calc(var(--arrow-size) + var(--arrow-inset) * 2);
+}
+
+/* 中央以外は触れない。ドラッグ中に隣のカードの鍵が反応しないようにする */
+.grid-overlay__slide[aria-hidden='true'] {
+  pointer-events: none;
+}
+
+/* 表示領域が狭いとき（ソフトキーボード表示中など）は、
+   閉じるための余白よりカードが収まることを優先する。padding の
+   一括指定に戻さないこと（padding-inline が消えて矢印と重なる） */
+.grid-overlay.is-compact .grid-overlay__slide {
+  padding-block: 0.5rem;
+  align-items: flex-start;
+}
+
+/* 前後グリッドへの矢印と閉じるボタン。トラックの外
+   （.grid-overlay__viewport 直下）に置くため、キーボードの有無に
+   かかわらず「実際に見えている領域」を基準に位置が決まる */
+.grid-overlay__arrow,
+.grid-overlay__close {
+  position: absolute;
+  width: var(--arrow-size);
+  height: var(--arrow-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+  /* 背景（.grid-overlay）は常に暗い色（color-mix(#000 55%)）なので、
+     テーマ変数ではなく固定の白にする */
+  color: #fff;
+  cursor: pointer;
+}
+/* 円形の塗りをやめて線のアイコンだけにした分、視認性のために線を太くする。
+   strokeWidth は icons.jsx 側の presentation attribute だが、CSS の
+   stroke-width はそれより優先されるため上書きできる */
+.grid-overlay__arrow svg path,
+.grid-overlay__close svg path {
+  stroke-width: 3;
+}
+.grid-overlay__arrow:focus-visible,
+.grid-overlay__close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #fff 55%, transparent);
+}
+
+.grid-overlay__arrow {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.grid-overlay__arrow--prev {
+  left: var(--arrow-inset);
+}
+.grid-overlay__arrow--next {
+  right: var(--arrow-inset);
+}
+.grid-overlay__arrow:disabled {
+  opacity: 0.35;
+}
+
+/* カードは左右に矢印ぶんの余白（.grid-overlay__slide の padding-inline）を
+   空けているので、矢印と同じ --arrow-inset を使えばカードの右上に重ならない。
+   キーボード表示中（is-compact）にカードが画面上端へ寄っても同じ */
+.grid-overlay__close {
+  top: var(--arrow-inset);
+  right: var(--arrow-inset);
+}
+
+/* 見た目の枠は持たない。カード自身が背景・枠・影を持っており、二重の枠に
+   なるとその分だけ鍵盤が小さくなる。この要素はスクロール範囲の器
+   （キーボード表示中にカードがはみ出したときの縦スクロール）と、
+   「カードの内側かどうか」の判定対象（GridOverlay.jsx）として残す */
+.grid-overlay__sheet {
+  width: min(100%, 340px);
+  max-height: 100%;
+  overflow-y: auto;
+  /* 再生中カードの枠（box-shadow の 3px リング）が overflow: auto に
+     切り取られない最小限の余白 */
+  padding: 0.25rem;
+  /* 横方向のジェスチャはグリッド移動に使うので、縦スクロールだけ
+     ブラウザに任せる */
+  touch-action: pan-y;
+  /* シートの端まで到達した後の慣性スクロールが祖先（背面の一覧）へ
+     連鎖しないようにする */
+  overscroll-behavior: contain;
+}
+
+/* 鍵盤の SVG は viewBox を持つので、高さを詰めても
+   preserveAspectRatio によって縮小されるだけで歪まない */
+.grid-overlay.is-compact .note-grid-svg {
+  max-height: calc(var(--overlay-h, 100vh) * 0.42);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+  .status-bar--toast,
+  .edit-exit-fab {
+    animation: none;
+  }
+}
+
+/* ---------- プレイバックバー ---------- */
+/* スクロール中つねに視界にある唯一の帯なので、厚みを抑える。
+   影で浮かせるとグリッドと重なったとき「固定された道具」に見えないため、
+   影は弱め下辺の境界を濃くする */
+.playback-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom-color: color-mix(in srgb, var(--text) 18%, var(--border));
+  border-radius: 12px;
+  box-shadow: var(--shadow-sticky);
+}
+
+.playback-bar__transport {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* ラベルが「最初から再生 / 一時停止 / 再開」と伸縮すると、
+   隣の停止ボタンの位置が押すたびに動く */
+.playback-bar__play {
+  min-width: 10.5rem;
+}
+
+/* ---------- 再生中のグリッドハイライト ---------- */
+.grid-card.is-playing {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent), var(--shadow);
+  transform: translateY(-2px);
+  /* transform をアニメーションの対象から外す。150msかけて動かすと、その間
+     カードが端数のY座標で描画され続け、自分と周囲のカードが毎フレーム
+     再ラスタライズされて細かく揺れて見える。静的な translateY は影響しない
+     ことを実機で確認済みなので、浮き上がり自体は残して瞬時に動かす。
+     transition: all は「変化しうる全プロパティ」が対象になり、こうした
+     意図しないものまで動かすため使わない */
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+/* 押鍵セルを除くのは、再生中カードで押鍵ハイライトの枠線が
+   打ち消されるのを防ぐため（同詳細度・後勝ちになる） */
+.grid-card.is-playing .sky-button:not(.highlight) .sky-cell-frame {
+  stroke: var(--primary);
+  stroke-width: 2;
+}
+
+/* ---------- サイト情報フッター ---------- */
+.site-footer {
+  margin-top: 4rem;
+  padding: 1.25rem 0 1rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.site-footer__lead {
+  margin: 0 0 0.8rem;
+  color: var(--text);
+  text-align: center;
+}
+
+.site-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.site-footer__links a,
+.site-footer__content a,
+.site-footer__note a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 0.14em;
+}
+
+.site-footer__details {
+  margin-top: 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.site-footer__summary {
+  padding: 0.65rem 0.8rem;
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.site-footer__summary:focus-visible {
+  outline: none;
+  border-radius: 7px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.site-footer__content {
+  padding: 0 0.8rem 0.75rem;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.site-footer__content p,
+.site-footer__note {
+  margin: 0 0 0.75rem;
+}
+
+.site-footer__content p:last-child {
+  margin-bottom: 0;
+}
+
+.site-footer__list {
+  margin: 0 0 0.75rem;
+  padding-left: 1.15rem;
+}
+
+.site-footer__list:last-child {
+  margin-bottom: 0;
+}
+
+.site-footer__list li {
+  margin-bottom: 0.5rem;
+}
+
+.site-footer__list li:last-child {
+  margin-bottom: 0;
+}
+
+.site-footer__content code {
+  padding: 0.05em 0.25em;
+  border-radius: 3px;
+  background: var(--surface);
+  font-size: 0.92em;
+}
+
+.site-footer__credits {
+  color: var(--text-muted);
+}
+
+.site-footer__note {
+  margin-top: 0.85rem;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+/* ---------- 画面下部の浮遊レイヤー（通知・編集終了） ---------- */
+.bottom-layer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50; /* .app__sticky-header が 20、.grid-overlay が 100。
+                  拡大表示中は隠れてよい（あちらに閉じる手段がある） */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem 0.75rem;
+  /* iPhone のホームバーに重ならないようにする。非対応ブラウザでは
+     第2引数の 0px が使われるだけで、レイアウトは崩れない */
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  /* レイヤー自身は画面下部いっぱいに広がる。ここを透過させないと、
+     通知が出ていない間もグリッドがタップできなくなる */
+  pointer-events: none;
+}
+
+.bottom-layer > * {
+  pointer-events: auto;
+}
+
+.edit-exit-fab {
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  animation: status-toast-in 0.18s ease-out;
+  /* 左下の履歴ピルと横に並ぶ。中央のままだと 320px 級の幅で重なる。
+     .bottom-layer の align-items: center は通知の中央寄せに要るので、
+     このボタンだけ align-self で上書きする */
+  align-self: flex-end;
+}
+
+/* ---------- 履歴（元に戻す／やり直す）の浮遊ボタン ---------- */
+/* .bottom-layer（z-index: 50）ではなく .grid-overlay（100）より上に置く。
+   モバイルの音符編集は拡大表示の中だけで行われるため、下に置くと
+   「編集している最中は undo が押せない」という穴がそのまま残る。
+   .bottom-layer と同じ下端の基準に揃えて、編集終了ボタンと横一列に見せる */
+.history-fab {
+  position: fixed;
+  left: 1rem;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  animation: status-toast-in 0.18s ease-out;
+}
+
+.history-fab__btn {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--text);
+  /* 指で押す的として十分な大きさ。ツールバーの --control-h より大きいのは
+     浮遊ボタンが単独で置かれ、隣の的との間隔で助けられないため */
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.history-fab__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.history-fab__btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.history-fab__sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 0.5rem 0;
+  background: var(--border);
+}
+
+/* ---------- 「一番上へ戻る」浮遊ボタン ---------- */
+/* z-index: 90 は .bottom-layer（50）より上、.grid-overlay（100）より下。
+   拡大表示中は一覧を先頭までスクロールする操作に意味がないため、
+   拡大表示の背後に隠れてよい。history-fab（110）は拡大表示の中で
+   undo が要るという別の理由で上に出ているので、この違いは意図的 */
+.scroll-top-fab {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  z-index: 90;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  animation: status-toast-in 0.18s ease-out;
+}
+
+.scroll-top-fab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+/* 編集モード中は同じ右下を edit-exit-fab が占有するため、その1段上へ積む */
+.scroll-top-fab--raised {
+  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px) + var(--control-h) + 0.5rem);
+}
+
+/* `?debug=1` の診断オーバレイ。
+   既存のどの浮遊レイヤーとも重ならない画面右上に固定し、z-indexは
+   history-fab（110）より上へ。診断目的のため通常のUI操作は妨げない
+   pointer-events: none にしてある。 */
+.debug-overlay {
+  position: fixed;
+  top: calc(0.5rem + env(safe-area-inset-top, 0px));
+  right: 0.5rem;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.6rem;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.65rem;
+  line-height: 1.4;
+  color: var(--text);
+  pointer-events: none;
+  max-width: min(60vw, 20rem);
+}
+
+.debug-overlay__row {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.debug-overlay__key {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.debug-overlay__value {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.debug-overlay__row--error .debug-overlay__value {
+  color: var(--danger);
+}
+
+.toolbar__tabpanel[hidden] {
+  display: none;
+}
+
+/* PDF設定の保存・読込dialog。Canvasや長いURLを含んでも、狭い端末で
+   背景の画面を横へ押し広げず、dialog内部だけをスクロールさせる。 */
+.pdf-preset-dialog__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow: auto;
+  background: rgba(10, 14, 24, 0.56);
+  backdrop-filter: blur(3px) saturate(0.9);
+}
+
+.pdf-preset-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(42rem, 100%);
+  max-height: min(92vh, calc(100dvh - 2rem));
+  min-width: 0;
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 22px 64px rgba(8, 13, 25, 0.32);
+}
+
+.pdf-preset-dialog__header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary) 8%, var(--surface)),
+    var(--surface) 55%
+  );
+  border-bottom: 1px solid var(--border);
+}
+
+.pdf-preset-dialog__header h2 {
+  min-width: 0;
+  font-size: 1.1rem;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+
+.pdf-preset-dialog__lead {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+/* 一覧のicon-btn（1.7rem）のままだと、ヘッダーの端で点のように見えてしまう */
+.pdf-preset-dialog__header .icon-btn {
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+  border: 1px solid var(--border);
+}
+
+.pdf-preset-dialog__header .icon-btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.pdf-preset-dialog__header h2,
+.pdf-preset-dialog__diff-section h4 {
+  margin: 0;
+}
+
+.pdf-preset-dialog__note,
+.pdf-preset-dialog__hint,
+.pdf-preset-dialog__status,
+.pdf-preset-dialog__error,
+.pdf-preset-dialog__diff-section p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.pdf-preset-dialog__hint {
+  margin-top: 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.pdf-preset-dialog__body {
+  display: grid;
+  align-content: start;
+  gap: 0.85rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  padding: 1rem 1.25rem 1.25rem;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.pdf-preset-dialog__messages {
+  display: grid;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 0.75rem 1.25rem 0;
+}
+
+.pdf-preset-dialog__fields {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.pdf-preset-dialog__field {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+/* ラベルの見え方も画面側のフィールド（.field label）へ合わせる */
+.pdf-preset-dialog__field > span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.pdf-preset-dialog__textarea {
+  height: 5.6rem;
+  overflow: auto;
+  resize: none;
+}
+
+.pdf-preset-dialog__code {
+  width: 100%;
+  min-width: 0;
+  height: 6.25rem;
+  overflow: auto;
+  resize: none;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.pdf-preset-dialog__actions,
+.pdf-preset-dialog__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.pdf-preset-dialog__actions {
+  margin-top: 0.6rem;
+}
+
+.pdf-preset-dialog__actions--center {
+  justify-content: center;
+}
+
+/* ボタンと同じ行に置き、入らないときだけ折り返して下へ回す */
+.pdf-preset-dialog__actions--copy {
+  align-items: center;
+  row-gap: 0.35rem;
+}
+
+.pdf-preset-dialog__copy-status {
+  margin: 0;
+  min-width: 0;
+  color: var(--success);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  animation: pdf-preset-copy-status-in 140ms ease-out;
+}
+
+.pdf-preset-dialog__copy-status--error {
+  color: var(--danger);
+}
+
+@keyframes pdf-preset-copy-status-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdf-preset-dialog__copy-status {
+    animation: none;
+  }
+}
+
+/* 本文と別に固定して、長い差分を読んでいる途中でも「適用」へ届くようにする */
+.pdf-preset-dialog__footer {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.pdf-preset-dialog__status {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.pdf-preset-dialog__error {
+  padding: 0.55rem 0.7rem;
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--danger) 34%, transparent);
+  border-radius: 7px;
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+/* 最初の描画が終わる前から、名前もメモも無いカード（640×744）と同じ比率を
+   確保しておく。Canvas自身に比率を持たせることで、狭い端末でも実表示幅に
+   追従し、描画後に保存操作が余分な空白の下へ押し出されないようにする */
+.pdf-preset-dialog__card-preview {
+  --card-preview-width: min(340px, 100%);
+  position: relative;
+  display: grid;
+  justify-items: center;
+  min-width: 0;
+}
+
+/* 通知としてではなく重ねて出す。行が増えると入力欄が動く */
+.pdf-preset-dialog__card-busy {
+  position: absolute;
+  inset-block-end: 0.6rem;
+  z-index: 1;
+  margin: 0;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  box-shadow: var(--shadow-sticky);
+}
+
+/* 見本なので原寸(640px)まで伸ばさない。伸ばすとdialogがカードだけで埋まる */
+.pdf-preset-dialog__card {
+  display: block;
+  width: var(--card-preview-width);
+  height: auto;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(20, 30, 55, 0.12);
+}
+
+/* 最初の描画までは空のCanvasの枠だけが見えるので隠す。場所は確保したまま */
+.pdf-preset-dialog__card--blank {
+  visibility: hidden;
+  aspect-ratio: 640 / 744;
+}
+
+.pdf-preset-dialog__note {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.pdf-preset-dialog__meta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.2rem 0.6rem;
+  margin: 0;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+
+.pdf-preset-dialog__meta dt {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.pdf-preset-dialog__meta dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pdf-preset-dialog__diff {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+  margin-top: 0.7rem;
+}
+
+.pdf-preset-dialog__diff-section {
+  min-width: 0;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
+}
+
+.pdf-preset-dialog__diff-section h4 {
+  font-size: 0.88rem;
+}
+
+.pdf-preset-dialog__diff-empty {
+  margin: 0;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.pdf-preset-dialog__diff-section ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.pdf-preset-dialog__diff-section li {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-size: 0.82rem;
+}
+
+.pdf-preset-dialog__file-input {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .toolbar__action-cluster--pdf-preset {
+    width: 100%;
+  }
+
+  .toolbar__action-cluster--pdf-preset .btn {
+    flex: 1 1 0;
+  }
+
+  .pdf-preset-dialog__backdrop {
+    align-items: center;
+    padding: 0.5rem;
+  }
+
+  .pdf-preset-dialog {
+    max-height: calc(100vh - 1rem);
+    max-height: calc(100dvh - 1rem);
+  }
+
+  .pdf-preset-dialog__header,
+  .pdf-preset-dialog__messages,
+  .pdf-preset-dialog__body,
+  .pdf-preset-dialog__footer {
+    padding-inline: 0.75rem;
+  }
+
+  /* 指で押す前提の幅にし、本文の節と同じ内側の位置へ合わせる */
+  .pdf-preset-dialog__header .icon-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .pdf-preset-dialog__footer .btn {
+    flex: 1 1 8rem;
+  }
+
+  /* .pdf-preset-dialog__code の指定は .text-input より後にあるため、
+     モバイルの自動拡大を防ぐ16px指定をここでも明示する */
+  .pdf-preset-dialog__code {
+    font-size: 16px;
+  }
+}

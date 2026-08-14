@@ -1,0 +1,19 @@
+# フォントは public/fonts/ 配下の固定ファイル名（config.js の PDF_FONTS[].file）
+# であり、内容ハッシュを持たない。immutableを付けると実体を差し替えても
+# 既に取得済みの端末に最大1年間新しい実体が届かない（フォント自体は
+# 更新頻度が低いため、再検証だけは効くよう短めのmax-ageに留める）
+/fonts/*
+  Cache-Control: public, max-age=604800
+
+# Vite が内容ハッシュ付きのファイル名を出すため、差し替え時は別URLになり
+# 恒久キャッシュしても古い実体を掴み続けることがない
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# 基本的なセキュリティ設定とCSP
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; media-src 'self'; img-src 'self' data:; object-src 'self' blob:; frame-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'

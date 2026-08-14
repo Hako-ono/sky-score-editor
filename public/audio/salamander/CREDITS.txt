@@ -1,0 +1,6 @@
+Salamander Grand Piano V3
+Author: Alexander Holm
+License: Creative Commons Attribution 3.0 Unported (CC BY 3.0)
+Source: https://github.com/sfzinstruments/SalamanderGrandPiano
+MP3 files obtained via the Tone.js sample library.
+This project made no additional modifications to the MP3 files.

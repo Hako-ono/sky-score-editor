@@ -1,0 +1,780 @@
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+
+import Toolbar from './components/Toolbar.jsx';
+import PdfPresetDialog from './components/PdfPresetDialog.jsx';
+import StatusBar from './components/StatusBar.jsx';
+import ScoreCanvas from './components/ScoreCanvas.jsx';
+import EmptyState from './components/EmptyState.jsx';
+import PlaybackBar from './components/PlaybackBar.jsx';
+import GridOverlay from './components/GridOverlay.jsx';
+import HistoryFab from './components/HistoryFab.jsx';
+import ScrollTopFab from './components/ScrollTopFab.jsx';
+import DebugOverlay from './components/DebugOverlay.jsx';
+import SiteFooter from './components/SiteFooter.jsx';
+import { usePlayback } from './hooks/usePlayback.js';
+import { DEBUG_ENABLED } from './lib/debugFlag.js';
+
+import { useUndoableScore } from './hooks/useUndoableScore.js';
+import { useScoreGridsStore } from './contexts/ScoreGridsContext.jsx';
+import { columnsForBits } from './lib/layout.js';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
+import { useIsMobile } from './hooks/useIsMobile.js';
+import { initialScore } from './state/scoreReducer.js';
+import { createScore, serializeScoreForCompare } from './state/scoreShape.js';
+import {
+  parseScoreJson,
+  serializeScore,
+  createEmptyGrid,
+  ParseError,
+  normalizeLoadedScore,
+  decodeScoreFileBytes,
+} from './lib/parseScore.js';
+import { saveDraft, loadDraft, clearDraft } from './lib/draftStorage.js';
+import { loadPdfPrefs, savePdfPrefs } from './lib/pdfPrefs.js';
+import { readPdfPresetFragment } from './lib/pdfPresetUrl.js';
+import {
+  loadBackgroundImageSource,
+  composeBackgroundImage,
+  DEFAULT_BACKGROUND_IMAGE_OPACITY,
+} from './lib/backgroundImage.js';
+import { audioEngine } from './lib/audioEngine.js';
+import { DEFAULT_BPM, MAX_GRIDS } from './constants/config.js';
+import { normalizeThemePreference, resolveTheme } from './lib/theme.js';
+import {
+  analyzeScoreLayers,
+  getInitialLayer,
+  getKeyTogglePreviewKeys,
+  shouldUseSecondHighlightColor,
+} from './lib/scoreLayers.js';
+
+const THEME_KEY = 'sky-score-editor:theme';
+const SYSTEM_THEME_QUERY = '(prefers-color-scheme: dark)';
+
+function getSystemTheme() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return 'light';
+  }
+  return window.matchMedia(SYSTEM_THEME_QUERY).matches ? 'dark' : 'light';
+}
+
+function loadThemePreference() {
+  try {
+    return normalizeThemePreference(localStorage.getItem(THEME_KEY));
+  } catch {
+    return 'system';
+  }
+}
+
+function downloadText(text, filename, mime) {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function jsonFilename() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `sky_score_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(
+    d.getHours(),
+  )}${p(d.getMinutes())}${p(d.getSeconds())}.json`;
+}
+
+export default function App() {
+  const { score, dispatch, reset, undo, redo, canUndo, canRedo } =
+    useUndoableScore();
+
+  const [editMode, setEditMode] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [status, setStatus] = useState({ message: '', type: 'info', action: null });
+  const [fileName, setFileName] = useState('');
+  const [themePreference, setThemePreference] = useState(loadThemePreference);
+  const [systemTheme, setSystemTheme] = useState(getSystemTheme);
+  const theme = resolveTheme(themePreference, systemTheme);
+  const [pdfPrefs, setPdfPrefs] = useState(loadPdfPrefs);
+  const [pdfPresetDialog, setPdfPresetDialog] = useState(null);
+  const pdfPresetReturnFocusRef = useRef(null);
+  const pdfPresetScoreContext = useMemo(
+    () => ({ pitchLevel: score.pitchLevel, keyMode: score.keyMode }),
+    [score.keyMode, score.pitchLevel],
+  );
+  // 背景画像は利用者が出力のたびにローカルから選ぶもので、pdfPrefsとは違い
+  // localStorageに保存しない。
+  // backgroundImage: { dataUrl, width, height } | null。プレビュー表示と
+  // exportPdf の両方が参照する「白地へ現在の不透明度で合成済み」の状態
+  const [backgroundImage, setBackgroundImage] = useState(null);
+  const [backgroundImageOpacity, setBackgroundImageOpacity] = useState(
+    DEFAULT_BACKGROUND_IMAGE_OPACITY,
+  );
+  // 縮小済み・不透明度100%のsource（{ canvas, width, height }）。不透明度を
+  // 変えるたびに元ファイルを読み直さずに済むよう、ここにだけ保持する
+  // （再レンダーの起点にする必要がないためstateではなくref）
+  const backgroundImageSourceRef = useRef(null);
+  const [hasDraft, setHasDraft] = useState(false);
+  const isMobile = useIsMobile();
+  const [selectedLayer, setSelectedLayer] = useState(() => getInitialLayer(initialScore.grids));
+  // 元レイヤー2だけの譜面も読込直後は標準色にするため、絶対番号ではなく
+  // 読込時の初期レイヤーを「画面上の色1」の基準としてページ内だけで保持する。
+  const [standardColorLayer, setStandardColorLayer] = useState(
+    () => getInitialLayer(initialScore.grids),
+  );
+
+  // useRef だと markSaved 単体では再レンダーされず、isDirty を読む Toolbar の
+  // 未保存ドットや beforeunload の effect が保存直後も古い値のまま取り残される
+  const [savedSnapshot, setSavedSnapshot] = useState(() => serializeScoreForCompare(initialScore));
+  const statusTimerRef = useRef(null);
+  const saveFailedRef = useRef(false);
+  const autoSaveTimerRef = useRef(null);
+  // isDirty は「ファイルに書き出した内容との差」であり、下書きとの差ではない。
+  // 自動保存をこれで駆動すると、全消去を undo で戻したときに isDirty が false へ
+  // 復帰し、空のまま書かれた下書きが二度と更新されなくなる
+  const draftSnapshotRef = useRef(serializeScoreForCompare(initialScore));
+
+  // 共有URLの設定は起動時に候補として1回だけ取り込み、確認画面での適用まで
+  // pdfPrefsへ触れない。認識したhash parameterだけを履歴から取り除き、
+  // 他のhash parameterとpath/queryは維持する。
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const fragment = readPdfPresetFragment(window.location);
+    if (!fragment) return;
+    if (!fragment.tooLarge && fragment.remainingHash !== null) {
+      const nextUrl = `${window.location.pathname}${window.location.search}${fragment.remainingHash}`;
+      window.history.replaceState(window.history.state, '', nextUrl);
+    }
+    setPdfPresetDialog({
+      mode: 'import',
+      initialImportText: fragment.tooLarge
+        ? ''
+        : `${window.location.origin}${window.location.pathname}${window.location.search}#pdf-preset=${fragment.value}`,
+      initialError: fragment.tooLarge ? '保存・共有用URLが長すぎます。' : '',
+    });
+  }, []);
+
+  const hasData = score.grids.length > 0;
+  const layerAnalysis = useMemo(() => analyzeScoreLayers(score.grids), [score.grids]);
+  const { usesTwoLayers } = layerAnalysis;
+  const usesSecondHighlightColor = shouldUseSecondHighlightColor(
+    usesTwoLayers,
+    selectedLayer,
+    standardColorLayer,
+  );
+  // 毎回の入力時の重い整形処理をやめるため useMemo で score が変わったときだけ計算する
+  const currentSerialized = useMemo(() => serializeScoreForCompare(score), [score]);
+  // hasData は「書き出す中身があるか」の判定にのみ使う。isDirty からは外している。
+  // grids が0件のときも isDirty を有効にしないと、全消去した直後に自動保存が
+  // 止まり、消去前の下書きが localStorage に残ったまま戻ってきてしまう
+  const isDirty = currentSerialized !== savedSnapshot;
+  
+  useEffect(() => {
+    document.title = score.title ? `${score.title} - Sky楽譜エディター` : 'Sky楽譜エディター';
+  }, [score.title]);
+
+  const gridsRef = useRef(score.grids);
+  useEffect(() => {
+    gridsRef.current = score.grids;
+  }, [score.grids]);
+
+  const gridsStore = useScoreGridsStore();
+  // 行の分かれ方は bitsPerPage にも依存するため、ScoreCanvas.jsx が columns を
+  // 独自に計算しているのと同じ式をストアへも渡す。
+  const gridColumns = columnsForBits(score.bitsPerPage);
+  // useEffect ではなく useLayoutEffect を使う理由：useEffect は描画後に走るため、
+  // undo / 読み込み直後の1フレームだけストア側が古い内容を購読者に見せうる。
+  // useLayoutEffect なら描画前（ブラウザが画面を更新する前）に通知が終わる。
+  useLayoutEffect(() => {
+    gridsStore.setGrids(score.grids, gridColumns);
+  }, [gridsStore, score.grids, gridColumns]);
+
+  const showStatus = useCallback((message, type = 'info', autoDismiss = true, action = null) => {
+    setStatus({ message, type, action });
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    if (autoDismiss && type !== 'error') {
+      statusTimerRef.current = setTimeout(
+        () => setStatus({ message: '', type: 'info', action: null }),
+        4000,
+      );
+    }
+  }, []);
+
+  const dismissStatus = useCallback(() => {
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    setStatus({ message: '', type: 'info', action: null });
+  }, []);
+
+  const markSaved = useCallback((serialized) => {
+    setSavedSnapshot(serialized);
+  }, []);
+
+  const {
+    playbackState,
+    isAutoScroll,
+    setIsAutoScroll,
+    togglePlayPause,
+    stop,
+    playFrom,
+    playSingleGrid,
+    playPreview
+  } = usePlayback(score.grids, score.bpm, score.pitchLevel, showStatus, dismissStatus);
+
+  const toggleLayer = useCallback(() => {
+    setSelectedLayer((layer) => (layer === 1 ? 2 : 1));
+  }, []);
+
+  const handleToggleKey = useCallback((index, k, layer = selectedLayer) => {
+    const g = gridsRef.current[index];
+    const previewKeys = getKeyTogglePreviewKeys(g, k, layer);
+    if (previewKeys.length > 0) playPreview(previewKeys);
+    dispatch({ type: 'TOGGLE_KEY', gridIndex: index, keyIndex: k, layer });
+  }, [dispatch, playPreview, selectedLayer]);
+
+  const handleSetText = useCallback((index, text) => {
+    dispatch({ type: 'SET_TEXT', gridIndex: index, text });
+  }, [dispatch]);
+
+  const handleDelete = useCallback((index) => {
+    dispatch({ type: 'DELETE', gridIndex: index });
+  }, [dispatch]);
+
+  const handleToggleBreak = useCallback((index) => {
+    dispatch({ type: 'TOGGLE_BREAK', gridIndex: index });
+  }, [dispatch]);
+
+  const handleInsert = useCallback((insertIndex) => {
+    // reducer 側にも最終防御があるが、押せてしまってから理由を伝えないと
+    // 利用者には何も起きなかったようにしか見えない
+    if (gridsRef.current.length >= MAX_GRIDS) {
+      showStatus(`グリッド数が上限（${MAX_GRIDS}）に達しているため追加できません。`, 'error', false);
+      return;
+    }
+    dispatch({ type: 'INSERT', insertIndex });
+  }, [dispatch, showStatus]);
+
+  const handlePlayFrom = useCallback((index) => {
+    playFrom(index);
+  }, [playFrom]);
+
+  const handlePlaySingle = useCallback((index) => {
+    playSingleGrid(index);
+  }, [playSingleGrid]);
+
+  // --- テーマ適用 ---
+  // data-themeはCSSの初期描画後すぐに反映し、システム設定の変更時も
+  // 解決済みテーマだけを更新する。保存するのは利用者の選択値であり、
+  // システム設定から得たlight/darkは保存しない。
+  useLayoutEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(THEME_KEY, themePreference);
+    } catch {
+      // プライベートモード等のエラーを無視
+    }
+  }, [themePreference]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+
+    const mediaQuery = window.matchMedia(SYSTEM_THEME_QUERY);
+    const handleChange = (event) => {
+      setSystemTheme(event.matches ? 'dark' : 'light');
+    };
+    setSystemTheme(mediaQuery.matches ? 'dark' : 'light');
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+
+    if (typeof mediaQuery.addListener !== 'function') return undefined;
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  // PDF出力の配色・書体設定を保存する。楽譜のstate（useUndoableScore）とは
+  // 別に持つ。Undo/Redoの対象ではなく、JSONへの保存経路にも混ぜないため
+  useEffect(() => {
+    savePdfPrefs(pdfPrefs);
+  }, [pdfPrefs]);
+
+  // tone のチャンク（約340KB）を先に取得しておく。初回タップ時に取りに行くと、
+  // ダウンロードの間に iOS のユーザー操作の有効期間が切れて音が出なくなる。
+  // 初期描画と帯域を奪い合わないよう、少し遅らせてから始める。
+  useEffect(() => {
+    const timer = setTimeout(() => audioEngine.preload(), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // --- 起動時: 下書きの有無を確認 ---
+  useEffect(() => {
+    setHasDraft(Boolean(loadDraft()));
+  }, []);
+
+  // --- 自動保存 (デバウンス) ---
+  useEffect(() => {
+    if (currentSerialized === draftSnapshotRef.current) return undefined;
+    const id = setTimeout(() => {
+      if (score.grids.length === 0) {
+        // 全消去の結果は下書きにも反映する必要がある（消したはずの楽譜が
+        // 次回起動で戻ってきてはいけない）。ただし空の下書きを書き戻すと
+        // 復元しても EmptyState のままの何も起きないボタンになるため、
+        // 削除で表す（draftStorage.js の loadDraft 側の防御と対になる）
+        clearDraft();
+        draftSnapshotRef.current = currentSerialized;
+        setHasDraft(false);
+        saveFailedRef.current = false;
+        return;
+      }
+      const saved = saveDraft(score);
+      if (saved) {
+        draftSnapshotRef.current = currentSerialized;
+        setHasDraft(true);
+        saveFailedRef.current = false;
+      } else if (!saveFailedRef.current) {
+        // 失敗し続ける状況（プライベートブラウズ等）で毎回出すと操作できなく
+        // なるため、成功に戻るまでは最初の1回だけ知らせる
+        saveFailedRef.current = true;
+        showStatus(
+          '編集内容をブラウザに自動保存できませんでした。プライベートブラウズや保存容量が原因の可能性があります。「JSONを保存」で手元に残してください。',
+          'error',
+          false,
+        );
+      }
+    }, 800);
+    // 下書き削除ボタンがこのタイマーを止められるよう ref にも控えておく
+    autoSaveTimerRef.current = id;
+    return () => clearTimeout(id);
+  }, [score, currentSerialized, showStatus]);
+
+  // --- 離脱時の未保存警告 ---
+  useEffect(() => {
+    const handler = (e) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
+  // --- ファイル読み込み ---
+  const loadFile = useCallback(
+    async (file) => {
+      if (file.size > 10 * 1024 * 1024) {
+        showStatus('ファイルサイズが大きすぎます (上限 10MB)。', 'error', false);
+        return;
+      }
+
+      // 譜面作成アプリ側は同じ内容を .txt で書き出すため、拡張子だけで弾かない。
+      // 中身の検証は parseScoreJson が行う
+      const lowerName = file.name.toLowerCase();
+      const acceptedByName = lowerName.endsWith('.json') || lowerName.endsWith('.txt');
+      const acceptedByType = file.type === 'application/json' || file.type === 'text/plain';
+      if (!acceptedByName && !acceptedByType) {
+        showStatus('JSON (.json) またはテキスト (.txt) ファイルを選択してください。', 'error', false);
+        return;
+      }
+      setFileName(file.name);
+      showStatus('ファイルを読み込んでいます…', 'loading', false);
+      try {
+        const bytes = await file.arrayBuffer();
+        const text = decodeScoreFileBytes(bytes);
+        const parsed = parseScoreJson(text);
+        // parsed は normalizeLoadedScore の戻り値で、score のフィールドに
+        // 加えて warning を持つ。createScore で9フィールドだけを取り出す。
+        const loaded = createScore(parsed);
+        reset(loaded);
+        const initialLayer = getInitialLayer(loaded.grids);
+        setSelectedLayer(initialLayer);
+        setStandardColorLayer(initialLayer);
+        markSaved(serializeScoreForCompare(loaded));
+        setEditMode(false);
+        if (parsed.warning) {
+          // 切り詰め等の警告は見逃されると「読み込みが壊れた」と誤解される。
+          // 自動で消さず、利用者が閉じるまで残す
+          showStatus(
+            `読み込み完了 (全 ${parsed.grids.length} グリッド) — ${parsed.warning}`,
+            'warning',
+            false,
+          );
+        } else {
+          // グリッドが画面に出ること自体が成功の合図なので通知はしない。
+          // ただし「読み込んでいます…」を出したままにはできない
+          dismissStatus();
+        }
+      } catch (err) {
+        const msg =
+          err instanceof ParseError
+            ? err.message
+            : `読み込みに失敗しました。(${err.message})`;
+        showStatus(msg, 'error', false);
+      }
+    },
+    [reset, markSaved, showStatus, dismissStatus],
+  );
+
+  // --- 新規作成 ---
+  const newScore = useCallback(() => {
+    if (isDirty && !window.confirm('未保存の変更があります。新規作成しますか?')) {
+      return;
+    }
+    const next = createScore({
+      grids: [createEmptyGrid()],
+      bpm: score.bpm || DEFAULT_BPM,
+      pitchLevel: score.pitchLevel || 0,
+      keyMode: score.keyMode,
+    });
+    reset(next);
+    const initialLayer = getInitialLayer(next.grids);
+    setSelectedLayer(initialLayer);
+    setStandardColorLayer(initialLayer);
+    markSaved(serializeScoreForCompare(next));
+    setFileName('');
+    setEditMode(true);
+  }, [isDirty, score.bpm, score.pitchLevel, score.keyMode, reset, markSaved]);
+
+  const restoreDraft = useCallback(() => {
+    const draft = loadDraft();
+    if (!draft) return;
+    // normalizeLoadedScore は10番目のキーとして warning を返す。loadFile と
+    // 同じく createScore で score のフィールドだけを取り出し、warning を
+    // state に混入させない（混入すると以後の saveDraft で下書きへ書き戻る）。
+    const next = createScore(normalizeLoadedScore(draft));
+    reset(next);
+    const initialLayer = getInitialLayer(next.grids);
+    setSelectedLayer(initialLayer);
+    setStandardColorLayer(initialLayer);
+    markSaved(serializeScoreForCompare(next));
+  }, [reset, markSaved]);
+
+  const clearAll = useCallback(() => {
+    // 保存状態にかかわらず、必ず確認メッセージを表示する
+    const confirmMessage = isDirty
+      ? '未保存の変更があります。すべて消去しますか？'
+      : '現在の楽譜をすべて消去します。よろしいですか？';
+
+    if (!window.confirm(confirmMessage)) {
+      return; // キャンセルされたら何もしない
+    }
+    // reset() ではなく dispatch で CLEAR アクションを発行し、履歴に残す
+    dispatch({ type: 'CLEAR' });
+    setSelectedLayer(1);
+    setStandardColorLayer(1);
+
+    // Undo した際にファイル名や保存状態の基準が狂わないよう、
+    // markSaved や setFileName('') 等は実行せず、「ファイルの内容をすべて消した」という編集状態として扱います。
+
+    setEditMode(false);
+    // 破壊的だが可逆な操作。取り消し手段をツールバーまで探しに行かせず、
+    // 通知そのものに載せる。自動で消すと押す機会ごと失われるため消さない
+    showStatus('楽譜を消去しました。', 'info', false, {
+      label: '元に戻す',
+      onClick: undo,
+    });
+  }, [isDirty, dispatch, showStatus, undo]);
+
+  // --- 下書き削除 (共用端末でのデータ消去手段) ---
+  const handleClearDraft = useCallback(() => {
+    // window.confirm はメインスレッドを塞ぐため、表示中に自動保存のタイマーが
+    // 発火時刻を過ぎうる。OK 後にそのまま clearDraft() すると、直後にタイマーの
+    // コールバックが走って saveDraft(score) が下書きを書き戻してしまうため、
+    // 削除の直前に予約済みタイマーを止める。削除後の編集で新しい下書きが
+    // 作られるのは自動保存の約束どおりの動作なので、それは止めない
+    if (!window.confirm('ブラウザに保存されている下書きを削除します。よろしいですか?')) {
+      return;
+    }
+    clearTimeout(autoSaveTimerRef.current);
+    clearDraft();
+    setHasDraft(false);
+  }, []);
+
+  // --- JSON 保存 ---
+  const saveJson = useCallback(() => {
+    if (!hasData) return;
+    try {
+      const text = serializeScore(score); // フォーマットバージョンを含めて出力する
+      downloadText(text, jsonFilename(), 'application/json');
+      markSaved(serializeScoreForCompare(score));
+    } catch (err) {
+      showStatus(`保存に失敗しました。(${err.message})`, 'error', false);
+    }
+  }, [hasData, score, markSaved, showStatus]);
+
+  // --- PDF背景画像（選択・縮小・不透明度の適用と、白地への合成） ---
+  const handleLoadBackgroundImage = useCallback(
+    async (file) => {
+      showStatus('背景画像を読み込んでいます…', 'loading', false);
+      try {
+        // 縮小済み・不透明度100%のsourceを保持しておき、以後の不透明度変更は
+        // ここから合成し直すだけにする（元ファイルの再デコードをしない）
+        const source = await loadBackgroundImageSource(file);
+        backgroundImageSourceRef.current = source;
+        // 背景画像があるあいだは背景色を白に固定する（3-B-1）。選択中の
+        // 配色のbgは書き換えず、合成用canvasの塗り色として使うだけ
+        setBackgroundImage(
+          composeBackgroundImage(source, {
+            backgroundColor: '#FFFFFF',
+            opacity: backgroundImageOpacity,
+          }),
+        );
+        dismissStatus();
+      } catch (err) {
+        // 壊れたファイル・巨大なファイル・画像でないファイルでも落ちずに
+        // 利用者へ伝える
+        showStatus(err.message || '背景画像を読み込めませんでした。', 'error', false);
+      }
+    },
+    [showStatus, dismissStatus, backgroundImageOpacity],
+  );
+
+  const handleSetBackgroundImageOpacity = useCallback((opacity) => {
+    setBackgroundImageOpacity(opacity);
+    // sourceが無い（まだ画像を選んでいない）ときはスライダーの値だけ覚えておき、
+    // 次に画像を選んだときにその値で合成する
+    if (!backgroundImageSourceRef.current) return;
+    setBackgroundImage(
+      composeBackgroundImage(backgroundImageSourceRef.current, {
+        backgroundColor: '#FFFFFF',
+        opacity,
+      }),
+    );
+  }, []);
+
+  const handleRemoveBackgroundImage = useCallback(() => {
+    backgroundImageSourceRef.current = null;
+    setBackgroundImage(null);
+  }, []);
+
+  // --- PDF 出力 ---
+  const handleExportPdf = useCallback(async () => {
+    if (!hasData || isProcessing) return;
+    setIsProcessing(true);
+    const prevEdit = editMode;
+    setEditMode(false);
+    try {
+      // PDF ライブラリ(jsPDF/svg2pdf)は重いので、必要になった時点で動的読み込みする
+      const { exportPdf } = await import('./lib/pdfExport.js');
+      // backgroundImageはpdfPrefsと違いlocalStorageに保存しない値なので、
+      // ここでoptionsへ合流させるだけにして pdfPrefs 自体には混ぜない
+      const result = await exportPdf(
+        score,
+        { ...pdfPrefs, backgroundImage, selectedLayer },
+        (msg) => showStatus(msg, 'loading', false),
+      );
+      showStatus(
+        result.opened
+          ? `PDF を新しいタブで開きました。(${result.filename})`
+          : `PDF をダウンロードしました。(${result.filename})`,
+        'success',
+      );
+    } catch (err) {
+      showStatus(`PDF 生成に失敗しました。(${err.message})`, 'error', false);
+    } finally {
+      setIsProcessing(false);
+      setEditMode(prevEdit);
+    }
+  }, [hasData, isProcessing, editMode, score, pdfPrefs, backgroundImage, selectedLayer, showStatus]);
+
+  const handleOpenPdfPreset = useCallback((nextMode) => {
+    pdfPresetReturnFocusRef.current = document.activeElement;
+    setPdfPresetDialog({ mode: nextMode, initialImportText: '', initialError: '' });
+  }, []);
+
+  const handleClosePdfPreset = useCallback(() => {
+    setPdfPresetDialog(null);
+    const returnFocus = pdfPresetReturnFocusRef.current;
+    pdfPresetReturnFocusRef.current = null;
+    if (returnFocus && typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => returnFocus.focus?.());
+    }
+  }, []);
+
+  const handleApplyPdfPreset = useCallback((nextPrefs) => {
+    // ダイアログで完全に検証済みの1オブジェクトだけを適用する。
+    // 背景画像・楽譜state・Undo履歴へsetterを渡さない構造を維持する。
+    setPdfPrefs(nextPrefs);
+  }, []);
+
+  useKeyboardShortcuts({ onUndo: undo, onRedo: redo, onSave: saveJson });
+
+  return (
+    <div className={`app${editMode ? ' app--edit-mode' : ''}`}>
+      <div className="app__inner">
+        {/* ツールバーは sticky に含めない。楽譜を見ている間に手が届く必要が
+            あるのは再生・停止・移調・追尾であって、JSONを開く/曲名/BPM ではない。
+            固定するものを再生バーとステータスに絞ることで、画面上部が
+            グリッドを覆う量を減らしている */}
+        <Toolbar
+            hasData={hasData}
+            isProcessing={isProcessing}
+            editMode={editMode}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            isDirty={isDirty}
+            title={score.title}
+            author={score.author}
+            lyricist={score.lyricist}
+            transcribedBy={score.transcribedBy}
+            bitsPerPage={score.bitsPerPage}
+            bpm={score.bpm}
+            theme={themePreference}
+            fileName={fileName}
+            pitchLevel={score.pitchLevel}
+            keyMode={score.keyMode}
+            pdfPrefs={pdfPrefs}
+            onSetPdfPrefs={setPdfPrefs}
+            backgroundImage={backgroundImage}
+            backgroundImageOpacity={backgroundImageOpacity}
+            onLoadBackgroundImage={handleLoadBackgroundImage}
+            onSetBackgroundImageOpacity={handleSetBackgroundImageOpacity}
+            onRemoveBackgroundImage={handleRemoveBackgroundImage}
+            onSetPitchLevel={(p) => dispatch({ type: 'SET_PITCH_LEVEL', pitchLevel: p })}
+            onSetKeyMode={(keyMode) => dispatch({ type: 'SET_KEY_MODE', keyMode })}
+            onLoadFile={loadFile}
+            onNewScore={newScore}
+            onClear={clearAll}
+            onSetTitle={(t) => dispatch({ type: 'SET_TITLE', title: t })}
+            onSetAuthor={(a) => dispatch({ type: 'SET_AUTHOR', author: a })}
+            onSetLyricist={(l) => dispatch({ type: 'SET_LYRICIST', lyricist: l })}
+            onSetTranscribedBy={(t) => dispatch({ type: 'SET_TRANSCRIBED_BY', transcribedBy: t })}
+            onSetBitsPerPage={(b) => dispatch({ type: 'SET_BITS_PER_PAGE', bitsPerPage: b })}
+            onSetBpm={(v) => dispatch({ type: 'SET_BPM', bpm: v })}
+            onUndo={undo}
+            onRedo={redo}
+            onToggleEdit={() => setEditMode((v) => !v)}
+            onToggleLayer={toggleLayer}
+            usesTwoLayers={usesTwoLayers}
+            onSaveJson={saveJson}
+            onExportPdf={handleExportPdf}
+            onOpenPdfPreset={handleOpenPdfPreset}
+            onSetTheme={(preference) => setThemePreference(preference)}
+        />
+
+        {pdfPresetDialog && (
+          <PdfPresetDialog
+            mode={pdfPresetDialog.mode}
+            initialImportText={pdfPresetDialog.initialImportText}
+            initialError={pdfPresetDialog.initialError}
+            pdfPrefs={pdfPrefs}
+            scoreContext={pdfPresetScoreContext}
+            onApply={handleApplyPdfPreset}
+            onClose={handleClosePdfPreset}
+          />
+        )}
+
+        {/* ステータスは通常フローから外して画面下部のトーストにしてある。
+            ここに置くと、通知が出るたびに sticky ヘッダの高さが変わって
+            再生バーと本文が上下し、楽譜を読んでいる最中に位置を見失う */}
+        <div className="app__sticky-header">
+          {hasData && (
+            <PlaybackBar
+              playbackState={playbackState}
+              onTogglePlayPause={togglePlayPause}
+              onStop={stop}
+              isAutoScroll={isAutoScroll}
+              setIsAutoScroll={setIsAutoScroll}
+            />
+          )}
+        </div>
+
+        <main className={`output${editMode ? ' edit-mode' : ''}`}>
+          {hasData ? (
+            <ScoreCanvas
+              bitsPerPage={score.bitsPerPage}
+              editMode={editMode}
+              isAutoScroll={isAutoScroll}
+              playbackState={playbackState}
+              isMobile={isMobile}
+              selectedLayer={selectedLayer}
+              usesTwoLayers={usesTwoLayers}
+              usesSecondHighlightColor={usesSecondHighlightColor}
+              onPlayFrom={handlePlayFrom}
+              onPlaySingle={handlePlaySingle}
+              onPlayPreview={playPreview}
+              onToggleKey={handleToggleKey}
+              onToggleLayer={toggleLayer}
+              onSetText={handleSetText}
+              onDelete={handleDelete}
+              onToggleBreak={handleToggleBreak}
+              onInsert={handleInsert}
+            />
+          ) : (
+            <EmptyState
+              onLoadFile={loadFile}
+              hasDraft={hasDraft}
+              onRestoreDraft={restoreDraft}
+            />
+          )}
+        </main>
+        <SiteFooter hasDraft={hasDraft} onClearDraft={handleClearDraft} />
+      </div>
+
+      {/* 画面下部の浮遊レイヤー。通知と「編集を終了」を1つの重なり順にまとめて
+          いるのは、両方を別々に fixed にすると互いに重なる位置関係を
+          2箇所で調整することになるため。
+          レイヤー自身は pointer-events を持たない（CSS 参照）。全幅に広がる
+          ので、そのままだと下にあるグリッドがタップできなくなる */}
+      <div className="bottom-layer">
+        <StatusBar
+          message={status.message}
+          type={status.type}
+          action={status.action}
+          onClose={dismissStatus}
+        />
+        {editMode && (
+          <button
+            type="button"
+            className="btn btn--warning-active edit-exit-fab"
+            onClick={() => setEditMode(false)}
+            disabled={isProcessing}
+          >
+            グリッド編集を終了
+          </button>
+        )}
+      </div>
+
+      {/* 通知が出ている間は隠す。通知は画面下部の同じ帯に出るため重なるのと、
+          「全消去」の通知は取り消しボタンを自前で持っているため、
+          そちらが優先されるべき場面だから */}
+      {(canUndo || canRedo) && !status.message && (
+        <HistoryFab
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={undo}
+          onRedo={redo}
+        />
+      )}
+
+      {hasData && <ScrollTopFab editMode={editMode} />}
+
+      {hasData && isMobile && (
+        <GridOverlay
+          grids={score.grids}
+          editMode={editMode}
+          onToggleKey={handleToggleKey}
+          onSetText={handleSetText}
+          onDelete={handleDelete}
+          onToggleBreak={handleToggleBreak}
+          onPlayFrom={handlePlayFrom}
+          onPlaySingle={handlePlaySingle}
+          onPlayPreview={playPreview}
+          selectedLayer={selectedLayer}
+          usesTwoLayers={usesTwoLayers}
+          usesSecondHighlightColor={usesSecondHighlightColor}
+          onToggleLayer={toggleLayer}
+        />
+      )}
+
+      {DEBUG_ENABLED && (
+        <DebugOverlay playbackState={playbackState} gridCount={score.grids.length} />
+      )}
+    </div>
+  );
+}
