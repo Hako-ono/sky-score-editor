@@ -38,7 +38,7 @@ import {
   DEFAULT_BACKGROUND_IMAGE_OPACITY,
 } from './lib/backgroundImage.js';
 import { audioEngine } from './lib/audioEngine.js';
-import { DEFAULT_BPM, MAX_GRIDS } from './constants/config.js';
+import { DEFAULT_BPM, MAX_GRIDS, resolvePaletteSeed } from './constants/config.js';
 import { normalizeThemePreference, resolveTheme } from './lib/theme.js';
 import {
   analyzeScoreLayers,
@@ -507,20 +507,26 @@ export default function App() {
     }
   }, [hasData, score, markSaved, showStatus]);
 
-  // --- PDF背景画像（選択・縮小・不透明度の適用と、白地への合成） ---
+  // --- PDF背景画像
+  // 合成後の背景画像は不透明なJPEGで、PDFでは用紙の背景色の上に重なる。
+  // つまり利用者が見る背景色は「用紙の塗り」ではなく「合成用canvasの塗り色」で
+  // 決まるため、選択中の配色のbgをここへ渡す（以前は白固定だった）
+  const paletteBg = useMemo(
+    () => resolvePaletteSeed({ presetId: pdfPrefs.presetId, custom: pdfPrefs.custom }).bg,
+    [pdfPrefs.presetId, pdfPrefs.custom],
+  );
+
   const handleLoadBackgroundImage = useCallback(
     async (file) => {
       showStatus('背景画像を読み込んでいます…', 'loading', false);
       try {
-        // 縮小済み・不透明度100%のsourceを保持しておき、以後の不透明度変更は
-        // ここから合成し直すだけにする（元ファイルの再デコードをしない）
+        // 縮小済み・不透明度100%のsourceを保持しておき、以後の不透明度・
+        // 背景色の変更はここから合成し直すだけにする（元ファイルの再デコードをしない）
         const source = await loadBackgroundImageSource(file);
         backgroundImageSourceRef.current = source;
-        // 背景画像があるあいだは背景色を白に固定する（3-B-1）。選択中の
-        // 配色のbgは書き換えず、合成用canvasの塗り色として使うだけ
         setBackgroundImage(
           composeBackgroundImage(source, {
-            backgroundColor: '#FFFFFF',
+            backgroundColor: paletteBg,
             opacity: backgroundImageOpacity,
           }),
         );
@@ -531,21 +537,28 @@ export default function App() {
         showStatus(err.message || '背景画像を読み込めませんでした。', 'error', false);
       }
     },
-    [showStatus, dismissStatus, backgroundImageOpacity],
+    [showStatus, dismissStatus, backgroundImageOpacity, paletteBg],
   );
 
+  // sourceが無い（まだ画像を選んでいない）ときは値を覚えておくだけにし、
+  // 次に画像を選んだときにその値で合成する
   const handleSetBackgroundImageOpacity = useCallback((opacity) => {
     setBackgroundImageOpacity(opacity);
-    // sourceが無い（まだ画像を選んでいない）ときはスライダーの値だけ覚えておき、
-    // 次に画像を選んだときにその値で合成する
+  }, []);
+
+  // 不透明度・背景色が変わったら、読み込み済みのsourceから合成し直す。
+  // 合成済みJPEGの色は後から変えられないため、配色を変えるたびに画像を
+  // 選び直させないための再合成である。読み込み直後の合成とは経路が
+  // 重ならない（sourceの差し替えはこのeffectを起動しない）
+  useEffect(() => {
     if (!backgroundImageSourceRef.current) return;
     setBackgroundImage(
       composeBackgroundImage(backgroundImageSourceRef.current, {
-        backgroundColor: '#FFFFFF',
-        opacity,
+        backgroundColor: paletteBg,
+        opacity: backgroundImageOpacity,
       }),
     );
-  }, []);
+  }, [paletteBg, backgroundImageOpacity]);
 
   const handleRemoveBackgroundImage = useCallback(() => {
     backgroundImageSourceRef.current = null;

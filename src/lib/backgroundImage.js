@@ -99,8 +99,12 @@ export async function loadBackgroundImageSource(file) {
 
 /**
  * loadBackgroundImageSource が返した source を、指定の背景色・不透明度で
- * 白地（等）へ合成し、data:URL(JPEG) にする。元ファイルの再デコードを
- * 行わないため、不透明度を変えるたびに呼んでも軽い。
+ * 地色へ合成し、data:URL(JPEG) にする。元ファイルの再デコードを
+ * 行わないため、不透明度や背景色を変えるたびに呼んでも軽い。
+ *
+ * 出力は不透明なJPEGで、PDFでは用紙全面を覆う（drawBackgroundImage）。
+ * つまり利用者に見える背景色はこの backgroundColor で決まるため、
+ * 呼び出し側は選択中の配色の bg を渡すこと。
  *
  * 透過PNGを渡された場合にJPEG化すると透過部分が黒くなるため、合成用
  * canvas を先に backgroundColor で塗りつぶしてから、指定の不透明度で
