@@ -36,7 +36,8 @@ describe('PDFグリッドスタイルのプリセット', () => {
     });
   });
 
-  it('やわらかだけ記号の角丸3を使う', () => {
+  it('ふんわりだけ記号の角丸3を使う', () => {
+    expect(PDF_GRID_STYLES.soft.label).toBe('ふんわり');
     expect(resolvePdfGridStyle({ gridStyleId: 'soft' }).symbolRadius).toBe(3);
     expect(resolvePdfGridStyle({ gridStyleId: 'standard' }).symbolRadius).toBe(0);
     expect(resolvePdfGridStyle({ gridStyleId: 'bold' }).symbolRadius).toBe(0);

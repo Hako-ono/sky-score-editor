@@ -14,7 +14,7 @@ export const PDF_GRID_STYLES = {
     symbolStrokeWidth: 2.5,
   },
   soft: {
-    label: 'やわらか',
+    label: 'ふんわり',
     outerRadius: 18,
     cellRadius: 14,
     symbolRadius: 3,
