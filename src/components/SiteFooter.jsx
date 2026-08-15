@@ -1,5 +1,7 @@
 const LICENSE_URL = `${import.meta.env.BASE_URL}legal/THIRD_PARTY_NOTICES.txt`;
 const INQUIRY_URL = 'https://x.com/Hako_ono_sky';
+const REPO_URL = 'https://github.com/Hako-ono/sky-score-editor';
+const MIT_URL = `${REPO_URL}/blob/main/LICENSE`;
 
 function SiteFooter({ hasDraft, onClearDraft }) {
   return (
@@ -9,6 +11,8 @@ function SiteFooter({ hasDraft, onClearDraft }) {
       </p>
 
       <nav className="site-footer__links" aria-label="補助リンク">
+        <a href={REPO_URL} target="_blank" rel="noreferrer">ソースコード（GitHub）</a>
+        <a href={MIT_URL} target="_blank" rel="noreferrer">MIT License</a>
         <a href={LICENSE_URL}>第三者ライセンス</a>
         <a href={INQUIRY_URL} target="_blank" rel="noreferrer">問い合わせ（X @Hako_ono_sky）</a>
       </nav>
@@ -73,6 +77,13 @@ function SiteFooter({ hasDraft, onClearDraft }) {
         <div className="site-footer__content site-footer__credits">
           <ul className="site-footer__list">
             <li>
+              本ツールのソースコードは
+              <a href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a>
+              で
+              <a href={MIT_URL} target="_blank" rel="noreferrer">MIT License</a>
+              のもとに公開しています。著作権表示とライセンス本文を残せば、複製・改変・再配布・商用利用ができます。以下の音源・フォントは、それぞれの権利者が定めるライセンス（CC BY 3.0、SIL OFL 1.1）に従ってください。
+            </li>
+            <li>
               音源: Salamander Grand Piano V3 by Alexander Holm（CC BY 3.0）。
             </li>
             <li>
@@ -97,6 +108,11 @@ function SiteFooter({ hasDraft, onClearDraft }) {
 
       <p className="site-footer__note">
         不具合、権利に関するご連絡、ライセンス表記の訂正は、Xの<a href={INQUIRY_URL} target="_blank" rel="noreferrer">@Hako_ono_sky</a>へのリプライまたはDMでお知らせください。リプライは公開されるため、個人情報や公開したくない内容はDMをご利用ください。楽譜・歌詞・画像を添付する場合は、ご自身で共有できるものだけを選んでください。
+      </p>
+
+      <p className="site-footer__copyright">
+        © 2026 Hako ・ Released under the{' '}
+        <a href={MIT_URL} target="_blank" rel="noreferrer">MIT License</a>
       </p>
     </footer>
   );

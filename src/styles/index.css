@@ -2674,6 +2674,14 @@ select.text-input {
   text-align: left;
 }
 
+.site-footer__copyright {
+  margin: 1rem 0 0;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  text-align: center;
+}
+
 /* ---------- 画面下部の浮遊レイヤー（通知・編集終了） ---------- */
 .bottom-layer {
   position: fixed;

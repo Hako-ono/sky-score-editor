@@ -1,5 +1,7 @@
 # Sky楽譜エディター
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Sky: 星を紡ぐ子どもたちの 15 鍵楽譜を JSON から生成し、鍵・テキスト・改行を編集して
 PDF / JSON に出力するツール。ブラウザだけで完結する静的サイトで、音源・フォントを含め
 外部サーバへの依存はありません。
@@ -160,10 +162,27 @@ src/
 画像・音声・フォントは使用していません。「Sky: 星を紡ぐ子どもたち」に関する権利は
 thatgamecompany, inc. に帰属します。「QRコード」は株式会社デンソーウェーブの登録商標です。
 
-本リポジトリのソースコードは MIT License の下で公開されています。
-ただし、フォントファイル（`public/fonts/` 配下の3書体、`@fontsource/noto-sans-jp`）
-および音源データ（`public/audio/salamander/`）については、それぞれの権利者が定める
-ライセンス（SIL OFL 1.1、CC BY 3.0）が適用されます。
+## ライセンス
+
+本リポジトリのソースコードは [MIT License](LICENSE) の下で公開されています。
+Copyright (c) 2026 Hako.
+
+著作権表示とライセンス本文を残していただければ、複製・改変・再配布・商用利用が
+可能です。ソフトウェアは現状のまま提供され、作者はいかなる保証も行いません。
+
+ただし MIT License が適用されるのは本リポジトリのソースコードとドキュメントのみで、
+同梱している以下の素材にはそれぞれの権利者が定めるライセンスが適用されます。
+
+| 対象 | ライセンス |
+| --- | --- |
+| ソースコード・ドキュメント | [MIT License](LICENSE) |
+| PDF埋め込みフォント（`public/fonts/` の3書体） | [SIL Open Font License 1.1](https://scripts.sil.org/OFL) |
+| 画面表示フォント（`@fontsource/noto-sans-jp`） | [SIL Open Font License 1.1](https://scripts.sil.org/OFL) |
+| 音源データ（`public/audio/salamander/`） | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
+
+また「Sky: 星を紡ぐ子どもたち」に関する権利は thatgamecompany, inc. に帰属します。
+本リポジトリのライセンスは、同作品の名称・世界観・ゲーム内資産に対する権利を
+一切与えるものではありません。
 
 ## 第三者ライセンス通知
 
