@@ -16,6 +16,13 @@ import {
   GRID_NUMBER_POS,
   GRID_TEXT_CENTER,
   PDF_PRESETS,
+  PDF_PAGE_MARGINS,
+  PDF_GRID_GAPS,
+  DEFAULT_PAGE_MARGIN_ID,
+  DEFAULT_GRID_GAP_ID,
+  PDF_ROW_SHADING_COLOR,
+  rowShadingOpacity,
+  shadeRowPalette,
   PDF_SHEET_LAYOUTS,
   DEFAULT_SHEET_LAYOUT_ID,
   DEFAULT_PRESET_ID,
@@ -49,7 +56,7 @@ import {
   resolveFirstPageHeaderAlignment,
   resolvePdfFirstPageLayout,
 } from './pdfFirstPage.js';
-import { splitIntoRows, paginateRows, columnsForBits } from './layout.js';
+import { splitIntoRows, paginateRows, resolveColumnsPerPage } from './layout.js';
 import {
   GRID_CELL_SHAPES,
   createCombinedSymbolPath,
@@ -125,6 +132,7 @@ export function buildLayout(
     gridVerticalSpacing: density.gridVerticalSpacing,
     pageMarginId: density.pageMarginId,
     gridGapId: density.gridGapId,
+    rowShadingId: density.rowShadingId,
     titleFontSizePt,
     metaFontSizePt,
     maxRowsPerPage,
@@ -143,6 +151,61 @@ export function getScaledGridHorizontalBounds({ offsetX, svgWidth, edgePadding, 
     leftPt: offsetX + edgePadding * scale,
     rightPt: offsetX + (svgWidth - edgePadding) * scale,
   };
+}
+
+// 曲情報デザイン「楽譜」の左右端が縮みすぎないための基準。列数・行数を
+// どう変えても、標準余白・標準間隔・6行3列のときのグリッド幅より狭くはしない。
+export const SCORE_INFO_MIN_WIDTH_ROWS = 6;
+export const SCORE_INFO_MIN_WIDTH_COLUMNS = 3;
+
+/**
+ * 上記の基準組み合わせでのグリッド幅（＝曲情報の下限幅）をPDF座標で返す。
+ *
+ * 余白・間隔・行数・列数は基準値で固定する一方、用紙（スロット）の寸法だけは
+ * 引数の layout から取る。2面付けではスロットが狭く、固定ptを下限にすると
+ * その紙面の本文領域を越えてしまうため。見出し確保高は pdfConfig の既定値で
+ * 固定し、曲名・曲情報の文字サイズ設定で下限そのものが動かないようにする。
+ */
+export function deriveScoreInfoMinWidthPt(layout) {
+  const gap = PDF_GRID_GAPS[DEFAULT_GRID_GAP_ID];
+  const marginPt = PDF_PAGE_MARGINS[DEFAULT_PAGE_MARGIN_ID].marginPt;
+  const { rawSvgWidth, rawSvgHeight } = computeGridBlockSize({
+    columns: SCORE_INFO_MIN_WIDTH_COLUMNS,
+    rows: SCORE_INFO_MIN_WIDTH_ROWS,
+    gridBaseWidth: layout.gridBaseWidth,
+    gridBaseHeight: layout.gridBaseHeight,
+    gridHorizontalSpacing: gap.horizontalPt,
+    gridVerticalSpacing: gap.verticalPt,
+  });
+  const contentWidthPt = layout.pageWidthPt - 2 * marginPt;
+  const contentHeightPt = layout.pageHeightPt - 2 * marginPt - pdfConfig.titleAreaPt;
+  if (rawSvgWidth <= 0 || rawSvgHeight <= 0) return 0;
+  const scale = Math.min(contentWidthPt / rawSvgWidth, contentHeightPt / rawSvgHeight);
+  return rawSvgWidth * scale;
+}
+
+/**
+ * グリッド左右端が下限より狭いときだけ、中心を保ったまま下限幅まで広げる。
+ * 上限は現在の本文領域幅で頭打ちにする（広い余白・2面付けでは基準幅の方が
+ * 広くなりうるため、そのまま使うと曲情報が余白へはみ出す）。
+ */
+export function expandBoundsToMinWidth(bounds, minWidthPt, { marginPt, pageWidthPt }) {
+  const contentWidthPt = pageWidthPt - 2 * marginPt;
+  const width = bounds.rightPt - bounds.leftPt;
+  const targetWidth = Math.min(minWidthPt, contentWidthPt);
+  if (!Number.isFinite(targetWidth) || targetWidth <= width) return bounds;
+
+  // グリッドは本文領域の中央に置かれるため、通常は中心を保つだけで収まるが、
+  // はみ出す位置関係になった場合は本文領域の内側へ寄せる（紙面外へ文字を
+  // 逃がさないことを、呼び出し元の前提ではなくこの関数で保証する）。
+  const center = (bounds.leftPt + bounds.rightPt) / 2;
+  const leftLimit = marginPt;
+  const rightLimit = pageWidthPt - marginPt;
+  const leftPt = Math.min(
+    Math.max(center - targetWidth / 2, leftLimit),
+    rightLimit - targetWidth,
+  );
+  return { leftPt, rightPt: leftPt + targetWidth };
 }
 
 /**
@@ -484,6 +547,42 @@ export function buildPageSvg(
     viewBox: `0 0 ${svgWidth} ${svgHeight}`,
   });
 
+  // 偶数行は「そのページの中で上から2・4・6…行目」で数える。ページごとに
+  // 同じ見え方になり、改行マークで行数が変わっても紙面の途中で反転しない。
+  const isShadedRow = (rowIndex) => layout.rowShadingId === 'even' && rowIndex % 2 === 1;
+  const shadingOpacity = rowShadingOpacity(palette.pageBackground);
+  // 帯は鍵盤の面（半透明）には効かないため、網掛け行のグリッドは面の色を
+  // 同じ割合だけ暗くして、行全体が一様に沈んで見えるようにする。
+  const shadedPalette = layout.rowShadingId === 'even'
+    ? shadeRowPalette(palette, shadingOpacity)
+    : palette;
+
+  // 網掛けはグリッドより前に置く（後ろから重ねると記号や歌詞も沈む）。
+  if (layout.rowShadingId === 'even') {
+    pageRows.forEach((_row, rowIndex) => {
+      if (!isShadedRow(rowIndex)) return;
+      const bandTop = Math.max(
+        0,
+        safeEdgePadding + rowIndex * rowPitch - layout.gridVerticalSpacing / 2,
+      );
+      const bandBottom = Math.min(
+        svgHeight,
+        safeEdgePadding + rowIndex * rowPitch + layout.gridBaseHeight
+          + layout.gridVerticalSpacing / 2,
+      );
+      svg.appendChild(
+        el('rect', {
+          x: 0,
+          y: bandTop,
+          width: svgWidth,
+          height: bandBottom - bandTop,
+          fill: PDF_ROW_SHADING_COLOR,
+          opacity: shadingOpacity,
+        }),
+      );
+    });
+  }
+
   pageRows.forEach((row, rowIndex) => {
     row.forEach((cell, colIndex) => {
       const x = safeEdgePadding + colIndex * columnPitch;
@@ -492,7 +591,7 @@ export function buildPageSvg(
         doc,
         cell.grid,
         cell.index + 1,
-        palette,
+        isShadedRow(rowIndex) ? shadedPalette : palette,
         fontName,
         gridStyle,
         typography,
@@ -1309,6 +1408,8 @@ function openOrDownloadPdfBlob(blob, filename) {
  *          gridNumberDisplayId?: 'show'|'none',
  *          pageNumberFontSizePt?: number,
  *          sheetLayoutId?: 'single'|'double',
+ *          columnsPerPageId?: 'auto'|'col2'|'col3'|'col4'|'col5'|'col6'|'col7'|'col8',
+ *          rowShadingId?: 'none'|'even',
  *          scoreInfoDesignId?: 'score'|'masthead'|'specSheet'|'cover',
  *          mastheadDirectionId?: 'left'|'right',
  *          tempoValueModeId?: 'quarter'|'half'|'custom',
@@ -1365,6 +1466,8 @@ export async function exportPdf(score, options, onProgress = () => {}) {
     pageNumberFontSizePt: typography.pageNumberFontSizePt,
     pageMarginId: density.pageMarginId,
     gridGapId: density.gridGapId,
+    columnsPerPageId: density.columnsPerPageId,
+    rowShadingId: density.rowShadingId,
     ...scoreInfo,
     tempoValueModeId: normalizeTempoValueModeId(rawOptions.tempoValueModeId),
     customTempoValue: sanitizeCustomTempoValue(rawOptions.customTempoValue),
@@ -1448,7 +1551,10 @@ export async function exportPdf(score, options, onProgress = () => {}) {
   // layoutを使い回す（不変条件2：見出し確保高を全ページで揃える）。
   const layout = buildLayout(safeOptions, sheetGeometry.slotWidthPt, sheetGeometry.slotHeightPt);
 
-  const columns = columnsForBits(bitsPerPage);
+  // 列数を増やしても紙面からはみ出さないのは、下で求める縮尺が幅と高さの
+  // 両方を見て小さい方だけを採るため。ここで列数だけを差し替えれば、行数・余白・
+  // グリッド間隔との組み合わせは既存の1つの縮尺計算がそのまま吸収する。
+  const columns = resolveColumnsPerPage(safeOptions.columnsPerPageId, bitsPerPage);
   const rows = splitIntoRows(grids, columns);
   const pages = paginateRows(rows, layout.maxRowsPerPage);
   const pagePlan = buildPdfPagePlan({
@@ -1491,12 +1597,13 @@ export async function exportPdf(score, options, onProgress = () => {}) {
   const offsetX =
     layout.marginPt + (layout.contentWidthPt - svgWidth * scale) / 2;
   const offsetY = layout.contentTopPt + layout.titleAreaPt;
-  const gridHorizontalBounds = getScaledGridHorizontalBounds({
-    offsetX,
-    svgWidth,
-    edgePadding,
-    scale,
-  });
+  // 曲情報デザイン「楽譜」はこの左右端へ揃える。列数を増やす・行数を
+  // 増やすとグリッド幅は狭くなるが、曲情報の行だけは基準幅より狭くしない。
+  const gridHorizontalBounds = expandBoundsToMinWidth(
+    getScaledGridHorizontalBounds({ offsetX, svgWidth, edgePadding, scale }),
+    deriveScoreInfoMinWidthPt(layout),
+    layout,
+  );
 
   try {
     for (let physicalPageIndex = 0; physicalPageIndex < pagePlan.length; physicalPageIndex += 1) {

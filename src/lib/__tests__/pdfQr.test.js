@@ -20,6 +20,10 @@ import {
   savePdfPresetQrCard,
 } from '../pdfQr.js';
 import { encodePdfPreset, buildPdfPresetUrl } from '../pdfPresetCodec.js';
+import {
+  MAX_PDF_PRESET_NAME_CODE_POINTS,
+  MAX_PDF_PRESET_MEMO_CODE_POINTS,
+} from '../pdfPresetConstants.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -40,9 +44,33 @@ describe('pdfQr', () => {
     });
   });
 
+  /*
+   * `qr@0.6.0` のデコーダは、QRが大きくなると1モジュール4pxで描いた綺麗な
+   * 画像でも読み取りに失敗することがある（実測：サイズ121以下では0/25、
+   * 129以上では2/25が失敗）。
+   * 設定を増やしてもその領域へ入らないことを、名前・メモを最大長の
+   * 最悪ケースで固定する。**通らなくなったら上限を上げるのではなく
+   * 外部形式（pdfPresetCodec.js）を短くすること。**
+   */
+  it('名前とメモが最大長でも、QRは読み取りが安定するサイズに収まる', async () => {
+    const code = await encodePdfPreset({
+      name: 'あ'.repeat(MAX_PDF_PRESET_NAME_CODE_POINTS),
+      memo: 'あ'.repeat(MAX_PDF_PRESET_MEMO_CODE_POINTS),
+      prefs: {},
+    });
+    const url = buildPdfPresetUrl(code, { origin: 'https://example.test' }, '/app/');
+    const matrix = generatePdfQrMatrix(url);
+
+    expect(matrix.length).toBeLessThanOrEqual(121);
+    expect(decodePdfQrImageData(
+      qrMatrixToImageData(matrix, 4),
+      { origin: 'https://example.test' },
+    )).toEqual({ text: url, code });
+  });
+
   it('quartile、quiet zone 4、512 CSS px基準、DPR上限2をwrapperで固定する', () => {
     expect(PDF_QR_OPTIONS).toEqual({ ecc: 'quartile', border: 4, scale: 1 });
-    const matrix = generatePdfQrMatrix('SKYPDF1.J.eyJ2ZXJzaW9uIjoxfQ');
+    const matrix = generatePdfQrMatrix('SKYPDF2.J.eyJ2ZXJzaW9uIjoxfQ');
     const context = {
       imageSmoothingEnabled: true,
       fillStyle: '',
@@ -72,7 +100,7 @@ describe('pdfQr', () => {
     const inputs = [
       { text: 'https://example.test/#hello', expected: 'not-pdf-preset' },
       { text: 'https://example.test/#pdf-preset=not-a-setting-code', expected: 'not-pdf-preset' },
-      { text: 'https://other.test/#pdf-preset=SKYPDF1.J.eA', expected: 'foreign-origin' },
+      { text: 'https://other.test/#pdf-preset=SKYPDF2.J.eA', expected: 'foreign-origin' },
     ];
     for (const { text, expected } of inputs) {
       const imageData = qrMatrixToImageData(generatePdfQrMatrix(text), 4);

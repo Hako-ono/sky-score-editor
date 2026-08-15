@@ -11,6 +11,8 @@ import {
   buildScoreInfoRows,
   getSpecItemCenterRatios,
   getScaledGridHorizontalBounds,
+  deriveScoreInfoMinWidthPt,
+  expandBoundsToMinWidth,
   resolvePdfTempoValue,
 } from '../pdfExport.js';
 import {
@@ -291,6 +293,70 @@ describe('getScaledGridHorizontalBounds', () => {
   });
 });
 
+/* ============================================================
+ * 曲情報デザイン「楽譜」の左右端の下限
+ * ------------------------------------------------------------
+ * 左右端は実際のグリッド外枠へ揃えるが、列数・行数を増やすと
+ * グリッドが小さくなり曲情報の行まで細くなる。標準余白・標準間隔の
+ * 6行3列のときのグリッド幅を下限とし、それより短くはならない。
+ * 下限は用紙（スロット）寸法からその都度求め、曲名・曲情報の文字サイズ
+ * 設定では変わらない。
+ * ============================================================ */
+
+describe('deriveScoreInfoMinWidthPt', () => {
+  it('標準余白・標準間隔の6行3列のグリッド幅と一致する', () => {
+    const layout = buildLayout({ maxRowsPerPage: 6 });
+    // 6行3列は高さ側が効くため、縮尺は contentHeightPt / rawSvgHeight。
+    const scale = (841.89 - 2 * 40 - pdfConfig.titleAreaPt) / (6 * 275 + 5 * 80);
+    expect(deriveScoreInfoMinWidthPt(layout)).toBeCloseTo((3 * 350 + 2 * 30) * scale, 6);
+  });
+
+  it('曲名・曲情報の文字サイズ設定では下限が動かない', () => {
+    const base = deriveScoreInfoMinWidthPt(buildLayout());
+    expect(deriveScoreInfoMinWidthPt(buildLayout({ titleFontSizePt: 24, metaFontSizePt: 14 })))
+      .toBeCloseTo(base, 6);
+    expect(deriveScoreInfoMinWidthPt(buildLayout({ maxRowsPerPage: 12 }))).toBeCloseTo(base, 6);
+  });
+
+  it('2面付けの狭いスロットでは下限もそのスロットに合わせて狭くなる', () => {
+    const sheet = buildSheetGeometry('double');
+    const doubleLayout = buildLayout({}, sheet.slotWidthPt, sheet.slotHeightPt);
+    expect(deriveScoreInfoMinWidthPt(doubleLayout))
+      .toBeLessThan(deriveScoreInfoMinWidthPt(buildLayout()));
+  });
+});
+
+describe('expandBoundsToMinWidth', () => {
+  const layout = buildLayout();
+
+  it('下限より狭いときだけ、中心を保ったまま広げる', () => {
+    const narrow = expandBoundsToMinWidth(
+      { leftPt: 250, rightPt: 350 },
+      200,
+      layout,
+    );
+    expect(narrow).toEqual({ leftPt: 200, rightPt: 400 });
+    expect((narrow.leftPt + narrow.rightPt) / 2).toBe(300);
+  });
+
+  it('下限以上の幅はそのまま返す', () => {
+    const wide = { leftPt: 40, rightPt: 555 };
+    expect(expandBoundsToMinWidth(wide, 200, layout)).toBe(wide);
+  });
+
+  it('本文領域より広い下限では、本文領域の幅で頭打ちにする', () => {
+    const wideMargin = buildLayout({ pageMarginId: 'wide' });
+    const result = expandBoundsToMinWidth(
+      { leftPt: 290, rightPt: 300 },
+      10000,
+      wideMargin,
+    );
+    expect(result.rightPt - result.leftPt).toBeCloseTo(wideMargin.contentWidthPt, 6);
+    expect(result.leftPt).toBeCloseTo(wideMargin.marginPt, 6);
+    expect(result.rightPt).toBeCloseTo(wideMargin.pageWidthPt - wideMargin.marginPt, 6);
+  });
+});
+
 describe('キー表示', () => {
   it('黒鍵のキーは一般的な異名同音を併記する', () => {
     expect(PITCH_CLASSES).toEqual([
@@ -562,6 +628,32 @@ describe('buildPageSvg', () => {
     expect(result.svg.children[1].getAttribute('transform')).toBe('translate(386, 6)');
   });
 
+  // 「1ページの列数」で最大の8列を選んでも、最終列がSVGの右端をパディングの
+  // 内側で終わること（列が増えても全体幅が同じ式から出てくること）を固定する。
+  it('8列でも最終列の右端がSVGの幅とパディングに収まる', () => {
+    const edgePadding = 6;
+    const eightColumns = [Array.from({ length: 8 }, (_, index) => ({
+      grid: { keys: [], layer2Keys: [], text: '' },
+      index,
+    }))];
+    const result = withSvgDocument(() => buildPageSvg(
+      stubDoc(),
+      eightColumns,
+      8,
+      palette,
+      'PDF-Font',
+      gridStyle,
+      typography,
+      layout,
+      edgePadding,
+    ));
+
+    const lastX = edgePadding + 7 * (layout.gridBaseWidth + layout.gridHorizontalSpacing);
+    expect(result.svg.children[7].getAttribute('transform')).toBe(`translate(${lastX}, ${edgePadding})`);
+    expect(lastX + layout.gridBaseWidth + edgePadding)
+      .toBe(Number(result.svg.getAttribute('width')));
+  });
+
   it('番号なしでは番号textだけを省き、歌詞textは残す', () => {
     const result = withSvgDocument(() => buildPageSvg(
       { getStringUnitWidth: (text) => Array.from(text).length },
@@ -585,6 +677,116 @@ describe('buildPageSvg', () => {
       .filter((child) => child.nodeName === 'rect')
       .slice(1);
   }
+
+  /* ----------------------------------------------------------
+   * 偶数行の網掛け
+   * 既定（無効）では何も足さない。有効のときは、そのページの2・4・6…行目の
+   * 背後へ黒の半透明の帯を「グリッドより前に」置く（後ろから重ねると記号や
+   * 歌詞が沈む）。帯はブロックの上下端をはみ出さない。
+   * -------------------------------------------------------- */
+  function shadedLayout(options) {
+    return buildLayout({ rowShadingId: 'even', ...options });
+  }
+
+  function threeRows() {
+    return [0, 1, 2].map((rowIndex) => [
+      { grid: { keys: [], layer2Keys: [], text: '' }, index: rowIndex },
+    ]);
+  }
+
+  function bandRects(result) {
+    return result.svg.children.filter(
+      (child) => child.nodeName === 'rect' && child.getAttribute('opacity') !== null,
+    );
+  }
+
+  it('既定では網掛けの帯を描かない', () => {
+    const result = withSvgDocument(() => buildPageSvg(
+      stubDoc(), threeRows(), 1, palette, 'PDF-Font', gridStyle, typography, buildLayout(), 0,
+    ));
+    expect(bandRects(result)).toHaveLength(0);
+  });
+
+  it('有効のとき、2行目だけの帯をグリッドより前に置く', () => {
+    const layoutWithShading = shadedLayout();
+    const result = withSvgDocument(() => buildPageSvg(
+      stubDoc(), threeRows(), 1, palette, 'PDF-Font', gridStyle, typography, layoutWithShading, 0,
+    ));
+
+    const bands = bandRects(result);
+    expect(bands).toHaveLength(1);
+    // 帯はSVGの先頭（＝すべてのグリッドより前）にある
+    expect(result.svg.children[0]).toBe(bands[0]);
+    expect(bands[0].getAttribute('fill')).toBe('#000000');
+    expect(Number(bands[0].getAttribute('width'))).toBe(
+      Number(result.svg.getAttribute('width')),
+    );
+
+    const rowPitch = layoutWithShading.gridBaseHeight + layoutWithShading.gridVerticalSpacing;
+    expect(Number(bands[0].getAttribute('y')))
+      .toBeCloseTo(rowPitch - layoutWithShading.gridVerticalSpacing / 2, 6);
+    expect(Number(bands[0].getAttribute('height')))
+      .toBeCloseTo(layoutWithShading.gridBaseHeight + layoutWithShading.gridVerticalSpacing, 6);
+  });
+
+  it('最終行が偶数行でも帯はブロックの下端を越えない', () => {
+    const layoutWithShading = shadedLayout();
+    const result = withSvgDocument(() => buildPageSvg(
+      stubDoc(),
+      threeRows().slice(0, 2),
+      1,
+      palette,
+      'PDF-Font',
+      gridStyle,
+      typography,
+      layoutWithShading,
+      0,
+    ));
+
+    const [band] = bandRects(result);
+    const svgHeight = Number(result.svg.getAttribute('height'));
+    expect(Number(band.getAttribute('y')) + Number(band.getAttribute('height')))
+      .toBeCloseTo(svgHeight, 6);
+  });
+
+  it('網掛け行では鍵盤の面が同じ割合だけ暗くなり、枠・記号は変わらない', () => {
+    const rows = [
+      [{ grid: { keys: [0], layer2Keys: [], text: '' }, index: 0 }],
+      [{ grid: { keys: [0], layer2Keys: [], text: '' }, index: 1 }],
+    ];
+    const result = withSvgDocument(() => buildPageSvg(
+      stubDoc(), rows, 1, palette, 'PDF-Font', gridStyle, typography, shadedLayout(), 0,
+    ));
+
+    const grids = result.svg.children.filter((child) => child.nodeName === 'g');
+    const fills = grids.map((group) => cellRects({ svg: { children: [group] } })
+      .map((rect) => rect.getAttribute('fill')));
+    const strokes = grids.map((group) => cellRects({ svg: { children: [group] } })
+      .map((rect) => rect.getAttribute('stroke')));
+
+    // 1行目は素のパレット、2行目（偶数行）は暗くした面
+    expect(fills[0]).toContain(palette.cellFill);
+    expect(fills[1]).not.toContain(palette.cellFill);
+    expect(fills[1].every((fill) => fill !== undefined && fill !== null)).toBe(true);
+    // 押鍵の面も暗くする
+    expect(fills[0]).toContain(palette.cellFillHighlight);
+    expect(fills[1]).not.toContain(palette.cellFillHighlight);
+    // 枠線は両方の行で同じ
+    expect(strokes[1]).toEqual(strokes[0]);
+  });
+
+  it('暗い紙面色では帯の半透明度を上げる', () => {
+    const dark = buildPdfPalette(PDF_PRESETS.winterDark);
+    const light = withSvgDocument(() => buildPageSvg(
+      stubDoc(), threeRows(), 1, palette, 'PDF-Font', gridStyle, typography, shadedLayout(), 0,
+    ));
+    const shaded = withSvgDocument(() => buildPageSvg(
+      stubDoc(), threeRows(), 1, dark, 'PDF-Font', gridStyle, typography, shadedLayout(), 0,
+    ));
+
+    expect(Number(bandRects(shaded)[0].getAttribute('opacity')))
+      .toBeGreaterThan(Number(bandRects(light)[0].getAttribute('opacity')));
+  });
 
   it('無音かつ無歌詞のグリッドは通常色のまま全体を50%不透明にする', () => {
     const result = withSvgDocument(() => buildPageSvg(

@@ -8,6 +8,8 @@ import {
   DEFAULT_FONT_WEIGHT_ID,
   DEFAULT_GRID_NUMBER_DISPLAY_ID,
   DEFAULT_SHEET_LAYOUT_ID,
+  DEFAULT_COLUMNS_PER_PAGE_ID,
+  DEFAULT_ROW_SHADING_ID,
   DEFAULT_SCORE_INFO_DESIGN_ID,
   DEFAULT_MASTHEAD_DIRECTION_ID,
   DEFAULT_TEMPO_VALUE_MODE_ID,
@@ -33,7 +35,8 @@ import {
  *                      maxRowsPerPage, fontWeightId, lyricSizePercent,
  *                      gridNumberSizePercent, pageNumberFontSizePt,
  *                      gridNumberDisplayId,
- *                      sheetLayoutId, pageMarginId, gridGapId, gridStyleId,
+ *                      sheetLayoutId, columnsPerPageId, rowShadingId,
+ *                      pageMarginId, gridGapId, gridStyleId,
  *                      scoreInfoDesignId, mastheadDirectionId,
  *                      gridStyleCustom, custom }
  *   - 未保存・壊れたJSON・null・配列は既定値
@@ -88,6 +91,8 @@ const DEFAULTS = {
   gridNumberDisplayId: DEFAULT_GRID_NUMBER_DISPLAY_ID,
   pageNumberFontSizePt: pdfConfig.pageNumberFontSizePt,
   sheetLayoutId: DEFAULT_SHEET_LAYOUT_ID,
+  columnsPerPageId: DEFAULT_COLUMNS_PER_PAGE_ID,
+  rowShadingId: DEFAULT_ROW_SHADING_ID,
   scoreInfoDesignId: DEFAULT_SCORE_INFO_DESIGN_ID,
   mastheadDirectionId: DEFAULT_MASTHEAD_DIRECTION_ID,
   tempoValueModeId: DEFAULT_TEMPO_VALUE_MODE_ID,
@@ -130,6 +135,8 @@ describe('loadPdfPrefs', () => {
         gridNumberDisplayId: 'none',
         pageNumberFontSizePt: 14,
         sheetLayoutId: 'double',
+        columnsPerPageId: 'col8',
+        rowShadingId: 'even',
         scoreInfoDesignId: 'cover',
         mastheadDirectionId: 'right',
         tempoValueModeId: 'custom',
@@ -159,6 +166,8 @@ describe('loadPdfPrefs', () => {
       gridNumberDisplayId: 'none',
       pageNumberFontSizePt: 14,
       sheetLayoutId: 'double',
+      columnsPerPageId: 'col8',
+      rowShadingId: 'even',
       scoreInfoDesignId: 'cover',
       mastheadDirectionId: 'right',
       tempoValueModeId: 'custom',
@@ -232,13 +241,21 @@ describe('loadPdfPrefs', () => {
   it('存在しないidはそのキーだけ既定値に落ちる', () => {
     localStorage.setItem(
       PDF_PREFS_STORAGE_KEY,
-      JSON.stringify({ presetId: 'doesNotExist', fontId: 'mincho', sheetLayoutId: 'triple' }),
+      JSON.stringify({
+        presetId: 'doesNotExist',
+        fontId: 'mincho',
+        sheetLayoutId: 'triple',
+        columnsPerPageId: 'col9',
+        rowShadingId: 'odd',
+      }),
     );
     expect(loadPdfPrefs()).toEqual({
       ...DEFAULTS,
       presetId: DEFAULT_PRESET_ID,
       fontId: 'mincho',
       sheetLayoutId: DEFAULT_SHEET_LAYOUT_ID,
+      columnsPerPageId: DEFAULT_COLUMNS_PER_PAGE_ID,
+      rowShadingId: DEFAULT_ROW_SHADING_ID,
     });
   });
 
@@ -560,6 +577,8 @@ describe('savePdfPrefs', () => {
       gridNumberDisplayId: 'none',
       pageNumberFontSizePt: 12,
       sheetLayoutId: 'double',
+      columnsPerPageId: 'col5',
+      rowShadingId: 'even',
       scoreInfoDesignId: 'masthead',
       mastheadDirectionId: 'right',
       tempoValueModeId: 'custom',
@@ -592,6 +611,8 @@ describe('savePdfPrefs', () => {
       gridNumberDisplayId: 'none',
       pageNumberFontSizePt: 12,
       sheetLayoutId: 'double',
+      columnsPerPageId: 'col5',
+      rowShadingId: 'even',
       scoreInfoDesignId: 'masthead',
       mastheadDirectionId: 'right',
       tempoValueModeId: 'custom',

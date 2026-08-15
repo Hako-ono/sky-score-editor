@@ -14,6 +14,8 @@ import {
   PDF_LAYOUT_RANGES,
   PDF_GRID_NUMBER_DISPLAYS,
   PDF_SHEET_LAYOUTS,
+  PDF_COLUMNS_PER_PAGE,
+  PDF_ROW_SHADINGS,
   PDF_SCORE_INFO_DESIGNS,
   PDF_MASTHEAD_DIRECTIONS,
   PDF_TEMPO_VALUE_MODES,
@@ -46,6 +48,7 @@ import {
   BACKGROUND_IMAGE_OPACITY_MAX,
   BACKGROUND_IMAGE_OPACITY_STEP,
 } from '../lib/backgroundImage.js';
+import { resolveColumnsPerPage } from '../lib/layout.js';
 import { ChevronIcon } from './icons.jsx';
 
 // カスタム配色の入力ラベル。簡易モードで見せる3つ（bg/ink/line）を先頭に置く
@@ -419,6 +422,18 @@ export default function Toolbar({
     setLocalCustomTempoValue(value.toString());
     onSetPdfPrefs({ ...pdfPrefs, customTempoValue: value });
   };
+
+  // 「拍子に合わせる」が示す実際の列数を、PDF出力と同じ関数から出す。
+  const autoColumns = resolveColumnsPerPage('auto', bitsPerPage);
+  // 同じ結果になる固定列（4拍子なら「4列」）は選択肢から省くが、保存済みの
+  // 設定がその固定列のときだけは残す。消すとselectの選択が外れて空欄に見え、
+  // 実際に保存されている値と画面が食い違うため。
+  const columnsPerPageOptions = useMemo(
+    () => Object.entries(PDF_COLUMNS_PER_PAGE).filter(
+      ([id, option]) => option.columns !== autoColumns || pdfPrefs.columnsPerPageId === id,
+    ),
+    [autoColumns, pdfPrefs.columnsPerPageId],
+  );
 
   const isCustomPreset = pdfPrefs.presetId === CUSTOM_PRESET_ID;
   // 詳細色を編集する状態は、そのページを開いている間だけ保持する。
@@ -1601,6 +1616,37 @@ export default function Toolbar({
                   }}
                 />
               </div>
+
+              <div className="toolbar__group field field--stack field--compact toolbar__layout-columns">
+                <label htmlFor="pdf-columns-per-page">1ページの列数</label>
+                <select
+                  id="pdf-columns-per-page"
+                  className="text-input"
+                  value={pdfPrefs.columnsPerPageId}
+                  onChange={(e) => onSetPdfPrefs({ ...pdfPrefs, columnsPerPageId: e.target.value })}
+                >
+                  {columnsPerPageOptions.map(([id, option]) => (
+                    <option key={id} value={id}>
+                      {/* 拍子に合わせる場合の実際の列数は、PDF出力と同じ関数から出す */}
+                      {option.columns === null
+                        ? `${option.label}（${autoColumns}列）`
+                        : option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 見た目はグリッド番号のトグルと同じ。gridの1セルを占めるため、
+                  fieldsetのままでも他のプルダウンと同じ列に収まる */}
+              <SegmentedRadioField
+                className="toolbar__layout-row-shading"
+                legend="偶数行を暗くする"
+                ariaLabel="偶数行の網掛け"
+                name="pdf-row-shading"
+                value={pdfPrefs.rowShadingId}
+                options={PDF_ROW_SHADINGS}
+                onChange={(rowShadingId) => onSetPdfPrefs({ ...pdfPrefs, rowShadingId })}
+              />
 
               <div className="toolbar__group field field--stack field--compact toolbar__layout-margin">
                 <label htmlFor="pdf-page-margin">余白</label>

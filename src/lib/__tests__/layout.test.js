@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
-import { splitIntoRows, paginateRows, columnsForBits } from '../layout.js';
+import {
+  splitIntoRows,
+  paginateRows,
+  columnsForBits,
+  resolveColumnsPerPage,
+} from '../layout.js';
 
 /* ============================================================
  * この関数が満たすべき契約
@@ -374,4 +379,45 @@ describe('columnsForBits', () => {
       expect(columnsForBits(bitsPerPage)).toBe(4);
     },
   );
+});
+
+/* ============================================================
+ * resolveColumnsPerPage(columnsPerPageId, bitsPerPage) -> number
+ * ------------------------------------------------------------
+ * PDF専用の「1ページの列数」設定を実際の列数へ解決する。設定UI
+ * （Toolbar.jsx）とPDF出力（pdfExport.js）が同じ値を使うための唯一の
+ * 導出元であり、'auto' のときだけ従来どおり拍子から決める。
+ * idは共有URL・QR・localStorage経由で外部から届きうるため（信頼境界）、
+ * 未知のidは 'auto' へ落ちる。
+ * ============================================================ */
+
+describe('resolveColumnsPerPage', () => {
+  it("'auto' は拍子から決める従来の挙動と一致する", () => {
+    expect(resolveColumnsPerPage('auto', 12)).toBe(columnsForBits(12));
+    expect(resolveColumnsPerPage('auto', 16)).toBe(columnsForBits(16));
+    expect(resolveColumnsPerPage('auto', 4)).toBe(columnsForBits(4));
+  });
+
+  it('固定値は拍子にかかわらずその列数になる', () => {
+    expect(resolveColumnsPerPage('col2', 12)).toBe(2);
+    expect(resolveColumnsPerPage('col8', 12)).toBe(8);
+    expect(resolveColumnsPerPage('col8', 16)).toBe(8);
+  });
+
+  it.each(['col1', 'col9', 'col0', '4', 4, '', undefined, null, {}, [], '__proto__', 'toString'])(
+    '%p のような未知のidは auto として扱う',
+    (columnsPerPageId) => {
+      expect(resolveColumnsPerPage(columnsPerPageId, 12)).toBe(3);
+      expect(resolveColumnsPerPage(columnsPerPageId, 16)).toBe(4);
+    },
+  );
+
+  it('splitIntoRows へ渡すと、その列数で折り返して1件も失われない', () => {
+    const grids = makeGrids(50);
+    const rows = splitIntoRows(grids, resolveColumnsPerPage('col8', 16));
+    expect(rows.length).toBe(7);
+    expect(rows[0]).toHaveLength(8);
+    expect(rows.at(-1)).toHaveLength(2);
+    expect(rows.flat()).toHaveLength(50);
+  });
 });

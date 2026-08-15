@@ -4,6 +4,11 @@
  * 画面表示・PDF ページ割りの両方で使う純粋関数。
  */
 
+import {
+  PDF_COLUMNS_PER_PAGE,
+  normalizeColumnsPerPageId,
+} from '../constants/config.js';
+
 /**
  * 列数・行数の指定値を正の整数へ正規化する。
  * columns / maxRows は外部 JSON に由来する値が渡ってくることがあり得るため、
@@ -29,6 +34,19 @@ function normalizePositiveInt(value, fallback) {
  */
 export function columnsForBits(bitsPerPage) {
   return bitsPerPage === 12 ? 3 : 4;
+}
+
+/**
+ * PDFの「1ページの列数」設定を実際の列数へ解決する。設定UIの表示（Toolbar.jsx）と
+ * 出力（pdfExport.js）が同じ値を使えるよう、この唯一の導出元とし、呼び出し側ごとに
+ * 「auto なら拍子から」の分岐を書き直さない。
+ *
+ * 画面のグリッド一覧はこの設定を参照しない（PDF専用の紙面設定であり、
+ * 編集中の見え方は拍子のままにしたいため）。
+ */
+export function resolveColumnsPerPage(columnsPerPageId, bitsPerPage) {
+  const { columns } = PDF_COLUMNS_PER_PAGE[normalizeColumnsPerPageId(columnsPerPageId)];
+  return columns ?? columnsForBits(bitsPerPage);
 }
 
 /**

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  DEFAULT_COLUMNS_PER_PAGE_ID,
+  DEFAULT_ROW_SHADING_ID,
   DEFAULT_GRID_GAP_ID,
   DEFAULT_PAGE_MARGIN_ID,
 } from '../../constants/config.js';
@@ -10,22 +12,40 @@ describe('resolvePdfDensity', () => {
     expect(resolvePdfDensity()).toEqual({
       pageMarginId: DEFAULT_PAGE_MARGIN_ID,
       gridGapId: DEFAULT_GRID_GAP_ID,
+      columnsPerPageId: DEFAULT_COLUMNS_PER_PAGE_ID,
+      rowShadingId: DEFAULT_ROW_SHADING_ID,
       marginPt: 40,
       gridHorizontalSpacing: 30,
       gridVerticalSpacing: 80,
     });
-    expect(resolvePdfDensity({ pageMarginId: 'unknown', gridGapId: 42 })).toEqual(
-      resolvePdfDensity(),
-    );
+    expect(resolvePdfDensity({
+      pageMarginId: 'unknown',
+      gridGapId: 42,
+      columnsPerPageId: 'col9',
+      rowShadingId: 'odd',
+    })).toEqual(resolvePdfDensity());
   });
 
   it('余白と間隔を独立して解決する', () => {
     expect(resolvePdfDensity({ pageMarginId: 'wide', gridGapId: 'tight' })).toEqual({
       pageMarginId: 'wide',
       gridGapId: 'tight',
+      columnsPerPageId: DEFAULT_COLUMNS_PER_PAGE_ID,
+      rowShadingId: DEFAULT_ROW_SHADING_ID,
       marginPt: 64,
       gridHorizontalSpacing: 12,
       gridVerticalSpacing: 45,
+    });
+  });
+
+  it('列数・網掛けのidは余白・間隔と独立に保つ', () => {
+    expect(resolvePdfDensity({ columnsPerPageId: 'col8' })).toEqual({
+      ...resolvePdfDensity(),
+      columnsPerPageId: 'col8',
+    });
+    expect(resolvePdfDensity({ rowShadingId: 'even' })).toEqual({
+      ...resolvePdfDensity(),
+      rowShadingId: 'even',
     });
   });
 });

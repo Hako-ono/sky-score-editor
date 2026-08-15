@@ -6,6 +6,8 @@ import {
   PDF_FONT_WEIGHTS,
   PDF_GRID_GAPS,
   PDF_GRID_NUMBER_DISPLAYS,
+  PDF_COLUMNS_PER_PAGE,
+  PDF_ROW_SHADINGS,
   PDF_PAGE_MARGINS,
   PDF_PAGE_NUMBER_FORMATS,
   PDF_PAGE_NUMBER_POSITIONS,
@@ -37,38 +39,106 @@ export {
   MAX_PDF_PRESET_MEMO_CODE_POINTS,
 } from './pdfPresetConstants.js';
 
-const CODE_PREFIX = 'SKYPDF1';
-const CODE_RE = /^SKYPDF1\.[GJ]\.[A-Za-z0-9_-]+$/;
+// 外部形式のversionは、コード接頭辞の数字と揃える。
+const EXTERNAL_FORMAT_VERSION = 2;
+const CODE_PREFIX = 'SKYPDF2';
+const CODE_RE = /^SKYPDF2\.[GJ]\.[A-Za-z0-9_-]+$/;
 const BASE64URL_RE = /^[A-Za-z0-9_-]+$/;
 const CONTROL_CHARACTER_RE = /[\u0000-\u001F\u007F-\u009F]/g;
 
-const EXTERNAL_GROUP_KEYS = {
-  design: ['presetId', 'custom', 'gridStyleId', 'gridStyleCustom', 'gridNumberDisplayId'],
-  typography: [
-    'fontId',
-    'fontWeightId',
-    'titleFontSizePt',
-    'metaFontSizePt',
-    'lyricSizePercent',
-    'gridNumberSizePercent',
-  ],
-  scoreInfo: [
-    'scoreInfoDesignId',
-    'mastheadDirectionId',
-    'tempoValueModeId',
-    'customTempoValue',
-    'keyNotationId',
-    'keyModeNotationId',
-  ],
-  page: [
-    'pageNumberFormatId',
-    'pageNumberPositionId',
-    'pageNumberFontSizePt',
-    'runningHeaderId',
-    'footerCreditId',
-  ],
-  paper: ['sheetLayoutId', 'maxRowsPerPage', 'pageMarginId', 'gridGapId'],
-};
+/**
+ * 外部形式（version 2）の唯一の定義表。groupと各設定へ短いコードを与える。
+ *
+ * version 1 は意味の読める長いキー名（`"columnsPerPageId"` 等）をそのまま
+ * 並べていたが、設定が増えるにつれQRが大きくなり、`qr@0.6.0` のデコーダが
+ * 読み取りに失敗する領域（QRサイズ129以上）へ入った。キー名は1回しか
+ * 出現せずgzipの繰り返し圧縮が効かないため、短縮がそのまま圧縮後のサイズに
+ * 効く。
+ *
+ * **一度決めたコードは変えないこと。** 値の意味はコードではなく内部キー名の
+ * 側にあり、コードを付け替えると、既に書き出された設定URL・QRが黙って別の
+ * 設定として読まれる。設定を足すときは同じgroup内の未使用コードを新たに使う。
+ */
+const EXTERNAL_GROUPS = [
+  {
+    id: 'design',
+    code: 'd',
+    label: 'デザイン',
+    keys: {
+      presetId: 'p',
+      custom: 'c',
+      gridStyleId: 'g',
+      gridStyleCustom: 'k',
+      gridNumberDisplayId: 'n',
+    },
+  },
+  {
+    id: 'typography',
+    code: 't',
+    label: '文字',
+    keys: {
+      fontId: 'f',
+      fontWeightId: 'w',
+      titleFontSizePt: 't',
+      metaFontSizePt: 'm',
+      lyricSizePercent: 'l',
+      gridNumberSizePercent: 'n',
+    },
+  },
+  {
+    id: 'scoreInfo',
+    code: 'i',
+    label: '曲情報',
+    keys: {
+      scoreInfoDesignId: 'd',
+      mastheadDirectionId: 'h',
+      tempoValueModeId: 't',
+      customTempoValue: 'c',
+      keyNotationId: 'k',
+      keyModeNotationId: 'm',
+    },
+  },
+  {
+    id: 'page',
+    code: 'p',
+    label: 'ページ',
+    keys: {
+      pageNumberFormatId: 'f',
+      pageNumberPositionId: 'p',
+      pageNumberFontSizePt: 's',
+      runningHeaderId: 'h',
+      footerCreditId: 'c',
+    },
+  },
+  {
+    id: 'paper',
+    code: 'a',
+    label: '紙面',
+    keys: {
+      sheetLayoutId: 's',
+      maxRowsPerPage: 'r',
+      columnsPerPageId: 'c',
+      rowShadingId: 'z',
+      pageMarginId: 'm',
+      gridGapId: 'g',
+    },
+  },
+];
+
+/**
+ * カスタム配色（8色）とカスタム形状（6値）は、キー名を持たない固定順の配列で
+ * 持ち運ぶ。この2つだけで version 1 のJSONの4分の1を占めていた。
+ * **並び順を入れ替えないこと**（色や寸法が入れ替わって読まれる）。
+ */
+const CUSTOM_SEED_ORDER = [
+  'bg', 'ink', 'line', 'surface', 'accent', 'accentLine', 'accent2', 'accentLine2',
+];
+const GRID_STYLE_CUSTOM_ORDER = [
+  'outerRadius', 'cellRadius', 'symbolRadius',
+  'outerStrokeWidth', 'cellStrokeWidth', 'symbolStrokeWidth',
+];
+// 8色すべてが #RRGGBB 形式なので、先頭の # を外して運ぶ。
+const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
 const BLACK_KEY_NOTATION_BY_PITCH = {
   1: { major: 'flat', minor: 'sharp' },
@@ -78,33 +148,11 @@ const BLACK_KEY_NOTATION_BY_PITCH = {
   10: { major: 'flat', minor: 'flat' },
 };
 
-const DIFF_GROUPS = [
-  {
-    id: 'design',
-    label: 'デザイン',
-    keys: EXTERNAL_GROUP_KEYS.design,
-  },
-  {
-    id: 'typography',
-    label: '文字',
-    keys: EXTERNAL_GROUP_KEYS.typography,
-  },
-  {
-    id: 'scoreInfo',
-    label: '曲情報',
-    keys: EXTERNAL_GROUP_KEYS.scoreInfo,
-  },
-  {
-    id: 'page',
-    label: 'ページ',
-    keys: EXTERNAL_GROUP_KEYS.page,
-  },
-  {
-    id: 'paper',
-    label: '紙面',
-    keys: EXTERNAL_GROUP_KEYS.paper,
-  },
-];
+const DIFF_GROUPS = EXTERNAL_GROUPS.map(({ id, label, keys }) => ({
+  id,
+  label,
+  keys: Object.keys(keys),
+}));
 
 export class PdfPresetCodecError extends Error {
   constructor(code, message) {
@@ -268,59 +316,72 @@ async function gunzipBytes(bytes) {
   }
 }
 
-function buildExternalSettings(prefs) {
-  return {
-    design: {
-      presetId: prefs.presetId,
-      custom: prefs.custom,
-      gridStyleId: prefs.gridStyleId,
-      gridStyleCustom: prefs.gridStyleCustom,
-      gridNumberDisplayId: prefs.gridNumberDisplayId,
-    },
-    typography: {
-      fontId: prefs.fontId,
-      fontWeightId: prefs.fontWeightId,
-      titleFontSizePt: prefs.titleFontSizePt,
-      metaFontSizePt: prefs.metaFontSizePt,
-      lyricSizePercent: prefs.lyricSizePercent,
-      gridNumberSizePercent: prefs.gridNumberSizePercent,
-    },
-    scoreInfo: {
-      scoreInfoDesignId: prefs.scoreInfoDesignId,
-      mastheadDirectionId: prefs.mastheadDirectionId,
-      tempoValueModeId: prefs.tempoValueModeId,
-      customTempoValue: prefs.customTempoValue,
-      keyNotationId: prefs.keyNotationId,
-      keyModeNotationId: prefs.keyModeNotationId,
-    },
-    page: {
-      pageNumberFormatId: prefs.pageNumberFormatId,
-      pageNumberPositionId: prefs.pageNumberPositionId,
-      pageNumberFontSizePt: prefs.pageNumberFontSizePt,
-      runningHeaderId: prefs.runningHeaderId,
-      footerCreditId: prefs.footerCreditId,
-    },
-    paper: {
-      sheetLayoutId: prefs.sheetLayoutId,
-      maxRowsPerPage: prefs.maxRowsPerPage,
-      pageMarginId: prefs.pageMarginId,
-      gridGapId: prefs.gridGapId,
-    },
-  };
+function encodeCustomSeed(seed) {
+  if (!isPlainObject(seed)) return undefined;
+  return CUSTOM_SEED_ORDER.map((key) => (
+    HEX_COLOR_RE.test(seed[key]) ? String(seed[key]).slice(1) : seed[key]
+  ));
 }
 
+function decodeCustomSeed(value) {
+  if (!Array.isArray(value)) return value;
+  // 値そのものの検証は sanitizeCustomSeed（config.js）に任せ、ここは
+  // 「固定順の配列をキー名へ戻す」ことだけを行う。
+  return Object.fromEntries(CUSTOM_SEED_ORDER.map((key, index) => [
+    key,
+    typeof value[index] === 'string' ? `#${value[index]}` : value[index],
+  ]));
+}
+
+function encodeGridStyleCustom(custom) {
+  if (!isPlainObject(custom)) return undefined;
+  return GRID_STYLE_CUSTOM_ORDER.map((key) => custom[key]);
+}
+
+function decodeGridStyleCustom(value) {
+  if (!Array.isArray(value)) return value;
+  return Object.fromEntries(
+    GRID_STYLE_CUSTOM_ORDER.map((key, index) => [key, value[index]]),
+  );
+}
+
+/** 内部キー名の設定から、外部コードだけを持つ入れ子オブジェクトへ変換する。 */
+function buildExternalSettings(prefs) {
+  const settings = {};
+  for (const group of EXTERNAL_GROUPS) {
+    const encoded = {};
+    for (const [key, code] of Object.entries(group.keys)) {
+      encoded[code] = key === 'custom'
+        ? encodeCustomSeed(prefs[key])
+        : key === 'gridStyleCustom'
+          ? encodeGridStyleCustom(prefs[key])
+          : prefs[key];
+    }
+    settings[group.code] = encoded;
+  }
+  return settings;
+}
+
+/** 外部コードの設定を内部キー名の平坦なオブジェクトへ戻す。 */
 function readExternalSettings(settings) {
   if (!isPlainObject(settings)) {
     throwCodecError('invalid-settings', '設定データの形式が正しくありません。');
   }
 
   const flat = {};
-  for (const [group, keys] of Object.entries(EXTERNAL_GROUP_KEYS)) {
-    const source = settings[group];
+  for (const group of EXTERNAL_GROUPS) {
+    const source = settings[group.code];
     if (!isPlainObject(source)) {
       throwCodecError('invalid-settings-group', '設定データの形式が正しくありません。');
     }
-    for (const key of keys) flat[key] = source[key];
+    for (const [key, code] of Object.entries(group.keys)) {
+      const value = source[code];
+      flat[key] = key === 'custom'
+        ? decodeCustomSeed(value)
+        : key === 'gridStyleCustom'
+          ? decodeGridStyleCustom(value)
+          : value;
+    }
   }
   return flat;
 }
@@ -354,32 +415,32 @@ function parseEnvelope(jsonText, scoreContext) {
   if (!isPlainObject(envelope)) {
     throwCodecError('invalid-json', '設定データの形式が正しくありません。');
   }
-  if (envelope.version !== 1) {
-    throwCodecError('unsupported-version', '新しいバージョンの設定です。');
+  if (envelope.v !== EXTERNAL_FORMAT_VERSION) {
+    throwCodecError('unsupported-version', '対応していないバージョンの設定です。');
   }
 
-  const flat = readExternalSettings(envelope.settings);
+  const flat = readExternalSettings(envelope.s);
   const importedPrefs = normalizePdfPrefs(applyImportContext(flat, scoreContext));
 
   return {
-    version: 1,
-    name: sanitizeSharedText(envelope.name, MAX_PDF_PRESET_NAME_CODE_POINTS, '名前'),
-    memo: sanitizeSharedText(envelope.memo, MAX_PDF_PRESET_MEMO_CODE_POINTS, 'メモ'),
+    version: EXTERNAL_FORMAT_VERSION,
+    name: sanitizeSharedText(envelope.n, MAX_PDF_PRESET_NAME_CODE_POINTS, '名前'),
+    memo: sanitizeSharedText(envelope.m, MAX_PDF_PRESET_MEMO_CODE_POINTS, 'メモ'),
     prefs: importedPrefs,
   };
 }
 
 /**
- * PDF設定を意味のある外部キー名のenvelopeへ固定順で変換する。
+ * PDF設定を短い外部コードのenvelopeへ固定順で変換する。
  * CompressionStreamが使える環境では常にgzip形式を返す。
  */
 export async function encodePdfPreset({ name, memo, prefs } = {}) {
   const normalizedPrefs = normalizePdfPrefs(prefs);
   const envelope = {
-    version: 1,
-    name: sanitizeSharedText(name, MAX_PDF_PRESET_NAME_CODE_POINTS, '名前'),
-    memo: sanitizeSharedText(memo, MAX_PDF_PRESET_MEMO_CODE_POINTS, 'メモ'),
-    settings: buildExternalSettings(normalizedPrefs),
+    v: EXTERNAL_FORMAT_VERSION,
+    n: sanitizeSharedText(name, MAX_PDF_PRESET_NAME_CODE_POINTS, '名前'),
+    m: sanitizeSharedText(memo, MAX_PDF_PRESET_MEMO_CODE_POINTS, 'メモ'),
+    s: buildExternalSettings(normalizedPrefs),
   };
   const jsonBytes = encodeUtf8(JSON.stringify(envelope));
   if (jsonBytes.byteLength > MAX_PDF_PRESET_JSON_BYTES) {
@@ -411,8 +472,10 @@ export async function decodePdfPresetCode(code, scoreContext) {
   assertInputLength(code);
   const normalizedCode = code.trim();
   const parts = normalizedCode.split('.');
+  // 旧version（SKYPDF1）と将来のversionは、どちらもこの形式では読めない。
+  // 読めないまま既定値へ落として黙って別の設定を適用しないよう、明示的に断る。
   if (parts.length === 3 && /^SKYPDF\d+$/u.test(parts[0]) && parts[0] !== CODE_PREFIX) {
-    throwCodecError('unsupported-version', '新しいバージョンの設定です。');
+    throwCodecError('unsupported-version', '対応していないバージョンの設定です。');
   }
   validateDecodeParts(parts);
 
@@ -539,6 +602,10 @@ function formatDiffValue(key, value, scoreContext) {
       return labelFrom(PDF_SHEET_LAYOUTS, value);
     case 'maxRowsPerPage':
       return `${value}行`;
+    case 'columnsPerPageId':
+      return labelFrom(PDF_COLUMNS_PER_PAGE, value);
+    case 'rowShadingId':
+      return labelFrom(PDF_ROW_SHADINGS, value);
     case 'pageMarginId':
       return labelFrom(PDF_PAGE_MARGINS, value);
     case 'gridGapId':
@@ -584,6 +651,8 @@ export function buildPdfPresetDiff(currentPrefs, importedPrefs, scoreContext) {
           footerCreditId: 'フッター',
           sheetLayoutId: '面付け',
           maxRowsPerPage: '1ページの行数',
+          columnsPerPageId: '1ページの列数',
+          rowShadingId: '偶数行を暗くする',
           pageMarginId: '余白',
           gridGapId: 'グリッド間隔',
         }[key],

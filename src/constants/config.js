@@ -559,7 +559,89 @@ export const PDF_SHEET_LAYOUTS = {
 
 export const DEFAULT_SHEET_LAYOUT_ID = 'single';
 
-/** 旧PDF設定の読み込みと内部のページ計画で使うレイアウトid。 */
+/**
+ * PDF本文の1行あたりの列数。`auto` は拍子から決める従来の挙動
+ * （`columnsForBits`。4拍子・拍子なしは4列、3拍子は3列）で、固定値を選ぶと
+ * 拍子にかかわらずその列数で折り返す。
+ *
+ * 列数を増やしてもグリッドブロック全体の縮尺が下がるだけで紙面からはみ出さない
+ * （縮尺は `contentWidthPt / svgWidth` と `contentHeightPt / svgHeight` の
+ * 小さい方。行数・余白・グリッド間隔の組み合わせも同じ1つの式で吸収される）。
+ * 一方、列数を減らすと行数＝論理ページ数が増える。下限を2列に留めているのは、
+ * 1列にすると3000グリッドで行数が3000になり、ページ数の課題を一段深くする
+ * ため。
+ *
+ * idに数字だけを使うと Object.entries が整数キーを先頭へ並べ替え、selectの
+ * 先頭が `auto` でなくなる。表示順を保つため接頭辞付きのidにしている。
+ */
+export const PDF_COLUMNS_PER_PAGE = {
+  auto: { label: '拍子に合わせる', columns: null },
+  col2: { label: '2列', columns: 2 },
+  col3: { label: '3列', columns: 3 },
+  col4: { label: '4列', columns: 4 },
+  col5: { label: '5列', columns: 5 },
+  col6: { label: '6列', columns: 6 },
+  col7: { label: '7列', columns: 7 },
+  col8: { label: '8列', columns: 8 },
+};
+
+export const DEFAULT_COLUMNS_PER_PAGE_ID = 'auto';
+
+export function normalizeColumnsPerPageId(value) {
+  return Object.prototype.hasOwnProperty.call(PDF_COLUMNS_PER_PAGE, value)
+    ? value
+    : DEFAULT_COLUMNS_PER_PAGE_ID;
+}
+
+/**
+ * 偶数行の網掛け。行が多い紙面でも、どこまでが同じ行かを追いやすくするための
+ * 補助であり、既定は無効。
+ */
+export const PDF_ROW_SHADINGS = {
+  none: { label: '無効' },
+  even: { label: '有効' },
+};
+
+export const DEFAULT_ROW_SHADING_ID = 'none';
+
+export function normalizeRowShadingId(value) {
+  return Object.prototype.hasOwnProperty.call(PDF_ROW_SHADINGS, value)
+    ? value
+    : DEFAULT_ROW_SHADING_ID;
+}
+
+/**
+ * 網掛けは紙面色から作った中間色ではなく、黒の半透明を重ねて描く。
+ * 背景画像の上でも同じ「暗くする」効果になり、画像を塗りつぶさない。ただし
+ * 暗い紙面色では同じ半透明度だと差が出ないので、明暗で2段階だけ持つ
+ * （判定は既存の isDarkSeedBg と共有する）。
+ */
+export const PDF_ROW_SHADING_COLOR = '#000000';
+export const PDF_ROW_SHADING_OPACITY = { light: 0.1, dark: 0.36 };
+
+export function rowShadingOpacity(pageBackground) {
+  return isDarkSeedBg(pageBackground)
+    ? PDF_ROW_SHADING_OPACITY.dark
+    : PDF_ROW_SHADING_OPACITY.light;
+}
+
+/**
+ * 網掛け行のためのパレット。帯は塗りの背後にあり、半透明な鍵盤の面（通常鍵・
+ * 押鍵）には効かないため、行全体が同じだけ暗く見えるよう面の色にも同じ黒を
+ * 同じ割合で混ぜる（半透明を重ねたのと同じ結果になる）。
+ *
+ * 枠線・記号・番号・歌詞は暗くしない。面と一緒に暗くすると、行の中での
+ * コントラストは変わらないまま全体が沈むだけで、可読性が落ちるため。
+ */
+export function shadeRowPalette(palette, opacity) {
+  const shade = (color) => mixHex(color, PDF_ROW_SHADING_COLOR, opacity);
+  return {
+    ...palette,
+    cellFill: shade(palette.cellFill),
+    cellFillHighlight: shade(palette.cellFillHighlight),
+    cellFillHighlight2: shade(palette.cellFillHighlight2),
+  };
+}
 export const PDF_FIRST_PAGE_LAYOUTS = {
   editorial: { label: '左揃え' },
   classic: { label: '中央揃え' },

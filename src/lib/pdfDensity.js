@@ -1,5 +1,6 @@
 /**
- * PDF本文の余白・グリッド間隔を解決する純粋な設定関数。
+ * PDF本文の紙面設定（余白・グリッド間隔・列数・偶数行の網掛け）を
+ * 解決する純粋な設定関数。
  * UI、localStorage、PDF出力の各経路で同じ実効値を使うために分離している。
  */
 
@@ -8,6 +9,8 @@ import {
   PDF_GRID_GAPS,
   DEFAULT_PAGE_MARGIN_ID,
   DEFAULT_GRID_GAP_ID,
+  normalizeColumnsPerPageId,
+  normalizeRowShadingId,
 } from '../constants/config.js';
 
 function knownId(values, value, fallback) {
@@ -28,6 +31,10 @@ export function resolvePdfDensity(options = {}) {
   return {
     pageMarginId,
     gridGapId,
+    // 実際の列数は拍子にも依存するため、ここではidだけを確定させる。
+    // 数値への解決は layout.js の resolveColumnsPerPage に任せる。
+    columnsPerPageId: normalizeColumnsPerPageId(options.columnsPerPageId),
+    rowShadingId: normalizeRowShadingId(options.rowShadingId),
     marginPt: margin.marginPt,
     gridHorizontalSpacing: gap.horizontalPt,
     gridVerticalSpacing: gap.verticalPt,

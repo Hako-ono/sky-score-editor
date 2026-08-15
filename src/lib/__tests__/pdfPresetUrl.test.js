@@ -4,8 +4,8 @@ import { readPdfPresetFragment } from '../pdfPresetUrl.js';
 
 describe('pdfPresetUrl', () => {
   it('pdf-presetだけを読み取り、他のhash parameterを残す', () => {
-    expect(readPdfPresetFragment({ hash: '#foo=1&pdf-preset=SKYPDF1.J.eA&bar=日本語' }))
-      .toEqual({ value: 'SKYPDF1.J.eA', tooLarge: false, remainingHash: '#foo=1&bar=%E6%97%A5%E6%9C%AC%E8%AA%9E' });
+    expect(readPdfPresetFragment({ hash: '#foo=1&pdf-preset=SKYPDF2.J.eA&bar=日本語' }))
+      .toEqual({ value: 'SKYPDF2.J.eA', tooLarge: false, remainingHash: '#foo=1&bar=%E6%97%A5%E6%9C%AC%E8%AA%9E' });
   });
 
   it('上限超過値はメモリへ取り込まず、URLからも自動削除しない', () => {

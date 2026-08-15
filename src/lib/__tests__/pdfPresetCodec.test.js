@@ -43,7 +43,7 @@ function bytesToBase64Url(bytes) {
 
 function makeJsonCode(value) {
   const bytes = new globalThis.TextEncoder().encode(JSON.stringify(value));
-  return `SKYPDF1.J.${bytesToBase64Url(bytes)}`;
+  return `SKYPDF2.J.${bytesToBase64Url(bytes)}`;
 }
 
 async function makeGzipCode(text) {
@@ -65,7 +65,7 @@ async function makeGzipCode(text) {
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return `SKYPDF1.G.${bytesToBase64Url(bytes)}`;
+  return `SKYPDF2.G.${bytesToBase64Url(bytes)}`;
 }
 
 async function withoutCompressionStream(callback) {
@@ -92,6 +92,8 @@ const FULL_PREFS = normalizePdfPrefs({
   gridNumberDisplayId: 'none',
   pageNumberFontSizePt: 14,
   sheetLayoutId: 'double',
+  columnsPerPageId: 'col8',
+  rowShadingId: 'even',
   scoreInfoDesignId: 'masthead',
   mastheadDirectionId: 'right',
   tempoValueModeId: 'custom',
@@ -128,9 +130,9 @@ const FULL_PREFS = normalizePdfPrefs({
 describe('pdf preset codec', () => {
   it('既定設定をgzipでencode-decodeできる', async () => {
     const code = await encodePdfPreset({ name: '既定', memo: '確認用', prefs: DEFAULT_PREFS });
-    expect(code.startsWith('SKYPDF1.G.')).toBe(true);
+    expect(code.startsWith('SKYPDF2.G.')).toBe(true);
     await expect(decodePdfPresetCode(code, { pitchLevel: 0, keyMode: 'major' }))
-      .resolves.toEqual({ version: 1, name: '既定', memo: '確認用', prefs: DEFAULT_PREFS });
+      .resolves.toEqual({ version: 2, name: '既定', memo: '確認用', prefs: DEFAULT_PREFS });
   });
 
   it('全設定の値を5groupへ変換し、decode後に保持する', async () => {
@@ -142,45 +144,59 @@ describe('pdf preset codec', () => {
     const raw = globalThis.atob(code.split('.')[2].replace(/-/g, '+').replace(/_/g, '/'));
     const envelope = JSON.parse(raw);
 
-    expect(Object.keys(envelope)).toEqual(['version', 'name', 'memo', 'settings']);
-    expect(Object.keys(envelope.settings)).toEqual([
-      'design', 'typography', 'scoreInfo', 'page', 'paper',
-    ]);
-    expect(envelope.settings.design).toEqual({
-      presetId: 'winterDark',
-      custom: FULL_PREFS.custom,
-      gridStyleId: 'custom',
-      gridStyleCustom: FULL_PREFS.gridStyleCustom,
-      gridNumberDisplayId: 'none',
+    // 外部形式は短いコードだけを持つ（QRを小さく保つため）
+    expect(Object.keys(envelope)).toEqual(['v', 'n', 'm', 's']);
+    expect(envelope.v).toBe(2);
+    expect(Object.keys(envelope.s)).toEqual(['d', 't', 'i', 'p', 'a']);
+    expect(envelope.s.d).toEqual({
+      p: 'winterDark',
+      // カスタム配色は固定順の8要素・先頭の # なしで運ぶ
+      c: [
+        '101010', 'F0F0F0', '202020', '303030',
+        'E0A020', 'C08010', '2060E0', '1050C0',
+      ],
+      g: 'custom',
+      // カスタム形状は固定順の6要素
+      k: [
+        FULL_PREFS.gridStyleCustom.outerRadius,
+        FULL_PREFS.gridStyleCustom.cellRadius,
+        FULL_PREFS.gridStyleCustom.symbolRadius,
+        FULL_PREFS.gridStyleCustom.outerStrokeWidth,
+        FULL_PREFS.gridStyleCustom.cellStrokeWidth,
+        FULL_PREFS.gridStyleCustom.symbolStrokeWidth,
+      ],
+      n: 'none',
     });
-    expect(envelope.settings.typography).toEqual({
-      fontId: 'mincho',
-      fontWeightId: 'bold',
-      titleFontSizePt: 24,
-      metaFontSizePt: 14,
-      lyricSizePercent: 130,
-      gridNumberSizePercent: 140,
+    expect(envelope.s.t).toEqual({
+      f: 'mincho',
+      w: 'bold',
+      t: 24,
+      m: 14,
+      l: 130,
+      n: 140,
     });
-    expect(envelope.settings.scoreInfo).toEqual({
-      scoreInfoDesignId: 'masthead',
-      mastheadDirectionId: 'right',
-      tempoValueModeId: 'custom',
-      customTempoValue: 999,
-      keyNotationId: 'flat',
-      keyModeNotationId: 'traditional',
+    expect(envelope.s.i).toEqual({
+      d: 'masthead',
+      h: 'right',
+      t: 'custom',
+      c: 999,
+      k: 'flat',
+      m: 'traditional',
     });
-    expect(envelope.settings.page).toEqual({
-      pageNumberFormatId: 'current',
-      pageNumberPositionId: 'bottomOuter',
-      pageNumberFontSizePt: 14,
-      runningHeaderId: 'title',
-      footerCreditId: 'transcribedBy',
+    expect(envelope.s.p).toEqual({
+      f: 'current',
+      p: 'bottomOuter',
+      s: 14,
+      h: 'title',
+      c: 'transcribedBy',
     });
-    expect(envelope.settings.paper).toEqual({
-      sheetLayoutId: 'double',
-      maxRowsPerPage: 12,
-      pageMarginId: 'wide',
-      gridGapId: 'loose',
+    expect(envelope.s.a).toEqual({
+      s: 'double',
+      r: 12,
+      c: 'col8',
+      z: 'even',
+      m: 'wide',
+      g: 'loose',
     });
 
     const decoded = await decodePdfPresetCode(code, { pitchLevel: 0, keyMode: 'major' });
@@ -205,7 +221,7 @@ describe('pdf preset codec', () => {
       memo: '',
       prefs: DEFAULT_PREFS,
     }));
-    expect(code.startsWith('SKYPDF1.J.')).toBe(true);
+    expect(code.startsWith('SKYPDF2.J.')).toBe(true);
     await expect(decodePdfPresetCode(code)).resolves.toMatchObject({
       name: 'J形式',
       prefs: DEFAULT_PREFS,
@@ -246,13 +262,16 @@ describe('pdf preset codec', () => {
   it('不正prefix・未知version・不正base64・壊れたgzip・壊れたJSONを区別して拒否する', async () => {
     await expect(decodePdfPresetCode('BAD.G.AA'))
       .rejects.toMatchObject({ code: 'invalid-code' });
-    await expect(decodePdfPresetCode('SKYPDF2.G.AA'))
-      .rejects.toMatchObject({ code: 'unsupported-version' });
-    await expect(decodePdfPresetCode('SKYPDF1.J.!'))
-      .rejects.toMatchObject({ code: 'invalid-base64' });
+    // 旧version（SKYPDF1）と将来のversionは、どちらも読めないものとして断る
     await expect(decodePdfPresetCode('SKYPDF1.G.AA'))
+      .rejects.toMatchObject({ code: 'unsupported-version' });
+    await expect(decodePdfPresetCode('SKYPDF3.G.AA'))
+      .rejects.toMatchObject({ code: 'unsupported-version' });
+    await expect(decodePdfPresetCode('SKYPDF2.J.!'))
+      .rejects.toMatchObject({ code: 'invalid-base64' });
+    await expect(decodePdfPresetCode('SKYPDF2.G.AA'))
       .rejects.toMatchObject({ code: 'invalid-gzip' });
-    await expect(decodePdfPresetCode(makeJsonCode({ version: 1, settings: {} })))
+    await expect(decodePdfPresetCode(makeJsonCode({ v: 2, s: {} })))
       .rejects.toMatchObject({ code: 'invalid-settings-group' });
   });
 
@@ -282,15 +301,15 @@ describe('pdf preset codec', () => {
 
   it('null・配列・prototype系の未知キーを設定へ取り込まない', async () => {
     const envelope = JSON.parse(`{
-      "version": 1,
-      "name": "安全",
-      "memo": "",
-      "settings": {
-        "design": {"presetId":"print","__proto__":{"polluted":true}},
-        "typography": {"fontId":"gothic"},
-        "scoreInfo": {},
-        "page": {},
-        "paper": {}
+      "v": 2,
+      "n": "安全",
+      "m": "",
+      "s": {
+        "d": {"p":"print","__proto__":{"polluted":true}},
+        "t": {"f":"gothic"},
+        "i": {},
+        "p": {},
+        "a": {}
       },
       "__proto__": {"polluted":true}
     }`);
@@ -298,13 +317,13 @@ describe('pdf preset codec', () => {
     expect(decoded.prefs).toEqual(DEFAULT_PREFS);
     expect(decoded.prefs).not.toHaveProperty('polluted');
     await expect(decodePdfPresetCode(makeJsonCode({
-      version: 1,
-      settings: {
-        design: null,
-        typography: {},
-        scoreInfo: {},
-        page: {},
-        paper: {},
+      v: 2,
+      s: {
+        d: null,
+        t: {},
+        i: {},
+        p: {},
+        a: {},
       },
     }))).rejects.toMatchObject({ code: 'invalid-settings-group' });
   });
