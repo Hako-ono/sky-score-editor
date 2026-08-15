@@ -1430,8 +1430,8 @@ function openOrDownloadPdfBlob(blob, filename) {
  *          custom は presetId === 'custom' のときだけ参照される。
  *          backgroundImage は src/lib/backgroundImage.js の戻り値をそのまま
  *          渡す想定（localStorageには保存しない値なので pdfPrefs.js は
- *          関与しない。App.jsx が options へ合流させる）。backgroundImage が
- *          あるときは bg を白に固定する（resolvePaletteSeed）。
+ *          関与しない。App.jsx が options へ合流させる）。背景画像は背景色の
+ *          上に重ねて描かれ、配色（bg）には影響しない。
  * @param {(msg: string) => void} [onProgress]
  * @returns {Promise<{ filename: string, opened: boolean }>}
  */
@@ -1484,8 +1484,6 @@ export async function exportPdf(score, options, onProgress = () => {}) {
   // presetId が 'custom' のときだけ利用者指定の種色を使う。sanitizeCustomSeed
   // は exportPdf を直接呼ぶ経路（pdfPrefs.js を経由しない呼び出し）への保険
   // として、ここでもキーごとに検証する（sheetLayoutId と同じ二重防御）。
-  // 背景画像があるときは resolvePaletteSeed が bg を白へ差し替える
-  // （利用者が選んだ元の値は options 側では変更しない）。
   const seed = resolvePaletteSeed(safeOptions);
   const preset =
     safeOptions.presetId === CUSTOM_PRESET_ID

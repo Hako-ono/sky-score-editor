@@ -441,18 +441,16 @@ export default function Toolbar({
   // pdfPrefs.custom は pdfPrefs.js 側で既に検証済みだが、壊れたJSONを
   // 直接localStorageへ書き込まれた場合等への保険としてここでも検証する。
   const customSeed = useMemo(() => sanitizeCustomSeed(pdfPrefs.custom), [pdfPrefs.custom]);
-  const hasBackgroundImage = Boolean(backgroundImage);
   // 出力（pdfExport.js）と同じルールで実効seedを求める。以前はスウォッチ・
-  // 入力欄が独自に「背景画像があるときはbgを白」を再実装しており、
-  // スウォッチだけ反映されない不整合があった。resolvePaletteSeedに一本化する
+  // 入力欄が独自に種色を再実装しており、スウォッチだけ反映されない不整合が
+  // あった。resolvePaletteSeedに一本化する
   const effectiveSeed = useMemo(
     () =>
       resolvePaletteSeed({
         presetId: pdfPrefs.presetId,
         custom: pdfPrefs.custom,
-        backgroundImage,
       }),
-    [pdfPrefs.presetId, pdfPrefs.custom, backgroundImage],
+    [pdfPrefs.presetId, pdfPrefs.custom],
   );
   const resolvedGridStyle = useMemo(
     () =>
@@ -466,22 +464,14 @@ export default function Toolbar({
     () => sanitizePdfGridStyleCustom(pdfPrefs.gridStyleCustom),
     [pdfPrefs.gridStyleCustom],
   );
-  // 背景画像で白固定になっているときはisDarkSeedBg(白)が必ずfalseになるため、
-  // 実効seedから判定するため、背景画像の有無にかかわらず正しく出し分けられる。
   const showDarkNote = isDarkSeedBg(effectiveSeed.bg);
   const showMinchoNote = pdfPrefs.fontId === 'mincho';
   const showKeyNotation = hasEnharmonicKeyName(pitchLevel, keyMode);
   // 警告であって禁止ではない（出力は止めない）。本文の読みやすさの下限4.5を
   // 下回ったときだけ知らせる。判定は保存値ではなく effectiveSeed（実際に
-  // 出力される色）で行う。背景画像で bg が白に固定されているときに、
-  // 使われない保存済みの背景色で判定すると、実際は読める配色なのに警告が
-  // 出たままになる
+  // 出力される色）で行う
   const showContrastWarning =
     isCustomPreset && contrastRatio(effectiveSeed.bg, effectiveSeed.ink) < 4.5;
-  // 背景画像があるあいだは出力時のbgが白に固定される（resolvePaletteSeed）。
-  // 保存された値は書き換えないが、入力は無効化して「選んでも効かない」状態が
-  // 黙って起きないようにする
-  const bgInputDisabledByImage = isCustomPreset && hasBackgroundImage;
 
   const setCustomSeedColor = (key, value) => {
     if (key === 'bg' || key === 'line') {
@@ -950,29 +940,23 @@ export default function Toolbar({
                       {description && <span>{description}</span>}
                     </div>
                     <div className="toolbar__palette-strip">
-                      {keys.map((key) => {
-                        const disabled = key === 'bg' && bgInputDisabledByImage;
-                        const inputColor = key === 'bg' ? effectiveSeed.bg : customSeed[key];
-                        return (
-                          <div
-                            className={`toolbar__palette-segment${editable && !disabled ? ' is-editable' : ''}`}
-                            key={key}
-                            style={{ background: effectiveSeed[key] }}
-                          >
-                            {editable && (
-                              <input
-                                id={`pdf-custom-${key}`}
-                                type="color"
-                                className="toolbar__palette-color-input"
-                                value={inputColor}
-                                disabled={disabled}
-                                title={disabled ? '背景画像を使用中は背景色は白に固定されます' : undefined}
-                                onChange={(e) => setCustomSeedColor(key, e.target.value)}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
+                      {keys.map((key) => (
+                        <div
+                          className={`toolbar__palette-segment${editable ? ' is-editable' : ''}`}
+                          key={key}
+                          style={{ background: effectiveSeed[key] }}
+                        >
+                          {editable && (
+                            <input
+                              id={`pdf-custom-${key}`}
+                              type="color"
+                              className="toolbar__palette-color-input"
+                              value={customSeed[key]}
+                              onChange={(e) => setCustomSeedColor(key, e.target.value)}
+                            />
+                          )}
+                        </div>
+                      ))}
                     </div>
                     <div className="toolbar__palette-labels">
                       {keys.map((key) => {
@@ -992,8 +976,8 @@ export default function Toolbar({
               </div>
             </div>
 
-            {/* 背景画像は背景色を白へ固定しスウォッチにも影響するため、
-                書体や面付けではなく配色設定として扱う */}
+            {/* 背景画像は背景色の上に重ねて描かれ、見え方が配色と一体で
+                決まるため、書体や面付けではなく配色設定として扱う */}
             <div
               className={`toolbar__background-controls${backgroundImage ? '' : ' toolbar__background-controls--empty'}`}
             >
@@ -1096,7 +1080,7 @@ export default function Toolbar({
 
           {/* トースト通知にすると自動で消えてしまう。配色・書体は選んだ後も
               効き続ける前提なので、選択が変わらない限り常時見えてよい */}
-          {(showDarkNote || showContrastWarning || hasBackgroundImage) && (
+          {(showDarkNote || showContrastWarning) && (
             <div className="pdf-notes">
               {showDarkNote && (
                 <p className="pdf-note">
@@ -1107,13 +1091,6 @@ export default function Toolbar({
               {showContrastWarning && (
                 <p className="pdf-note pdf-note--warning">
                   背景と文字の色が近く、読みにくい可能性があります。
-                </p>
-              )}
-              {/* 背景画像があるあいだは出力時のbgが白に固定される。保存値は
-                  書き換えないため、画像を外せば元の背景色に戻る */}
-              {hasBackgroundImage && (
-                <p className="pdf-note">
-                  背景画像を使用中は、背景色は白で出力されます（画像を外すと元の色に戻ります）。
                 </p>
               )}
             </div>

@@ -497,15 +497,13 @@ export function deriveSeedFromSimple(simple, base) {
 }
 
 /**
- * パレット合成に使う種色を決める。背景画像があるときだけ bg を白に固定する。
- * 保存されたカスタム値そのものは
- * 書き換えず、options（呼び出し元の pdfPrefs 由来）はそのまま、ここで作る
- * 新しいオブジェクトにだけ反映する。presetId が 'custom' のときだけ
- * options.custom を使う。
+ * パレット合成に使う種色を決める。presetId が 'custom' のときだけ
+ * options.custom を使う。背景画像の有無は種色に影響しない（背景画像は
+ * 背景色の上に重ねて描かれるため、色は利用者が自由に選べる）。
  *
  * pdfExport.js（実際の出力）と Toolbar.jsx（スウォッチ・入力欄のプレビュー）の
  * 両方がこの関数を使う。以前は同じルールが2箇所に別々に（不完全に）実装
- * されており、スウォッチだけ白固定が反映されない不整合があった。
+ * されており、スウォッチと出力が食い違う不整合があった。
  * **Toolbar.jsx から pdfExport.js を import しないこと**
  * （jsPDF/svg2pdf を巻き込むため）。共有する純関数の置き場はこの config.js。
  */
@@ -522,7 +520,7 @@ export function resolvePaletteSeed(options) {
     accent2: rawSeed.accent2 ?? complementHex(rawSeed.accent),
     accentLine2: rawSeed.accentLine2 ?? complementHex(rawSeed.accentLine),
   };
-  return options.backgroundImage ? { ...baseSeed, bg: '#FFFFFF' } : baseSeed;
+  return baseSeed;
 }
 
 /**

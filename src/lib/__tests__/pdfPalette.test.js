@@ -273,14 +273,15 @@ describe('deriveSeedFromSimple', () => {
 
 /* ============================================================
  * resolvePaletteSeed(options) -> seed
- *   - 背景画像が無いときは、presetId通りの種色をそのまま返す。
- *   - 背景画像があるときだけ bg を '#FFFFFF' に差し替える。
+ *   - presetId通りの種色をそのまま返す。
+ *   - 背景画像の有無は種色に影響しない（背景画像は背景色の上に重ねて
+ *     描かれるため、背景色は利用者が自由に選べる）。
  *   - pdfExport.js（実際の出力）と Toolbar.jsx（スウォッチ・入力欄の
- *     プレビュー）の両方がこの関数を使う（以前は別々に
- *     実装されていて、スウォッチだけ白固定が反映されない不整合があった）。
+ *     プレビュー）の両方がこの関数を使う（以前は別々に実装されていて、
+ *     スウォッチと出力が食い違う不整合があった）。
  * ============================================================ */
 describe('resolvePaletteSeed', () => {
-  it('背景画像が無いとき、プリセットの種色と第2色を返す', () => {
+  it('プリセットの種色と第2色を返す', () => {
     const seed = resolvePaletteSeed({ presetId: 'winterDark', backgroundImage: null });
     expect(seed).toEqual({
       ...PDF_PRESETS.winterDark.seed,
@@ -297,7 +298,7 @@ describe('resolvePaletteSeed', () => {
     );
   });
 
-  it('背景画像が無いとき、custom の種色をそのまま返す', () => {
+  it('custom の種色をそのまま返す', () => {
     const custom = {
       bg: '#101010', ink: '#f0f0f0', line: '#202020',
       surface: '#303030', accent: '#e0a020', accentLine: '#c08010',
@@ -307,12 +308,12 @@ describe('resolvePaletteSeed', () => {
     expect(seed).toEqual(custom);
   });
 
-  it('背景画像があるとき、プリセットのbgだけ白に差し替える', () => {
+  it('背景画像があっても、プリセットの種色は差し替えない', () => {
     const seed = resolvePaletteSeed({
       presetId: 'winterDark',
       backgroundImage: { dataUrl: 'data:image/jpeg;base64,x', width: 10, height: 10 },
     });
-    expect(seed.bg).toBe('#FFFFFF');
+    expect(seed.bg).toBe(PDF_PRESETS.winterDark.seed.bg);
     expect(seed.ink).toBe(PDF_PRESETS.winterDark.seed.ink);
     expect(seed.line).toBe(PDF_PRESETS.winterDark.seed.line);
     expect(seed.surface).toBe(PDF_PRESETS.winterDark.seed.surface);
@@ -320,7 +321,7 @@ describe('resolvePaletteSeed', () => {
     expect(seed.accentLine).toBe(PDF_PRESETS.winterDark.seed.accentLine);
   });
 
-  it('背景画像があるとき、customのbgだけ白に差し替え、元のcustomオブジェクトは変更しない', () => {
+  it('背景画像があっても、customの種色は差し替えず、元のcustomオブジェクトも変更しない', () => {
     const custom = {
       bg: '#101010', ink: '#f0f0f0', line: '#202020',
       surface: '#303030', accent: '#e0a020', accentLine: '#c08010',
@@ -330,18 +331,18 @@ describe('resolvePaletteSeed', () => {
       custom,
       backgroundImage: { dataUrl: 'data:image/jpeg;base64,x', width: 10, height: 10 },
     });
-    expect(seed.bg).toBe('#FFFFFF');
+    expect(seed.bg).toBe('#101010');
     expect(seed.ink).toBe(custom.ink);
     expect(custom.bg).toBe('#101010'); // 呼び出し元のcustomは書き換わらない
   });
 
-  it('presetId が custom で custom が壊れた形式のときも、キーごとにフォールバックしたうえでbgが白になる', () => {
+  it('presetId が custom で custom が壊れた形式のときは、キーごとに既定値へフォールバックする', () => {
     const seed = resolvePaletteSeed({
       presetId: CUSTOM_PRESET_ID,
       custom: { bg: 'not-a-color' },
       backgroundImage: { dataUrl: 'data:image/jpeg;base64,x', width: 10, height: 10 },
     });
-    expect(seed.bg).toBe('#FFFFFF');
+    expect(seed.bg).toBe(PDF_PRESETS.print.seed.bg);
     expect(seed.ink).toBe(PDF_PRESETS.print.seed.ink);
   });
 });
