@@ -1,7 +1,9 @@
 import { CloseIcon } from './icons.jsx';
+import { useT } from '../i18n/LanguageContext.jsx';
 
 /** ステータス表示。role/aria-live でスクリーンリーダーへ通知する。 */
 export default function StatusBar({ message, type, action, onClose }) {
+  const t = useT();
   if (!message) return null;
   const isError = type === 'error' || type === 'warning';
   return (
@@ -29,7 +31,7 @@ export default function StatusBar({ message, type, action, onClose }) {
           type="button"
           className="status-bar__close"
           onClick={onClose}
-          aria-label="通知を閉じる"
+          aria-label={t('ui.statusBar.close')}
         >
           <CloseIcon size={14} />
         </button>

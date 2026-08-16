@@ -8,9 +8,11 @@ import {
   deriveCoverBodyTitleAreaPt,
   deriveEditorialTitleAreaPt,
   deriveFirstPageTitleAreaPt,
+  calculateScoreTitleLiftPt,
   getFirstPageHeaderMetrics,
   getFirstPageHeaderPlacement,
   getEditorialHeaderMetrics,
+  resolveScoreTitlePlacement,
   resolveFirstPageHeaderAlignment,
   resolvePdfFirstPageLayout,
 } from '../pdfFirstPage.js';
@@ -167,6 +169,89 @@ describe('first-page header alignment', () => {
       { anchorX: 300, align: 'center' },
       { anchorX: 560, align: 'right' },
     ]);
+  });
+});
+
+describe('楽譜デザインの曲名持ち上げ', () => {
+  it('距離が十分なら持ち上げず、重なると上限まで持ち上げる', () => {
+    expect(calculateScoreTitleLiftPt({
+      distancePt: 20,
+      triggerDistancePt: 10,
+      maxLiftPt: 12,
+    })).toBe(0);
+    expect(calculateScoreTitleLiftPt({
+      distancePt: 0,
+      triggerDistancePt: 10,
+      maxLiftPt: 12,
+    })).toBe(12);
+  });
+
+  it('距離の変化に対して連続かつ単調に変化する', () => {
+    const lifts = [20, 10, 5, 0, -5].map((distancePt) => (
+      calculateScoreTitleLiftPt({
+        distancePt,
+        triggerDistancePt: 20,
+        maxLiftPt: 12,
+      })
+    ));
+    expect(lifts).toEqual([0, 6, 9, 12, 12]);
+    expect(lifts).toEqual([...lifts].sort((a, b) => a - b));
+  });
+
+  it('compactTitleYより上へ行かず、作者情報が空なら動かない', () => {
+    const placement = resolveScoreTitlePlacement(20, 9, -10);
+    expect(placement.titleY).toBeGreaterThanOrEqual(19);
+    expect(resolveScoreTitlePlacement(20, 9, -10, false).liftPt).toBe(0);
+  });
+
+  it('許容される全設定域で曲名をcompactTitleY以上に保ち、作者欄との1行分の間隔を確保する', () => {
+    for (let titleFontSizePt = 10; titleFontSizePt <= 24; titleFontSizePt += 1) {
+      for (let metaFontSizePt = 6; metaFontSizePt <= 14; metaFontSizePt += 1) {
+        const metrics = getFirstPageHeaderMetrics(titleFontSizePt, metaFontSizePt, 'score');
+        const placement = resolveScoreTitlePlacement(titleFontSizePt, metaFontSizePt, 0);
+        const headerMetaLine2GapPt = Math.round(metaFontSizePt * (11 / 9));
+
+        expect(placement.titleY).toBeGreaterThanOrEqual(placement.compactTitleY);
+        expect(metrics.metaYs[0] - placement.titleY).toBeGreaterThanOrEqual(
+          headerMetaLine2GapPt,
+        );
+      }
+    }
+  });
+
+  it('クランプされない設定では見た目の余白を作者欄1行分以上にする', () => {
+    const cases = [
+      { titleFontSizePt: 20, metaFontSizePt: 9, upperTitleY: 22 },
+      { titleFontSizePt: 15, metaFontSizePt: 9, upperTitleY: 15 },
+      { titleFontSizePt: 24, metaFontSizePt: 6, upperTitleY: 31 },
+      { titleFontSizePt: 24, metaFontSizePt: 9, upperTitleY: 28 },
+      { titleFontSizePt: 10, metaFontSizePt: 6, upperTitleY: 11 },
+      { titleFontSizePt: 24, metaFontSizePt: 14, upperTitleY: 24 },
+      { titleFontSizePt: 10, metaFontSizePt: 14, upperTitleY: 9 },
+      { titleFontSizePt: 12, metaFontSizePt: 12, upperTitleY: 11 },
+    ];
+
+    cases.forEach(({ titleFontSizePt, metaFontSizePt, upperTitleY }) => {
+      const metrics = getFirstPageHeaderMetrics(titleFontSizePt, metaFontSizePt, 'score');
+      const placement = resolveScoreTitlePlacement(titleFontSizePt, metaFontSizePt, 0);
+      const visibleGapPt = metrics.metaYs[0]
+        - placement.titleY
+        - Math.round(titleFontSizePt * 0.15)
+        - Math.round(metaFontSizePt * 0.85);
+      const lineGapPt = Math.round(metaFontSizePt * (11 / 9));
+
+      expect(placement.upperTitleY).toBe(upperTitleY);
+      if (placement.titleY > placement.compactTitleY) {
+        expect(visibleGapPt).toBeGreaterThanOrEqual(lineGapPt);
+      }
+    });
+  });
+
+  it('持ち上げの有無でtitleAreaPtを変えない', () => {
+    const separated = resolveScoreTitlePlacement(20, 9, 30);
+    const overlapping = resolveScoreTitlePlacement(20, 9, 0);
+    expect(overlapping.titleAreaPt).toBe(separated.titleAreaPt);
+    expect(overlapping.titleY).toBeLessThan(separated.titleY);
   });
 });
 

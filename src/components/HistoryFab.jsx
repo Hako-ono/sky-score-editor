@@ -1,4 +1,5 @@
 import { UndoIcon, RedoIcon } from './icons.jsx';
+import { useT } from '../i18n/LanguageContext.jsx';
 
 /**
  * 「元に戻す／やり直す」の浮遊ボタン。ツールバー内の同じボタンは
@@ -7,6 +8,7 @@ import { UndoIcon, RedoIcon } from './icons.jsx';
  * ツールバー側だけでは編集中に手が届かない。
  */
 export default function HistoryFab({ canUndo, canRedo, onUndo, onRedo }) {
+  const t = useT();
   return (
     <div className="history-fab">
       <button
@@ -14,8 +16,8 @@ export default function HistoryFab({ canUndo, canRedo, onUndo, onRedo }) {
         className="history-fab__btn"
         onClick={onUndo}
         disabled={!canUndo}
-        aria-label="元に戻す"
-        title="元に戻す (Ctrl+Z)"
+        aria-label={t('ui.toolbar.score.undo')}
+        title={t('ui.toolbar.score.undoTitle')}
       >
         <UndoIcon />
       </button>
@@ -25,8 +27,8 @@ export default function HistoryFab({ canUndo, canRedo, onUndo, onRedo }) {
         className="history-fab__btn"
         onClick={onRedo}
         disabled={!canRedo}
-        aria-label="やり直す"
-        title="やり直す (Ctrl+Shift+Z)"
+        aria-label={t('ui.toolbar.score.redo')}
+        title={t('ui.toolbar.score.redoTitle')}
       >
         <RedoIcon />
       </button>

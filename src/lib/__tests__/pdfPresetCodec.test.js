@@ -440,6 +440,16 @@ describe('pdf preset key context and URL helpers', () => {
     expect(diff.every((section) => 'id' in section && 'label' in section && 'changes' in section))
       .toBe(true);
   });
+
+  it('非日本語UIでは日本語固有の調性表記を差分に出さない', () => {
+    const diff = buildPdfPresetDiff(
+      { ...DEFAULT_PREFS, keyModeNotationId: 'japanese' },
+      { ...DEFAULT_PREFS, keyModeNotationId: 'traditional' },
+      { pitchLevel: 0, keyMode: 'major', language: 'en' },
+    );
+
+    expect(diff.find((section) => section.id === 'scoreInfo').changes).toEqual([]);
+  });
 });
 
 describe('pdf preset defaults are stable', () => {

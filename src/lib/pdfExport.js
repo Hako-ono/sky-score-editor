@@ -10,6 +10,7 @@
 
 import { jsPDF } from 'jspdf';
 import 'svg2pdf.js'; // jsPDF に doc.svg() を生やす副作用インポート
+import { t } from '../i18n/index.js';
 
 import {
   pdfConfig,
@@ -29,7 +30,7 @@ import {
   CUSTOM_PRESET_ID,
   formatPdfKeyName,
   normalizeKeyNotationId,
-  normalizeKeyModeNotationId,
+  resolveKeyModeNotationIdForLanguage,
   normalizeScoreInfoDesignId,
   resolvePdfScoreInfoDesign,
   normalizeTempoValueModeId,
@@ -53,6 +54,7 @@ import {
   deriveFirstPageTitleAreaPt,
   getFirstPageHeaderPlacement,
   getFirstPageHeaderMetrics,
+  resolveScoreTitlePlacement,
   resolveFirstPageHeaderAlignment,
   resolvePdfFirstPageLayout,
 } from './pdfFirstPage.js';
@@ -286,20 +288,22 @@ async function loadFontBase64(font) {
   if (fontCache.file === font.file) return fontCache.base64;
   const url = `${import.meta.env.BASE_URL}fonts/${font.file}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`フォントの取得に失敗しました (${res.status})`);
+  if (!res.ok) {
+    throw new Error(t('ui.pdfExport.error.fontFetch', { status: res.status }));
+  }
   const buffer = await res.arrayBuffer();
   // 200 が返っても中身が TTF とは限らない（配信側のフォールバック、
   // 中間プロキシ、途中で切れた応答）。検証より前にキャッシュへ載せると、
   // 壊れた base64 を以後リロードするまで返し続けることになる。
   // 同梱の3書体はいずれも先頭が 0x00010000（実測）。
   if (buffer.byteLength < 4) {
-    throw new Error('フォントの取得に失敗しました (形式が不正です)');
+    throw new Error(t('ui.pdfExport.error.fontFormat'));
   }
   const tag = new DataView(buffer).getUint32(0);
   // 0x74727565 ('true') は古い Mac 形式の TTF。将来の差し替えに備えた保険。
   // ttcf (TrueType Collection) は jsPDF が扱えないため許さない。
   if (tag !== 0x00010000 && tag !== 0x74727565) {
-    throw new Error('フォントの取得に失敗しました (形式が不正です)');
+    throw new Error(t('ui.pdfExport.error.fontFormat'));
   }
   fontCache = { file: font.file, base64: arrayBufferToBase64(buffer) };
   return fontCache.base64;
@@ -308,8 +312,11 @@ async function loadFontBase64(font) {
 // Zen Kaku Gothic New / Zen Maru Gothic は U+FF5E・U+FF0D の字形を持たない。
 // Windows の IME は「〜」を U+FF5E で確定することが多く、そのまま渡すと
 // 「曲名～サブ～」のような表記が豆腐になる。描画の直前だけ字形のある符号へ寄せる。
-function sanitizeForPdf(text) {
-  return String(text).replace(/～/g, '〜').replace(/－/g, '−');
+export function sanitizeForPdf(text, waveDashGlyph = '〜') {
+  return String(text)
+    .replace(/～/g, '〜')
+    .replace(/〜/g, waveDashGlyph)
+    .replace(/－/g, '−');
 }
 
 function el(name, attrs) {
@@ -332,6 +339,7 @@ function buildGridGroup(
   typography,
   layout,
   layerOptions = {},
+  waveDashGlyph = '〜',
 ) {
   const group = el('g', {});
   const usesTwoLayers = layerOptions.usesTwoLayers === true;
@@ -458,7 +466,7 @@ function buildGridGroup(
 
   // 歌詞などのテキスト (中央下)
   if (grid.text) {
-    let text = sanitizeForPdf(grid.text);
+    let text = sanitizeForPdf(grid.text, waveDashGlyph);
     // 実際に紙に出るのは埋め込み書体なので、その metrics で幅を測る。
     // doc.getStringUnitWidth はフォントサイズ1相当の幅（フォントサイズに
     // 依存しない比率）を返すため、*fontSize でそのまま SVG 座標系の幅になる
@@ -528,6 +536,7 @@ export function buildPageSvg(
   layout,
   edgePadding = 0,
   layerOptions = {},
+  waveDashGlyph = '〜',
 ) {
   const numRows = pageRows.length;
   const { svgWidth, svgHeight, columnPitch, rowPitch, edgePadding: safeEdgePadding } = computeGridBlockSize({
@@ -597,6 +606,7 @@ export function buildPageSvg(
         typography,
         layout,
         layerOptions,
+        waveDashGlyph,
       );
       group.setAttribute('transform', `translate(${x}, ${y})`);
       svg.appendChild(group);
@@ -687,6 +697,36 @@ function fitFontSize(doc, text, maxWidth, basePt, minPt) {
   return Math.max(minPt, Math.floor((basePt * maxWidth) / width));
 }
 
+/** 見出し文字列の確定後の文字・サイズ・幅を描画前にまとめて求める。 */
+export function prepareHeaderText(
+  doc,
+  { text, fontName, fontSize, maxWidth, minFontSize },
+) {
+  doc.setFont(fontName);
+  const measuredText = text.replaceAll(TEMPO_NOTE, TEMPO_NOTE_MEASURE_GLYPH);
+  const fittedFontSize = fitFontSize(doc, measuredText, maxWidth, fontSize, minFontSize);
+  doc.setFontSize(fittedFontSize);
+  const renderedText = truncateToUnitWidth(
+    doc,
+    measuredText,
+    maxWidth / fittedFontSize,
+  );
+  const unitWidth = doc.getStringUnitWidth(renderedText);
+  return {
+    text: renderedText,
+    fontSize: fittedFontSize,
+    widthPt: Number.isFinite(unitWidth) && unitWidth > 0
+      ? unitWidth * fittedFontSize
+      : 0,
+  };
+}
+
+export function getAlignedTextRightPt(anchorX, align, widthPt) {
+  if (align === 'left') return anchorX + widthPt;
+  if (align === 'right') return anchorX;
+  return anchorX + widthPt / 2;
+}
+
 const SCORE_INFO_SEPARATOR = '　　　';
 const SCORE_INFO_COMPACT_SEPARATOR = '　 ';
 const TEMPO_NOTE = '♩';
@@ -699,17 +739,25 @@ export function resolvePdfTempoValue(bpm, tempoValueModeId, customTempoValue) {
   return bpm / PDF_TEMPO_VALUE_MODES[safeModeId].divisor;
 }
 
-function buildCreditItems(score) {
+function buildCreditItems(score, waveDashGlyph = '〜') {
   return [
-    score.author ? `作曲: ${sanitizeForPdf(score.author)}` : '',
-    score.lyricist ? `作詞: ${sanitizeForPdf(score.lyricist)}` : '',
-    score.transcribedBy ? `譜面作成: ${sanitizeForPdf(score.transcribedBy)}` : '',
+    score.author
+      ? t('pdf.sheet.credit.composer', { value: sanitizeForPdf(score.author, waveDashGlyph) })
+      : '',
+    score.lyricist
+      ? t('pdf.sheet.credit.lyricist', { value: sanitizeForPdf(score.lyricist, waveDashGlyph) })
+      : '',
+    score.transcribedBy
+      ? t('pdf.sheet.credit.transcribedBy', {
+        value: sanitizeForPdf(score.transcribedBy, waveDashGlyph),
+      })
+      : '',
   ];
 }
 
-function buildCreditValues(score) {
+function buildCreditValues(score, waveDashGlyph = '〜') {
   return [score.author, score.lyricist, score.transcribedBy]
-    .map((value) => (value ? sanitizeForPdf(value) : ''));
+    .map((value) => (value ? sanitizeForPdf(value, waveDashGlyph) : ''));
 }
 
 function buildMusicalItemSlots(
@@ -722,7 +770,11 @@ function buildMusicalItemSlots(
 ) {
   const tempoValue = resolvePdfTempoValue(bpm, tempoValueModeId, customTempoValue);
   const tempo = `${TEMPO_NOTE} = ${tempoValue}`;
-  const meter = bitsPerPage === 16 ? '4拍子' : bitsPerPage === 12 ? '3拍子' : '';
+  const meter = bitsPerPage === 16
+    ? t('pdf.sheet.meterValue', { beats: 4 })
+    : bitsPerPage === 12
+      ? t('pdf.sheet.meterValue', { beats: 3 })
+      : '';
   const key = formatPdfKeyName(
     pitchLevel,
     keyMode,
@@ -757,12 +809,12 @@ export function buildMetaLeft(
   ).join(SCORE_INFO_SEPARATOR);
 }
 
-export function buildMusicCredit(score) {
-  return buildCreditItems(score).slice(0, 2).filter(Boolean).join(SCORE_INFO_SEPARATOR);
+export function buildMusicCredit(score, waveDashGlyph = '〜') {
+  return buildCreditItems(score, waveDashGlyph).slice(0, 2).filter(Boolean).join(SCORE_INFO_SEPARATOR);
 }
 
-export function buildHeaderCredit(score) {
-  return buildCreditItems(score).filter(Boolean).join(SCORE_INFO_SEPARATOR);
+export function buildHeaderCredit(score, waveDashGlyph = '〜') {
+  return buildCreditItems(score, waveDashGlyph).filter(Boolean).join(SCORE_INFO_SEPARATOR);
 }
 
 function buildSpecGroup(labels, values) {
@@ -792,10 +844,11 @@ export function buildScoreInfoRows(
   keyModeNotationId = 'compact',
   tempoValueModeId = 'quarter',
   customTempoValue = 30,
+  waveDashGlyph = '〜',
 ) {
   const safeDesignId = normalizeScoreInfoDesignId(scoreInfoDesignId);
-  const credits = buildCreditItems(score);
-  const creditValues = buildCreditValues(score);
+  const credits = buildCreditItems(score, waveDashGlyph);
+  const creditValues = buildCreditValues(score, waveDashGlyph);
   const musicalSlots = buildMusicalItemSlots(
     score,
     flatGlyph,
@@ -820,11 +873,15 @@ export function buildScoreInfoRows(
   }
   if (safeDesignId === 'specSheet') {
     const creditGroup = buildSpecGroup(
-      ['作曲', '作詞', '譜面作成'],
+      [
+        t('pdf.sheet.composer'),
+        t('pdf.sheet.lyricist'),
+        t('pdf.sheet.transcribedBy'),
+      ],
       creditValues,
     );
     const musicalGroup = buildSpecGroup(
-      ['テンポ', '拍子', 'キー'],
+      [t('pdf.sheet.tempo'), t('pdf.sheet.meter'), t('pdf.sheet.key')],
       [musicalSlots.tempo, musicalSlots.meter, musicalSlots.key],
     );
     return [
@@ -961,7 +1018,18 @@ function drawTextWithQuarterNotes(doc, text, sourceText, x, y, align, fontSize, 
 
 function drawHeaderText(
   doc,
-  { text, fontName, fontSize, color, maxWidth, minFontSize, x, y, align },
+  {
+    text,
+    fontName,
+    fontSize,
+    color,
+    maxWidth,
+    minFontSize,
+    x,
+    y,
+    align,
+    preparedText,
+  },
 ) {
   // svg2pdfの後や別の行の描画後にも、行ごとの意図した描画状態を確実にする。
   doc.setFont(fontName);
@@ -969,17 +1037,22 @@ function drawHeaderText(
   doc.setTextColor(color);
   if (!text) return;
 
-  const measuredText = text.replaceAll(TEMPO_NOTE, TEMPO_NOTE_MEASURE_GLYPH);
-  const fittedFontSize = fitFontSize(doc, measuredText, maxWidth, fontSize, minFontSize);
-  doc.setFontSize(fittedFontSize);
+  const prepared = preparedText ?? prepareHeaderText(doc, {
+    text,
+    fontName,
+    fontSize,
+    maxWidth,
+    minFontSize,
+  });
+  doc.setFontSize(prepared.fontSize);
   drawTextWithQuarterNotes(
     doc,
-    truncateToUnitWidth(doc, measuredText, maxWidth / fittedFontSize),
+    prepared.text,
     text,
     x,
     y,
     align,
-    fittedFontSize,
+    prepared.fontSize,
     color,
   );
 }
@@ -998,6 +1071,7 @@ function drawScoreInfoRow(
     y,
     placement,
     mutedColor,
+    minFontSize = 6,
     columnLeftPt = marginPt,
     columnRightPt = pageWidthPt - marginPt,
   },
@@ -1014,7 +1088,7 @@ function drawScoreInfoRow(
         fontSize: isLabel ? Math.max(6, fontSize * 0.72) : fontSize,
         color: isLabel ? mutedColor : color,
         maxWidth: cellWidth - cellPadding * 2,
-        minFontSize: 6,
+        minFontSize,
         x: origin.x + marginPt + contentWidthPt * centerRatios[index],
         y,
         align: 'center',
@@ -1032,7 +1106,7 @@ function drawScoreInfoRow(
       fontSize,
       color,
       maxWidth: columnWidth,
-      minFontSize: 6,
+      minFontSize,
       x: origin.x + columnLeftPt,
       y,
       align: 'left',
@@ -1043,7 +1117,7 @@ function drawScoreInfoRow(
       fontSize,
       color,
       maxWidth: columnWidth,
-      minFontSize: 6,
+      minFontSize,
       x: origin.x + columnRightPt,
       y,
       align: 'right',
@@ -1074,6 +1148,7 @@ function drawFirstPageHeader(
   origin,
   firstPageLayoutId,
   flatGlyph,
+  waveDashGlyph,
   keyNotationId,
   keyModeNotationId,
   scoreInfoDesignId,
@@ -1100,18 +1175,6 @@ function drawFirstPageHeader(
   const anchorX = origin.x + placement.anchorX;
   const textBaseY = origin.y + contentTopPt - PDF_FIRST_PAGE_HEADER_TEXT_SHIFT_PT;
   const dividerBaseY = origin.y + contentTopPt;
-
-  drawHeaderText(doc, {
-    text: score.title ? sanitizeForPdf(score.title) : '',
-    fontName,
-    fontSize: titleFontSizePt,
-    color: palette.title,
-    maxWidth: contentWidthPt,
-    minFontSize: 9,
-    x: anchorX,
-    y: textBaseY + metrics.titleY,
-    align: placement.align,
-  });
   const scoreInfoRows = buildScoreInfoRows(
     score,
     safeDesignId,
@@ -1120,7 +1183,60 @@ function drawFirstPageHeader(
     keyModeNotationId,
     tempoValueModeId,
     customTempoValue,
+    waveDashGlyph,
   );
+  const titleText = score.title ? sanitizeForPdf(score.title, waveDashGlyph) : '';
+  const baseTitlePrepared = prepareHeaderText(doc, {
+    text: titleText,
+    fontName,
+    fontSize: titleFontSizePt,
+    maxWidth: contentWidthPt,
+    minFontSize: 9,
+  });
+  let titleY = metrics.titleY;
+  let titlePrepared = baseTitlePrepared;
+
+  if (safeDesignId === 'score' && titleText) {
+    const columnGap = 12;
+    const columnWidth = (gridHorizontalBounds.rightPt - gridHorizontalBounds.leftPt - columnGap) / 2;
+    const authorWidths = scoreInfoRows
+      .filter((row) => row.kind === 'columns' && row.texts[1])
+      .map((row) => prepareHeaderText(doc, {
+        text: row.texts[1],
+        fontName,
+        fontSize: metaFontSizePt,
+        maxWidth: columnWidth,
+        minFontSize: 6,
+      }).widthPt);
+    const maxAuthorWidth = Math.max(0, ...authorWidths);
+    if (maxAuthorWidth > 0) {
+      const authorLeftPt = gridHorizontalBounds.rightPt - maxAuthorWidth;
+      const titleRightPt = getAlignedTextRightPt(
+        placement.anchorX,
+        placement.align,
+        baseTitlePrepared.widthPt,
+      );
+      const titlePlacement = resolveScoreTitlePlacement(
+        titleFontSizePt,
+        metaFontSizePt,
+        authorLeftPt - titleRightPt,
+      );
+      titleY = titlePlacement.titleY;
+    }
+  }
+
+  drawHeaderText(doc, {
+    text: titleText,
+    fontName,
+    fontSize: titleFontSizePt,
+    color: palette.title,
+    maxWidth: contentWidthPt,
+    minFontSize: 9,
+    x: anchorX,
+    y: textBaseY + titleY,
+    align: placement.align,
+    preparedText: titlePrepared,
+  });
   scoreInfoRows.forEach((row, index) => {
     drawScoreInfoRow(doc, row, {
       fontName,
@@ -1133,6 +1249,7 @@ function drawFirstPageHeader(
       y: textBaseY + metrics.metaYs[index],
       placement,
       mutedColor: palette.number,
+      minFontSize: 6,
       columnLeftPt: safeDesignId === 'score'
         ? gridHorizontalBounds.leftPt
         : marginPt,
@@ -1170,6 +1287,7 @@ function drawCover(
   layout,
   origin = { x: 0, y: 0 },
   flatGlyph = '♭',
+  waveDashGlyph = '〜',
   keyNotationId = 'both',
   keyModeNotationId = 'compact',
   tempoValueModeId = 'quarter',
@@ -1188,7 +1306,7 @@ function drawCover(
   doc.setTextColor(palette.title);
 
   if (score.title) {
-    const title = sanitizeForPdf(score.title);
+    const title = sanitizeForPdf(score.title, waveDashGlyph);
     const titleFontSize = fitFontSize(doc, title, contentWidthPt, layout.titleFontSizePt, 9);
     doc.setFontSize(titleFontSize);
     doc.text(
@@ -1199,7 +1317,7 @@ function drawCover(
     );
   }
 
-  const musicCredit = buildMusicCredit(score);
+  const musicCredit = buildMusicCredit(score, waveDashGlyph);
   drawHeaderText(doc, {
     text: musicCredit,
     fontName,
@@ -1221,7 +1339,9 @@ function drawCover(
     customTempoValue,
   );
   const transcribedBy = score.transcribedBy
-    ? `譜面作成: ${sanitizeForPdf(score.transcribedBy)}`
+    ? t('pdf.sheet.credit.transcribedBy', {
+      value: sanitizeForPdf(score.transcribedBy, waveDashGlyph),
+    })
     : '';
   const lowerGap = 12;
   const lowerMaxWidth = metaLeft && transcribedBy
@@ -1262,6 +1382,7 @@ function drawRunningHeader(
   layout,
   firstPageLayoutId,
   origin = { x: 0, y: 0 },
+  waveDashGlyph = '〜',
 ) {
   if (
     (pageIndex === 0 && firstPageLayoutId !== 'cover') ||
@@ -1270,7 +1391,7 @@ function drawRunningHeader(
   ) return;
 
   const fontSize = Math.min(layout.pageNumberFontSizePt, layout.metaFontSizePt);
-  const title = sanitizeForPdf(score.title);
+  const title = sanitizeForPdf(score.title, waveDashGlyph);
   doc.setFont(fontName);
   doc.setFontSize(fontSize);
   doc.setTextColor(palette.number);
@@ -1295,11 +1416,14 @@ function drawFooterCredit(
   slotsPerSheet,
   layout,
   origin = { x: 0, y: 0 },
+  waveDashGlyph = '〜',
 ) {
   if (furniture.footerCreditId !== 'transcribedBy' || !score.transcribedBy) return;
 
   const fontSize = layout.pageNumberFontSizePt;
-  const text = `譜面作成: ${sanitizeForPdf(score.transcribedBy)}`;
+  const text = t('pdf.sheet.credit.transcribedBy', {
+    value: sanitizeForPdf(score.transcribedBy, waveDashGlyph),
+  });
   const placement = getPageFurniturePlacement({
     pageNumberPositionId: furniture.pageNumberPositionId,
     pageIndex,
@@ -1438,7 +1562,7 @@ function openOrDownloadPdfBlob(blob, filename) {
 export async function exportPdf(score, options, onProgress = () => {}) {
   const { grids, bitsPerPage } = score;
   if (!grids || grids.length === 0) {
-    throw new Error('PDF を生成するためのデータがありません。');
+    throw new Error(t('ui.pdfExport.error.noData'));
   }
 
   const rawOptions = options ?? {};
@@ -1472,7 +1596,10 @@ export async function exportPdf(score, options, onProgress = () => {}) {
     tempoValueModeId: normalizeTempoValueModeId(rawOptions.tempoValueModeId),
     customTempoValue: sanitizeCustomTempoValue(rawOptions.customTempoValue),
     keyNotationId: normalizeKeyNotationId(rawOptions.keyNotationId),
-    keyModeNotationId: normalizeKeyModeNotationId(rawOptions.keyModeNotationId),
+    keyModeNotationId: resolveKeyModeNotationIdForLanguage(
+      rawOptions.keyModeNotationId,
+      rawOptions.language,
+    ),
     ...furniture,
   };
 
@@ -1499,7 +1626,7 @@ export async function exportPdf(score, options, onProgress = () => {}) {
   };
   const font = typography;
 
-  onProgress(`${font.label}を読み込んでいます...`);
+  onProgress(t('ui.progress.fontLoading', { font: t(`pdf.font.${font.fontId}`) }));
   const fontBase64 = await loadFontBase64(typography);
 
   // 1面付け／2面付けの2つだけ（任意のN面付けには一般化しない）。
@@ -1626,6 +1753,7 @@ export async function exportPdf(score, options, onProgress = () => {}) {
           coverLayout,
           coverGeometry.slotOrigins[physicalPage.coverSlotIndex],
           font.flatGlyph,
+          font.waveDashGlyph,
           safeOptions.keyNotationId,
           safeOptions.keyModeNotationId,
           safeOptions.tempoValueModeId,
@@ -1635,7 +1763,10 @@ export async function exportPdf(score, options, onProgress = () => {}) {
 
       const bodySlots = physicalPage.bodySlots ?? [];
       for (const { slotIndex, pageIndex: p } of bodySlots) {
-        onProgress(`PDF ページ ${p + 1} / ${pages.length} を生成中...`);
+        onProgress(t('ui.progress.pageGenerating', {
+          page: p + 1,
+          total: pages.length,
+        }));
         const origin = physicalPage.geometry.slotOrigins[slotIndex];
         const slotsPerSheet = physicalPage.geometry.slotsPerSheet;
 
@@ -1651,6 +1782,7 @@ export async function exportPdf(score, options, onProgress = () => {}) {
             origin,
             firstPage.firstPageLayoutId,
             font.flatGlyph,
+            font.waveDashGlyph,
             safeOptions.keyNotationId,
             safeOptions.keyModeNotationId,
             safeOptions.scoreInfoDesignId,
@@ -1675,6 +1807,7 @@ export async function exportPdf(score, options, onProgress = () => {}) {
           layout,
           edgePadding,
           layerOptions,
+          font.waveDashGlyph,
         );
         holder.appendChild(svg);
 
@@ -1698,6 +1831,7 @@ export async function exportPdf(score, options, onProgress = () => {}) {
           layout,
           firstPage.firstPageLayoutId,
           origin,
+          font.waveDashGlyph,
         );
         drawFooterCredit(
           doc,
@@ -1710,6 +1844,7 @@ export async function exportPdf(score, options, onProgress = () => {}) {
           slotsPerSheet,
           layout,
           origin,
+          font.waveDashGlyph,
         );
         drawPageNumber(
           doc,

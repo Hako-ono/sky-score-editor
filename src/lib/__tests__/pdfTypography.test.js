@@ -13,7 +13,6 @@ describe('resolvePdfFont', () => {
     expect(resolvePdfFont()).toEqual({
       fontId: DEFAULT_FONT_ID,
       fontWeightId: DEFAULT_FONT_WEIGHT_ID,
-      label: PDF_FONTS.gothic.label,
       flatGlyph: PDF_FONTS.gothic.flatGlyph,
       file: PDF_FONTS.gothic.regular.file,
       name: PDF_FONTS.gothic.regular.name,
@@ -46,6 +45,23 @@ describe('resolvePdfFont', () => {
       fontWeightId: DEFAULT_FONT_WEIGHT_ID,
       file: PDF_FONTS.gothic.regular.file,
     });
+  });
+});
+
+describe('PDF書体ごとの波ダッシュ代替字', () => {
+  it('DM SansとWanted SansだけASCIIチルダを使う', () => {
+    expect(resolvePdfTypography({ fontId: 'dmSans', language: 'en' }).waveDashGlyph).toBe('~');
+    expect(resolvePdfTypography({ fontId: 'wantedSans', language: 'ko' }).waveDashGlyph).toBe('~');
+    for (const [fontId, language] of [
+      ['gothic', 'ja'],
+      ['mincho', 'ja'],
+      ['rounded', 'ja'],
+      ['sarasaSC', 'zh-Hans'],
+      ['taipeiTC', 'zh-Hant-TW'],
+      ['chironHK', 'zh-Hant-HK'],
+    ]) {
+      expect(resolvePdfTypography({ fontId, language }).waveDashGlyph).toBe('〜');
+    }
   });
 });
 

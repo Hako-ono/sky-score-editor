@@ -70,17 +70,19 @@ JSONや下書き、PDF設定には保存されません。
 
 `examples/sample_original.json` に動作確認用の短い楽譜を同梱。
 
-## 日本語フォント
+## フォント
 
 - **画面表示**: `@fontsource/noto-sans-jp`（Noto Sans JP、SIL OFL 1.1）を npm 依存として
   自前ホスト。`src/main.jsx` で `400.css` / `500.css` / `700.css` を import しており、
   ビルド時に `dist/assets/` へ同梱される（外部サーバへの通信なし）。
-- **PDF 埋め込み**: ゴシック（Zen Kaku Gothic New）／明朝（Shippori Mincho）／
-  丸ゴシック（Zen Maru Gothic）の3書体から選択できる（`src/constants/config.js` の
-  `PDF_FONTS`）。いずれも `public/fonts/` に TTF 実体をコミット済みで、選択された
-  書体だけを実行時に取得して埋め込む。直近に使った1書体だけを base64 キャッシュし、
-  切り替えると差し替わる。選択はツールバーの「配色」欄の隣に置いた「書体」欄から行い、
-  localStorage（`sky-score-editor:pdf-prefs:v1`）に保存されて次回に引き継がれる。
+- **PDF 埋め込み**: 日本語UIでは Zen Kaku Gothic New／Shippori Mincho／Zen Maru Gothic、
+  英語では DM Sans、簡体字中国語では Sarasa Gothic SC、繁体字中国語（台湾）では
+  Taipei Sans TC、繁体字中国語（香港）では Chiron Hei HK、韓国語では Wanted Sansを
+  選択できる（`src/constants/config.js` の `PDF_FONTS`）。いずれも Regular/Boldの
+  静的TTFを `public/fonts/` に同梱しており、選択された書体・ウェイトだけを実行時に
+  取得して埋め込む。直近に使った1書体だけを base64 キャッシュし、切り替えると差し替わる。
+  選択はツールバーの「配色」欄の隣に置いた「書体」欄から行い、localStorage
+  （`sky-score-editor:pdf-prefs:v1`）に保存されて次回に引き継がれる。
   画面表示とは別の書体群になっているのは、jsPDF の `addFont` が TrueType 形式のみ
   対応で OTF/CFF 非対応、`@fontsource/noto-sans-jp` は woff/woff2 のみの配布で
   埋め込みに使える実体を含まないため。
@@ -120,7 +122,7 @@ src/
 
 - 読み込んだ楽譜JSON、PDFの背景画像、設定を読み込むためのQR画像は、すべてお使いの
   ブラウザの中だけで処理されます。これらがサーバーへアップロードされることはありません。
-- ブラウザのlocalStorageには、楽譜の下書き・表示テーマ・PDF設定の3つを保存します。
+- ブラウザのlocalStorageには、楽譜の下書き・表示テーマ・PDF設定・表示言語の4つを保存します。
   PDFの背景画像は保存しないため、出力のたびに選び直してください。URLに`?debug=1`を
   付けたときだけ、診断用の直近の計測値をsessionStorageに保存します（タブを閉じると消えます）。
 - PDF設定の「保存・共有用URL」とQRカードは、PDFの出力設定と入力したプリセット名・メモを
@@ -131,7 +133,7 @@ src/
 - サイトの配信にはCloudflare Pagesを使用しています。ページやファイルを読み込む通信に伴い、
   IPアドレスなどのリクエスト情報をCloudflareが処理する場合があります。上に挙げた
   楽譜JSON・背景画像・QR画像・PDF設定の内容がCloudflareへ送られることはありません。
-- 「下書きを削除」で消えるのは楽譜の下書きだけです。テーマとPDF設定も消したい場合は、
+- 「下書きを削除」で消えるのは楽譜の下書きだけです。テーマ、表示言語、PDF設定も消したい場合は、
   ブラウザのサイトデータ削除機能をお使いください。共用の端末では、使い終わったあとに
   削除することをおすすめします。
 
@@ -152,14 +154,14 @@ src/
   `public/audio/salamander/` に自前ホスト（元データは [Tone.js のサンプルライブラリ](https://tonejs.github.io/audio/salamander/) 経由で取得）。
 * **画面表示フォント**: Noto Sans JP (Licensed under [SIL Open Font License 1.1](https://scripts.sil.org/OFL))。
   `@fontsource/noto-sans-jp` として自前ホスト。
-* **PDF 埋め込みフォント**: Zen Kaku Gothic New / Shippori Mincho / Zen Maru Gothic
+* **PDF 埋め込みフォント**: Zen Kaku Gothic New / Shippori Mincho / Zen Maru Gothic /
+  DM Sans / Sarasa Gothic SC / Taipei Sans TC / Chiron Hei HK / Wanted Sans
   (いずれも Licensed under [SIL Open Font License 1.1](https://scripts.sil.org/OFL))。
-  `google/fonts` リポジトリの各フォントディレクトリから取得し、`public/fonts/` に
+  それぞれの配布元から取得し、`public/fonts/` に
   自前ホスト。
 * **主要ライブラリ**: React, Vite, Tone.js, jsPDF, svg2pdf.js, qr
 
-アプリのアイコンや画面・PDF の記号は本ツール用に作成したもので、ゲームから抽出した
-画像・音声・フォントは使用していません。「Sky: 星を紡ぐ子どもたち」に関する権利は
+アプリのアイコンや画面・PDFの記号には本ツール用に作成したものと、言語切替に使用するWikimedia Commons由来のパブリックドメインSVGが含まれます。ゲームから抽出した画像・音声・フォントは使用していません。「Sky: 星を紡ぐ子どもたち」に関する権利は
 thatgamecompany, inc. に帰属します。「QRコード」は株式会社デンソーウェーブの登録商標です。
 
 ## ライセンス
@@ -176,7 +178,7 @@ Copyright (c) 2026 Hako.
 | 対象 | ライセンス |
 | --- | --- |
 | ソースコード・ドキュメント | [MIT License](LICENSE) |
-| PDF埋め込みフォント（`public/fonts/` の3書体） | [SIL Open Font License 1.1](https://scripts.sil.org/OFL) |
+| PDF埋め込みフォント（`public/fonts/` の8書体） | [SIL Open Font License 1.1](https://scripts.sil.org/OFL) |
 | 画面表示フォント（`@fontsource/noto-sans-jp`） | [SIL Open Font License 1.1](https://scripts.sil.org/OFL) |
 | 音源データ（`public/audio/salamander/`） | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
 

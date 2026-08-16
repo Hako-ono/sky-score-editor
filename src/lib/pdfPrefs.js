@@ -90,7 +90,9 @@ function sanitizeGridStyleId(value, fallback) {
 export function normalizePdfPrefs(value) {
   const source = isRecord(value) ? value : {};
   const fallback = defaults();
-  const typography = resolvePdfTypography(source);
+  // 保存層は表示言語を持たないため、既知のfontIdを言語別の既定値へ
+  // 置き換えず、共有URL・localStorageの値をそのまま保持する。
+  const typography = resolvePdfTypography({ ...source, language: null });
   const pageFurniture = resolvePdfPageFurniture(source);
   const density = resolvePdfDensity(source);
   const scoreInfo = resolvePdfScoreInfoDesign(source);

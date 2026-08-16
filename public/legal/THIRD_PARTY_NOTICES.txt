@@ -71,7 +71,38 @@ PDF fonts:
   Copyright 2021 The Zen Maru Gothic Project Authors
   Source: https://github.com/googlefonts/zen-marugothic
   License: SIL Open Font License 1.1
+- DM Sans (Regular and Bold)
+  Copyright 2014 The DM Sans Project Authors
+  Source: https://github.com/googlefonts/dm-fonts
+  License: SIL Open Font License 1.1
+- Sarasa Gothic SC (Regular and Bold)
+  Copyright (c) 2015-2025, Renzhi Li (aka. Belleve Invis)
+  Portions Copyright 2016 The Inter Project Authors; 2014-2021 Adobe Systems Incorporated; 2012 Google Inc.
+  Source: https://github.com/be5invis/Sarasa-Gothic/releases
+  License: SIL Open Font License 1.1
+- Taipei Sans TC (Regular and Bold)
+  Copyright and authorship: JT Foundry; see the bundled TaipeiSansTC-OFL.txt record
+  Source: https://sites.google.com/view/jtfoundry/en/downloads
+  License basis: SIL Open Font License 1.1, as stated on the official source page
+- Chiron Hei HK (Regular and Bold)
+  Copyright 2023-2026 Tamcy; based on Source Han Sans, Copyright 2014-2025 Adobe
+  Source: https://github.com/chiron-fonts/chiron-hei-hk
+  License: SIL Open Font License 1.1
+- Wanted Sans (Regular and Bold)
+  Copyright 2024 The Wanted Sans Project Authors
+  Source: https://github.com/wanteddev/wanted-sans
+  License: SIL Open Font License 1.1
 The PDF font files are bundled as supplied; this project made no additional font modifications.
+
+Language-switching icon:
+- Globe_icon.svg
+  Source: Wikimedia Commons
+  License: Public domain
+  Copyright holder's declaration:
+  I, the copyright holder of this work, release this work into the public domain.
+  This applies worldwide. In some countries this may not be legally possible; if so:
+  I grant anyone the right to use this work for any purpose, without any conditions,
+  unless such conditions are required by law.
 
 Audio:
 - Salamander Grand Piano V3, by Alexander Holm

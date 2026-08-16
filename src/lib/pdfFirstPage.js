@@ -10,6 +10,10 @@ const COVER_BODY_BASE_TITLE_AREA_PT = 18;
 const COVER_BODY_HEADER_PADDING_PT = 8;
 const HEADER_TITLE_BASELINE_OFFSET_PT = -1;
 const HEADER_BOTTOM_PADDING_PER_META_PT = 2;
+// ベースライン間隔から見た目の余白を作るための曲名ディセンダの概算比率。
+const SCORE_TITLE_DESCENDER_RATIO = 0.15;
+// ベースライン間隔から見た目の余白を作るための作者欄アセンダの概算比率。
+const SCORE_META_ASCENDER_RATIO = 0.85;
 
 function knownId(value) {
   return Object.prototype.hasOwnProperty.call(PDF_FIRST_PAGE_LAYOUTS, value)
@@ -60,6 +64,61 @@ function headerMetaLine1GapPt(titleFontSizePt, metaFontSizePt) {
 
 function headerMetaLine2GapPt(metaFontSizePt) {
   return Math.round(metaFontSizePt * (11 / 9));
+}
+
+function scoreTitleVisibleGapPt(titleFontSizePt, metaFontSizePt) {
+  return Math.round(titleFontSizePt * SCORE_TITLE_DESCENDER_RATIO)
+    + headerMetaLine2GapPt(metaFontSizePt)
+    + Math.round(metaFontSizePt * SCORE_META_ASCENDER_RATIO);
+}
+
+/** 作者欄との距離から、楽譜デザインの曲名を持ち上げる量を線形補間する。 */
+export function calculateScoreTitleLiftPt({
+  distancePt,
+  triggerDistancePt,
+  maxLiftPt,
+  hasAuthorInfo = true,
+}) {
+  if (!hasAuthorInfo || !Number.isFinite(distancePt)) return 0;
+  if (!Number.isFinite(maxLiftPt) || maxLiftPt <= 0) return 0;
+  if (!Number.isFinite(triggerDistancePt) || triggerDistancePt <= 0) {
+    return distancePt <= 0 ? maxLiftPt : 0;
+  }
+  if (distancePt <= 0) return maxLiftPt;
+  if (distancePt >= triggerDistancePt) return 0;
+  return maxLiftPt * ((triggerDistancePt - distancePt) / triggerDistancePt);
+}
+
+/** 楽譜デザインの曲名位置を解決する。本文確保高は曲名位置と独立させる。 */
+export function resolveScoreTitlePlacement(
+  titleFontSizePt,
+  metaFontSizePt,
+  distancePt,
+  hasAuthorInfo = true,
+) {
+  const metrics = getFirstPageHeaderMetrics(titleFontSizePt, metaFontSizePt, 'score');
+  const compactTitleY = titleFontSizePt + HEADER_TITLE_BASELINE_OFFSET_PT;
+  const baseUpperTitleY = Math.max(
+    compactTitleY,
+    metrics.metaYs[0] - scoreTitleVisibleGapPt(titleFontSizePt, metaFontSizePt),
+  );
+  const baseLiftPt = Math.max(0, metrics.titleY - baseUpperTitleY);
+  const liftPt = calculateScoreTitleLiftPt({
+    distancePt,
+    triggerDistancePt: headerMetaLine2GapPt(metaFontSizePt),
+    maxLiftPt: baseLiftPt,
+    hasAuthorInfo,
+  });
+  const requestedTitleY = metrics.titleY - liftPt;
+  const titleY = Math.max(compactTitleY, requestedTitleY);
+  return {
+    titleY,
+    requestedTitleY,
+    liftPt,
+    upperTitleY: Math.max(compactTitleY, metrics.titleY - baseLiftPt),
+    compactTitleY,
+    titleAreaPt: metrics.titleAreaPt,
+  };
 }
 
 /** デザインごとの見出しY座標・水平線・本文確保高を同じ規則から導出する。 */

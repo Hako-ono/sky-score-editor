@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CloseIcon } from './icons.jsx';
+import { useT } from '../i18n/LanguageContext.jsx';
 import {
   MAX_PDF_PRESET_INPUT_LENGTH,
   MAX_PDF_PRESET_MEMO_CODE_POINTS,
@@ -7,37 +8,38 @@ import {
 } from '../lib/pdfPresetConstants.js';
 import { readPdfPresetFragment } from '../lib/pdfPresetUrl.js';
 
-const ERROR_MESSAGES = {
-  'input-too-large': '保存・共有用URLが長すぎます。',
-  'invalid-input': '保存・共有用URLを読み取れませんでした。',
-  'invalid-code': '保存・共有用URLの形式が正しくありません。',
-  'invalid-base64': 'URL内の設定データが正しくありません。',
-  'compressed-too-large': 'URL内の設定データが大きすぎます。',
-  'json-too-large': '展開後の設定データが大きすぎます。',
-  'invalid-utf8': '設定データの文字コードが正しくありません。',
-  'invalid-json': '設定データのJSONが正しくありません。',
-  'invalid-settings': '設定データの形式が正しくありません。',
-  'invalid-settings-group': '設定データの形式が正しくありません。',
-  'unsupported-version': '新しいバージョンの設定です。',
-  'unsupported-browser': 'このURLの設定を展開するには新しいブラウザが必要です。',
-  'foreign-origin': '別のサイトの設定URLは読み込めません。',
-  'not-pdf-preset': 'PDF設定の保存・共有用URLを読み取れませんでした。',
-  'qr-not-found': '画像からQRコードを読み取れませんでした。',
-  'decode-failed': '画像を読み取れませんでした。',
-  'canvas-failed': '画像を処理できませんでした。',
-  'unsupported-type': 'PNG、JPEG、またはWebP画像を選んでください。',
-  'file-too-large': '画像ファイルが大きすぎます（上限10MiB）。',
-  'encode-failed': 'QRカードを作成できませんでした。保存・共有用URLをご利用ください。',
-  'draw-failed': 'QRカードを表示できませんでした。保存・共有用URLをご利用ください。',
-  'save-failed': 'QRカードをPNGとして保存できませんでした。',
+const ERROR_MESSAGE_KEYS = {
+  'input-too-large': 'inputTooLarge',
+  'invalid-input': 'invalidInput',
+  'invalid-code': 'invalidCode',
+  'invalid-base64': 'invalidBase64',
+  'compressed-too-large': 'compressedTooLarge',
+  'json-too-large': 'jsonTooLarge',
+  'invalid-utf8': 'invalidUtf8',
+  'invalid-json': 'invalidJson',
+  'invalid-settings': 'invalidSettings',
+  'invalid-settings-group': 'invalidSettingsGroup',
+  'unsupported-version': 'unsupportedVersion',
+  'unsupported-browser': 'unsupportedBrowser',
+  'foreign-origin': 'foreignOrigin',
+  'not-pdf-preset': 'notPdfPreset',
+  'qr-not-found': 'qrNotFound',
+  'decode-failed': 'decodeFailed',
+  'canvas-failed': 'canvasFailed',
+  'unsupported-type': 'unsupportedType',
+  'file-too-large': 'fileTooLarge',
+  'encode-failed': 'encodeFailed',
+  'draw-failed': 'drawFailed',
+  'save-failed': 'saveFailed',
 };
 
 function codePointLimit(value, max) {
   return [...value].slice(0, max).join('');
 }
 
-function getErrorMessage(error, fallback) {
-  return ERROR_MESSAGES[error?.code] || fallback;
+function getErrorMessage(translate, error, fallbackKey) {
+  const key = ERROR_MESSAGE_KEYS[error?.code];
+  return translate(`ui.pdfPresetDialog.error.${key || fallbackKey}`);
 }
 
 function focusableElements(root) {
@@ -73,6 +75,7 @@ export default function PdfPresetDialog({
   onApply,
   onClose,
 }) {
+  const t = useT();
   const dialogRef = useRef(null);
   const cardCanvasRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -179,12 +182,12 @@ export default function PdfPresetDialog({
       setMatrix(nextMatrix);
     } catch (caught) {
       if (!aliveRef.current || generation !== generationRef.current) return;
-      setError(getErrorMessage(caught, '保存・共有用URLを作成できませんでした。'));
+      setError(getErrorMessage(t, caught, 'exportCode'));
       setMatrix(null);
     } finally {
       if (aliveRef.current && generation === generationRef.current) setBusy(false);
     }
-  }, [memo, name, pdfPrefs]);
+  }, [memo, name, pdfPrefs, t]);
 
   useEffect(() => {
     if (mode !== 'export') return undefined;
@@ -204,9 +207,9 @@ export default function PdfPresetDialog({
       });
       setCardDrawn(true);
     } catch (caught) {
-      setError(getErrorMessage(caught, 'QRカードを表示できませんでした。'));
+      setError(getErrorMessage(t, caught, 'exportQr'));
     }
-  }, [matrix, memo, name, qrApi, shareUrl]);
+  }, [matrix, memo, name, qrApi, shareUrl, t]);
 
   const setImportedResult = useCallback((decoded, codec) => {
     setImported(decoded);
@@ -216,7 +219,7 @@ export default function PdfPresetDialog({
 
   const importCodeText = useCallback(async (text) => {
     if (typeof text !== 'string' || text.length > MAX_PDF_PRESET_INPUT_LENGTH) {
-      setError('保存・共有用URLが長すぎます。');
+      setError(t('ui.pdfPresetDialog.error.inputTooLarge'));
       return;
     }
     setBusy(true);
@@ -242,11 +245,11 @@ export default function PdfPresetDialog({
       const decoded = await codec.decodePdfPresetCode(extracted, scoreContext);
       setImportedResult({ ...decoded, code: extracted, text }, codec);
     } catch (caught) {
-      setError(getErrorMessage(caught, '保存・共有用URLを読み込めませんでした。'));
+      setError(getErrorMessage(t, caught, 'importCode'));
     } finally {
       if (aliveRef.current) setBusy(false);
     }
-  }, [scoreContext, setImportedResult]);
+  }, [scoreContext, setImportedResult, t]);
 
   useEffect(() => {
     if (mode !== 'import' || initialError || !initialImportText || initialImportHandledRef.current) return;
@@ -282,7 +285,7 @@ export default function PdfPresetDialog({
       setImportedResult(await decoded, codec);
     } catch (caught) {
       if (aliveRef.current && requestId === fileRequestRef.current) {
-        setError(getErrorMessage(caught, '画像からPDF設定を読み込めませんでした。'));
+        setError(getErrorMessage(t, caught, 'importQr'));
       }
     } finally {
       if (aliveRef.current && requestId === fileRequestRef.current) setBusy(false);
@@ -303,7 +306,9 @@ export default function PdfPresetDialog({
     if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current);
     if (copied) {
       setManualCopyValue('');
-      setCopyStatus({ ok: true, message: `${label}をコピーしました。` });
+      setCopyStatus({ ok: true, message: t('ui.pdfPresetDialog.copy.success', { label }) });
+      // 成功の合図は読めば用済みなので自動で引っ込める。押すたびに残ると、
+      // ボタンの下に古い通知が積まれたまま見えてしまう
       copyTimerRef.current = setTimeout(() => {
         copyTimerRef.current = null;
         if (aliveRef.current) setCopyStatus(null);
@@ -312,7 +317,7 @@ export default function PdfPresetDialog({
       // 失敗時は下の手動コピー欄の説明を兼ねるため消さない
       copyTimerRef.current = null;
       setManualCopyValue(value);
-      setCopyStatus({ ok: false, message: 'コピーできませんでした。下の欄から選択してコピーしてください。' });
+      setCopyStatus({ ok: false, message: t('ui.pdfPresetDialog.copy.failure') });
     }
   };
 
@@ -326,7 +331,7 @@ export default function PdfPresetDialog({
       qrApi.buildPdfPresetQrCardCanvas({ text: shareUrl, matrix, name: presetName, memo, canvas });
       await qrApi.savePdfPresetQrCard(canvas, presetName);
     } catch (caught) {
-      setError(getErrorMessage(caught, 'QRカードを保存できませんでした。'));
+      setError(getErrorMessage(t, caught, 'saveFailed'));
     } finally {
       if (aliveRef.current) setBusy(false);
     }
@@ -363,8 +368,8 @@ export default function PdfPresetDialog({
         onKeyDown={handleDialogKeyDown}
       >
         <div className="pdf-preset-dialog__header">
-          <h2 id={titleId}>{isExport ? 'PDF設定を書き出す' : 'PDF設定を読み込む'}</h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="閉じる">
+          <h2 id={titleId}>{t(isExport ? 'ui.pdfPresetDialog.title.export' : 'ui.pdfPresetDialog.title.import')}</h2>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label={t('ui.pdfPresetDialog.close')}>
             <CloseIcon />
           </button>
         </div>
@@ -373,7 +378,7 @@ export default function PdfPresetDialog({
             スクロール位置によっては結果に気づけない */}
         {hasMessage && (
           <div className="pdf-preset-dialog__messages">
-            {busy && !isExport && <p className="pdf-preset-dialog__status" role="status">読み込んでいます…</p>}
+            {busy && !isExport && <p className="pdf-preset-dialog__status" role="status">{t('ui.pdfPresetDialog.loading')}</p>}
             {error && <p className="pdf-preset-dialog__error" role="alert">{error}</p>}
           </div>
         )}
@@ -381,13 +386,13 @@ export default function PdfPresetDialog({
         {isExport ? (
           <div className="pdf-preset-dialog__body">
             <p id={leadId} className="pdf-preset-dialog__lead">
-              今のPDF出力設定を、URL・QRコードとして書き出します。どちらにも同じ設定が入っているので用途に合わせてご利用ください。
+              {t('ui.pdfPresetDialog.exportLead')}
             </p>
             <section className="pdf-preset-dialog__section" aria-labelledby="pdf-preset-group-info">
-              <h3 className="pdf-preset-dialog__section-title" id="pdf-preset-group-info">プリセットの情報</h3>
+              <h3 className="pdf-preset-dialog__section-title" id="pdf-preset-group-info">{t('ui.pdfPresetDialog.info')}</h3>
               <div className="pdf-preset-dialog__fields">
                 <label className="pdf-preset-dialog__field" htmlFor="pdf-preset-name">
-                  <span>プリセット名</span>
+                  <span>{t('ui.pdfPresetDialog.name')}</span>
                   <input
                     id="pdf-preset-name"
                     className="text-input"
@@ -401,7 +406,7 @@ export default function PdfPresetDialog({
                   />
                 </label>
                 <label className="pdf-preset-dialog__field" htmlFor="pdf-preset-memo">
-                  <span>メモ</span>
+                  <span>{t('ui.pdfPresetDialog.memo')}</span>
                   <textarea
                     id="pdf-preset-memo"
                     className="text-input pdf-preset-dialog__textarea"
@@ -415,45 +420,45 @@ export default function PdfPresetDialog({
                   />
                 </label>
               </div>
-              <p className="pdf-preset-dialog__hint">URL・QRコードにはプリセット名とメモの内容も含まれます。読み込み時に表示されるため共有の際はご注意ください。</p>
+              <p className="pdf-preset-dialog__hint">{t('ui.pdfPresetDialog.exportHint')}</p>
             </section>
 
             {/* 入力のたびにQRを作り直すが、節ごと消すと本文の高さが変わり、
                 スクロール位置とともに入力欄まで動いてしまう。Canvasは前回の
                 描画を保ったまま置いておき、新しい行列が来たら描き替える */}
             <section className="pdf-preset-dialog__section" aria-labelledby="pdf-preset-group-card">
-              <h3 className="pdf-preset-dialog__section-title" id="pdf-preset-group-card">QRカード</h3>
+              <h3 className="pdf-preset-dialog__section-title" id="pdf-preset-group-card">{t('ui.pdfPresetDialog.qrCard')}</h3>
               <div className="pdf-preset-dialog__card-preview">
-                {busy && <p className="pdf-preset-dialog__card-busy" role="status">URLとQRカードを更新しています…</p>}
+                {busy && <p className="pdf-preset-dialog__card-busy" role="status">{t('ui.pdfPresetDialog.qrUpdate')}</p>}
                 <canvas
                   ref={cardCanvasRef}
                   className={`pdf-preset-dialog__card${cardDrawn ? '' : ' pdf-preset-dialog__card--blank'}`}
                   role="img"
-                  aria-label="PDF設定のQRカード"
+                  aria-label={t('ui.pdfPresetDialog.qrCardAria')}
                 />
               </div>
               <div className="pdf-preset-dialog__actions pdf-preset-dialog__actions--center">
                 <button type="button" className="btn btn--sm btn--primary" disabled={busy || !matrix} onClick={handleSaveCard}>
-                  QRカードを保存
+                  {t('ui.pdfPresetDialog.saveQrCard')}
                 </button>
               </div>
-              <p className="pdf-preset-dialog__hint">PNG画像として保存・共有できます。</p>
+              <p className="pdf-preset-dialog__hint">{t('ui.pdfPresetDialog.pngHint')}</p>
             </section>
 
             <section className="pdf-preset-dialog__section" aria-labelledby="pdf-preset-group-url">
-              <h3 className="pdf-preset-dialog__section-title" id="pdf-preset-group-url">保存・共有用URL</h3>
+              <h3 className="pdf-preset-dialog__section-title" id="pdf-preset-group-url">{t('ui.pdfPresetDialog.shareUrl')}</h3>
               <textarea
                 id="pdf-preset-share-url"
                 className="text-input pdf-preset-dialog__code"
-                aria-label="保存・共有用URL"
+                aria-label={t('ui.pdfPresetDialog.shareUrl')}
                 readOnly
                 value={shareUrl}
               />
               {/* コピーの結果はボタンの隣に出す。ダイアログ上端の通知欄だと、
                   ここまでスクロールしている利用者の視界に入らない */}
               <div className="pdf-preset-dialog__actions pdf-preset-dialog__actions--copy">
-                <button type="button" className="btn btn--sm btn--ghost" disabled={!shareUrl} onClick={() => handleCopy(shareUrl, '保存・共有用URL')}>
-                  URLをコピー
+                <button type="button" className="btn btn--sm btn--ghost" disabled={!shareUrl} onClick={() => handleCopy(shareUrl, t('ui.pdfPresetDialog.shareUrl'))}>
+                  {t('ui.pdfPresetDialog.copyUrl')}
                 </button>
                 {copyStatus && (
                   <p
@@ -464,11 +469,11 @@ export default function PdfPresetDialog({
                   </p>
                 )}
               </div>
-              <p className="pdf-preset-dialog__hint">メモ帳などに保存できます。URLを開くと、その設定を読み込む画面が開きます。</p>
+              <p className="pdf-preset-dialog__hint">{t('ui.pdfPresetDialog.shareHint')}</p>
               {manualCopyValue && (
                 <textarea
                   className="text-input pdf-preset-dialog__code"
-                  aria-label="手動コピー用の保存・共有用URL"
+                  aria-label={t('ui.pdfPresetDialog.manualCopy')}
                   readOnly
                   value={manualCopyValue}
                   onFocus={(event) => event.target.select()}
@@ -476,17 +481,17 @@ export default function PdfPresetDialog({
               )}
             </section>
 
-            <p className="pdf-preset-dialog__note">保存・共有用URLおよびQRコードには、楽譜情報と背景画像は含まれません。</p>
+            <p className="pdf-preset-dialog__note">{t('ui.pdfPresetDialog.exportNote')}</p>
           </div>
         ) : (
           <div className="pdf-preset-dialog__body">
             <p id={leadId} className="pdf-preset-dialog__lead">
-              保存・共有用URLか、QRカードの画像から、PDF出力設定を取り込みます。
+              {t('ui.pdfPresetDialog.importLead')}
             </p>
             <section className="pdf-preset-dialog__section" aria-labelledby="pdf-preset-group-source">
-              <h3 className="pdf-preset-dialog__section-title" id="pdf-preset-group-source">読み込み元</h3>
+              <h3 className="pdf-preset-dialog__section-title" id="pdf-preset-group-source">{t('ui.pdfPresetDialog.source')}</h3>
               <label className="pdf-preset-dialog__field" htmlFor="pdf-preset-import-text">
-                <span>保存・共有用URL</span>
+                <span>{t('ui.pdfPresetDialog.shareUrl')}</span>
                 <textarea
                   id="pdf-preset-import-text"
                   className="text-input pdf-preset-dialog__code"
@@ -498,10 +503,10 @@ export default function PdfPresetDialog({
               </label>
               <div className="pdf-preset-dialog__actions">
                 <button type="button" className="btn btn--sm btn--primary" disabled={busy || !importText.trim()} onClick={handleImportSubmit}>
-                  URLを読み込む
+                  {t('ui.pdfPresetDialog.loadUrl')}
                 </button>
                 <button type="button" className="btn btn--sm btn--ghost" disabled={busy} onClick={() => fileInputRef.current?.click()}>
-                  QR画像を選択
+                  {t('ui.pdfPresetDialog.chooseQr')}
                 </button>
                 <input
                   ref={fileInputRef}
@@ -515,51 +520,51 @@ export default function PdfPresetDialog({
                   }}
                 />
               </div>
-              <p className="pdf-preset-dialog__hint">保存したQRカードのPNG画像からも読み込めます。画像は端末の中だけで処理されます。</p>
+              <p className="pdf-preset-dialog__hint">{t('ui.pdfPresetDialog.importHint')}</p>
             </section>
 
             {imported && (
               <section className="pdf-preset-dialog__section" aria-labelledby="pdf-preset-group-review">
-                <h3 className="pdf-preset-dialog__section-title" id="pdf-preset-group-review">読み込んだ設定</h3>
+                <h3 className="pdf-preset-dialog__section-title" id="pdf-preset-group-review">{t('ui.pdfPresetDialog.review')}</h3>
                 <dl className="pdf-preset-dialog__meta">
-                  <dt>名前</dt>
-                  <dd>{imported.name || '（名前なし）'}</dd>
-                  <dt>メモ</dt>
-                  <dd>{imported.memo || '（メモなし）'}</dd>
+                  <dt>{t('ui.pdfPresetDialog.name')}</dt>
+                  <dd>{imported.name || t('ui.pdfPresetDialog.nameValueEmpty')}</dd>
+                  <dt>{t('ui.pdfPresetDialog.memo')}</dt>
+                  <dd>{imported.memo || t('ui.pdfPresetDialog.memoValueEmpty')}</dd>
                 </dl>
-                <div className="pdf-preset-dialog__diff" aria-label="設定の差分">
+                <div className="pdf-preset-dialog__diff" aria-label={t('ui.pdfPresetDialog.diff')}>
                   {changedSections.map((section) => (
                     <section key={section.id} className="pdf-preset-dialog__diff-section">
                       <h4>{section.label}</h4>
                       <ul>
                         {section.changes.map((change) => (
-                          <li key={change.key}>{change.label}：{change.current} → {change.imported}</li>
+                          <li key={change.key}>{t('ui.pdfPresetDialog.diffChange', change)}</li>
                         ))}
                       </ul>
                     </section>
                   ))}
                   {changedSections.length === 0 && (
-                    <p className="pdf-preset-dialog__diff-empty">いまの設定と同じ内容です。</p>
+                    <p className="pdf-preset-dialog__diff-empty">{t('ui.pdfPresetDialog.diffEmpty')}</p>
                   )}
                 </div>
                 {/* 変更のない節まで見出しで並べると、変わった項目が埋もれる */}
                 {unchangedLabels.length > 0 && (
-                  <p className="pdf-preset-dialog__hint">変更なし：{unchangedLabels.join('、')}</p>
+                  <p className="pdf-preset-dialog__hint">{t('ui.pdfPresetDialog.unchanged', { labels: unchangedLabels.join('、') })}</p>
                 )}
               </section>
             )}
 
-            <p className="pdf-preset-dialog__note">設定を適用しても、楽譜情報と背景画像は変更されません。</p>
+            <p className="pdf-preset-dialog__note">{t('ui.pdfPresetDialog.importNote')}</p>
           </div>
         )}
 
         <div className="pdf-preset-dialog__footer">
           {isExport ? (
-            <button type="button" className="btn btn--primary" onClick={onClose}>閉じる</button>
+            <button type="button" className="btn btn--primary" onClick={onClose}>{t('ui.pdfPresetDialog.close')}</button>
           ) : (
             <>
-              <button type="button" className="btn btn--ghost" onClick={onClose}>キャンセル</button>
-              <button type="button" className="btn btn--primary" disabled={!imported || busy} onClick={handleApply}>適用</button>
+              <button type="button" className="btn btn--ghost" onClick={onClose}>{t('ui.pdfPresetDialog.cancel')}</button>
+              <button type="button" className="btn btn--primary" disabled={!imported || busy} onClick={handleApply}>{t('ui.pdfPresetDialog.apply')}</button>
             </>
           )}
         </div>

@@ -1,0 +1,14 @@
+Taipei Sans TC Beta
+
+License basis recorded for this distribution:
+
+Official source: https://sites.google.com/view/jtfoundry/en/downloads
+Official download page checked: 2026-08-16
+The official page describes Taipei Sans TC as derived from Source Han Sans and
+distributed under the SIL Open Font License, Version 1.1. The distribution
+package did not include a separate license file, so this record is bundled
+next to the font files instead of presenting an unverified license text as if
+it had come from the package.
+
+SIL Open Font License, Version 1.1:
+https://scripts.sil.org/OFL

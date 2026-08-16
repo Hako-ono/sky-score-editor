@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { t } from '../../i18n/index.js';
 
 import {
   DEFAULT_PDF_GRID_STYLE_CUSTOM,
@@ -21,7 +22,7 @@ const STYLE_KEYS = [
 
 describe('PDFグリッドスタイルのプリセット', () => {
   it.each(Object.entries(PDF_GRID_STYLES))('%s は6つの形状値を持つ', (_id, style) => {
-    expect(Object.keys(style).sort()).toEqual(['label', ...STYLE_KEYS].sort());
+    expect(Object.keys(style).sort()).toEqual(STYLE_KEYS.sort());
   });
 
   it('標準値は現在のPDF描画値と一致する', () => {
@@ -37,7 +38,7 @@ describe('PDFグリッドスタイルのプリセット', () => {
   });
 
   it('ふんわりだけ記号の角丸3を使う', () => {
-    expect(PDF_GRID_STYLES.soft.label).toBe('ふんわり');
+    expect(t('pdf.gridStyle.soft')).toBe('ふんわり');
     expect(resolvePdfGridStyle({ gridStyleId: 'soft' }).symbolRadius).toBe(3);
     expect(resolvePdfGridStyle({ gridStyleId: 'standard' }).symbolRadius).toBe(0);
     expect(resolvePdfGridStyle({ gridStyleId: 'bold' }).symbolRadius).toBe(0);

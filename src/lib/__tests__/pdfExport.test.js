@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  sanitizeForPdf,
   truncateToUnitWidth,
   deriveTitleAreaPt,
   buildLayout,
@@ -33,6 +34,7 @@ import {
 } from '../../constants/config.js';
 import { resolvePdfTypography } from '../pdfTypography.js';
 import { resolvePdfGridStyle } from '../pdfGridStyle.js';
+import { t } from '../../i18n/index.js';
 
 function createSvgElement(name) {
   return {
@@ -131,7 +133,7 @@ describe('PDFの曲情報クレジット', () => {
   });
 
   it('4デザインを完成組版の名前で定義し、未知idは楽譜へ戻す', () => {
-    expect(Object.values(PDF_SCORE_INFO_DESIGNS).map(({ label }) => label)).toEqual([
+    expect(Object.keys(PDF_SCORE_INFO_DESIGNS).map((id) => t(`pdf.scoreInfoDesign.${id}`))).toEqual([
       '楽譜',
       'シンプル',
       '詳細',
@@ -212,6 +214,20 @@ describe('PDFの曲情報クレジット', () => {
       pitchLevel: 0,
     }, 'masthead');
     expect(rows[0].texts).toEqual(['作曲: 作〜曲', '♩ = 22.5', '3拍子', 'C']);
+  });
+
+  it('波ダッシュの代替字を書体ごとの指定へ置き換える', () => {
+    expect(sanitizeForPdf('作～曲〜', '~')).toBe('作~曲~');
+    expect(sanitizeForPdf('作～曲〜')).toBe('作〜曲〜');
+    expect(buildScoreInfoRows({
+      author: '作～曲',
+      lyricist: '',
+      transcribedBy: '',
+      bpm: 90,
+      bitsPerPage: 12,
+      pitchLevel: 0,
+    }, 'masthead', '♭', 'both', 'compact', 'quarter', 30, '~')[0].texts[0])
+      .toBe('作曲: 作~曲');
   });
 
   it('詳細では未入力項目のラベルと値を同時に省略する', () => {

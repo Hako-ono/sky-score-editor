@@ -5,11 +5,10 @@ import {
   KEY_MODE_NOTATIONS,
   keyDisplayName,
   keyModeNotationLabel,
+  resolveKeyModeNotationIdForLanguage,
   hasEnharmonicKeyName,
   DEFAULT_BPM,
   MAX_METADATA_LENGTH,
-  PDF_PRESETS,
-  PDF_FONTS,
   PDF_FONT_WEIGHTS,
   PDF_LAYOUT_RANGES,
   PDF_GRID_NUMBER_DISPLAYS,
@@ -36,6 +35,11 @@ import {
   resolvePaletteSeed,
   MOBILE_MEDIA_QUERY,
 } from '../constants/config.js';
+// コンポーネント外の関数用に直接importも残している
+import {
+  t,
+} from '../i18n/index.js';
+import { useLanguage, useT } from '../i18n/LanguageContext.jsx';
 import {
   DEFAULT_PDF_GRID_STYLE_CUSTOM,
   PDF_GRID_STYLES,
@@ -49,15 +53,17 @@ import {
   BACKGROUND_IMAGE_OPACITY_STEP,
 } from '../lib/backgroundImage.js';
 import { resolveColumnsPerPage } from '../lib/layout.js';
+import { getPdfFontIdsForLanguage, resolvePdfFont } from '../lib/pdfTypography.js';
+import { useMenuPosition } from '../hooks/useMenuPosition.js';
 import { ChevronIcon } from './icons.jsx';
 
-// カスタム配色の入力ラベル。簡易モードで見せる3つ（bg/ink/line）を先頭に置く
+// カスタム配色の入力ラベルキー。簡易モードで見せる3つ（bg/ink/line）を先頭に置く
 // 順序にしてある。
-const CUSTOM_SEED_LABELS = {
-  bg: '背景',
-  ink: '文字',
-  line: '線',
-  surface: '鍵面',
+const CUSTOM_SEED_LABEL_KEYS = {
+  bg: 'ui.toolbar.pdf.palette.background',
+  ink: 'ui.toolbar.pdf.palette.ink',
+  line: 'ui.toolbar.pdf.palette.line',
+  surface: 'ui.toolbar.pdf.palette.surface',
 };
 const CUSTOM_SEED_SIMPLE_KEYS = ['bg', 'ink', 'line'];
 const CUSTOM_SEED_DETAIL_KEYS_SINGLE = ['surface', 'accent', 'accentLine'];
@@ -72,31 +78,35 @@ export function getCustomSeedDetailKeys(usesTwoLayers) {
 }
 
 export function getCustomSeedLabel(key, usesTwoLayers) {
-  if (usesTwoLayers && key === 'accent') return '押鍵面1';
-  if (usesTwoLayers && key === 'accentLine') return '押鍵枠1';
-  if (key === 'accent2') return '押鍵面2';
-  if (key === 'accentLine2') return '押鍵枠2';
-  if (key === 'accent') return '押鍵面';
-  if (key === 'accentLine') return '押鍵枠';
-  return CUSTOM_SEED_LABELS[key];
+  if (usesTwoLayers && key === 'accent') return t('ui.toolbar.pdf.palette.accentLayer1');
+  if (usesTwoLayers && key === 'accentLine') return t('ui.toolbar.pdf.palette.accentLineLayer1');
+  if (key === 'accent2') return t('ui.toolbar.pdf.palette.accentLayer2');
+  if (key === 'accentLine2') return t('ui.toolbar.pdf.palette.accentLineLayer2');
+  if (key === 'accent') return t('ui.toolbar.pdf.palette.accent');
+  if (key === 'accentLine') return t('ui.toolbar.pdf.palette.accentLine');
+  return t(CUSTOM_SEED_LABEL_KEYS[key]);
 }
 
-const PDF_GRID_STYLE_CUSTOM_LABELS = {
-  outerRadius: '外枠の角丸',
-  cellRadius: '鍵盤の角丸',
-  symbolRadius: '記号の角丸',
-  outerStrokeWidth: '外枠の線幅',
-  cellStrokeWidth: '鍵盤の線幅',
-  symbolStrokeWidth: '記号の線幅',
+const PDF_GRID_STYLE_CUSTOM_LABEL_KEYS = {
+  outerRadius: 'ui.toolbar.pdf.grid.outerRadius',
+  cellRadius: 'ui.toolbar.pdf.grid.cellRadius',
+  symbolRadius: 'ui.toolbar.pdf.grid.symbolRadius',
+  outerStrokeWidth: 'ui.toolbar.pdf.grid.outerStrokeWidth',
+  cellStrokeWidth: 'ui.toolbar.pdf.grid.cellStrokeWidth',
+  symbolStrokeWidth: 'ui.toolbar.pdf.grid.symbolStrokeWidth',
 };
 
 const PDF_GRID_STYLE_CUSTOM_GROUPS = [
-  { title: '角丸', keys: ['outerRadius', 'cellRadius', 'symbolRadius'] },
-  { title: '線幅', keys: ['outerStrokeWidth', 'cellStrokeWidth', 'symbolStrokeWidth'] },
+  { titleKey: 'ui.toolbar.pdf.grid.customRadius', keys: ['outerRadius', 'cellRadius', 'symbolRadius'] },
+  { titleKey: 'ui.toolbar.pdf.grid.customStroke', keys: ['outerStrokeWidth', 'cellStrokeWidth', 'symbolStrokeWidth'] },
 ];
 
 const PDF_SECTION_KEYS = ['design', 'typography', 'score-info', 'page', 'paper'];
-const THEME_LABELS = { system: 'システム', light: 'ライト', dark: 'ダーク' };
+const THEME_OPTIONS = ['system', 'light', 'dark'];
+
+function pdfOptionLabel(group, id) {
+  return t(`pdf.${group}.${id}`);
+}
 
 function SegmentedRadioField({
   className = '',
@@ -105,13 +115,14 @@ function SegmentedRadioField({
   name,
   value,
   options,
+  labelGroup,
   onChange,
 }) {
   return (
     <fieldset className={`toolbar__segmented-field field field--stack field--compact ${className}`.trim()}>
       <legend>{legend}</legend>
       <div className="toolbar__segmented-options" role="radiogroup" aria-label={ariaLabel}>
-        {Object.entries(options).map(([id, option]) => (
+        {Object.entries(options).map(([id]) => (
           <label className="toolbar__segmented-option" key={id}>
             <input
               type="radio"
@@ -120,7 +131,7 @@ function SegmentedRadioField({
               checked={value === id}
               onChange={() => onChange(id)}
             />
-            <span>{option.label}</span>
+            <span>{pdfOptionLabel(labelGroup, id)}</span>
           </label>
         ))}
       </div>
@@ -173,6 +184,8 @@ export default function Toolbar({
   onOpenPdfPreset,
   onSetTheme,
 }) {
+  const t = useT();
+  const { language } = useLanguage();
   // 狭い画面では展開したツールバーが数画面分の高さを占め、楽譜まで
   // スクロールしないと辿り着けなくなるため、初期状態を縮小にしておく。
   // 以後は利用者の操作に従うだけで、画面幅の変化では切り替えない。
@@ -200,6 +213,7 @@ export default function Toolbar({
   const themeTriggerRef = useRef(null);
   const themeItemRefs = useRef({});
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const themePanelRef = useMenuPosition(themeMenuOpen);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -227,9 +241,10 @@ export default function Toolbar({
 
   const isPdfSectionOpen = (section) => !isMobileViewport || pdfSectionsOpen[section];
 
-  const renderPdfSectionHeading = (section, title) => {
+  const renderPdfSectionHeading = (section, titleKey) => {
     const headingId = `toolbar-group-pdf-${section}`;
     const panelId = `toolbar-panel-pdf-${section}`;
+    const title = t(titleKey);
     return (
       <h2 className="toolbar__section-title" id={headingId}>
         {isMobileViewport ? (
@@ -305,7 +320,7 @@ export default function Toolbar({
   }, [themeMenuOpen, theme]);
 
   const handleThemeMenuKeyDown = (e) => {
-    const preferences = Object.keys(THEME_LABELS);
+    const preferences = THEME_OPTIONS;
     if (e.key === 'Escape') {
       e.preventDefault();
       setThemeMenuOpen(false);
@@ -464,8 +479,13 @@ export default function Toolbar({
     () => sanitizePdfGridStyleCustom(pdfPrefs.gridStyleCustom),
     [pdfPrefs.gridStyleCustom],
   );
+  const effectivePdfFont = useMemo(
+    () => resolvePdfFont(pdfPrefs.fontId, pdfPrefs.fontWeightId, language),
+    [language, pdfPrefs.fontId, pdfPrefs.fontWeightId],
+  );
+  const pdfFontIds = getPdfFontIdsForLanguage(language);
   const showDarkNote = isDarkSeedBg(effectiveSeed.bg);
-  const showMinchoNote = pdfPrefs.fontId === 'mincho';
+  const showMinchoNote = effectivePdfFont.fontId === 'mincho';
   const showKeyNotation = hasEnharmonicKeyName(pitchLevel, keyMode);
   // 警告であって禁止ではない（出力は止めない）。本文の読みやすさの下限4.5を
   // 下回ったときだけ知らせる。判定は保存値ではなく effectiveSeed（実際に
@@ -500,13 +520,13 @@ export default function Toolbar({
       {/* 1行目: ファイル操作やテーマ・最小化ボタン（常に表示） */}
       <div className="toolbar__row toolbar__row--primary">
         <h1 className="toolbar__brand">
-          <span className="toolbar__brand-latin">Sky</span>
-          <span className="toolbar__brand-jp">楽譜エディター</span>
+          <span className="toolbar__brand-latin">{t('ui.toolbar.brand')}</span>
+          <span className="toolbar__brand-jp">{t('ui.toolbar.brandJp')}</span>
         </h1>
         <span className="v-sep" aria-hidden="true" />
         <div className="toolbar__group">
           <label className="btn btn--ghost file-label">
-            楽譜を開く
+            {t('ui.toolbar.openScore')}
             <input
               type="file"
               accept=".json,.txt,application/json,text/plain"
@@ -519,13 +539,13 @@ export default function Toolbar({
             />
           </label>
           <button type="button" className="btn btn--ghost" onClick={onNewScore}>
-            新規作成
+            {t('ui.toolbar.newScore')}
           </button>
           <span
             className={`file-name${fileName ? '' : ' file-name--empty'}`}
             title={fileName}
           >
-            {fileName || '未読み込み'}
+            {fileName || t('ui.toolbar.notLoaded')}
           </span>
         </div>
 
@@ -548,14 +568,20 @@ export default function Toolbar({
               aria-haspopup="menu"
               aria-expanded={themeMenuOpen}
               aria-controls="toolbar-theme-menu"
-              aria-label="表示テーマを選ぶ"
-              title="表示テーマを選ぶ"
+              aria-label={t('ui.toolbar.theme.select')}
+              title={t('ui.toolbar.theme.select')}
             >
-              {THEME_LABELS[theme]}
+              {t(`ui.toolbar.theme.${theme}`)}
             </button>
             {themeMenuOpen && (
-              <div id="toolbar-theme-menu" className="theme-menu__panel" role="menu" aria-label="表示テーマ">
-                {Object.entries(THEME_LABELS).map(([preference, label]) => (
+              <div
+                ref={themePanelRef}
+                id="toolbar-theme-menu"
+                className="theme-menu__panel"
+                role="menu"
+                aria-label={t('ui.toolbar.theme.menu')}
+              >
+                {THEME_OPTIONS.map((preference) => (
                   <button
                     key={preference}
                     ref={(element) => {
@@ -565,8 +591,14 @@ export default function Toolbar({
                     role="menuitemradio"
                     className="theme-menu__item"
                     aria-checked={theme === preference}
-                    aria-label={theme === preference ? `${label}（現在のテーマ）` : `${label}に切り替える`}
-                    title={theme === preference ? `${label}（現在のテーマ）` : `${label}に切り替える`}
+                    aria-label={t(
+                      theme === preference ? 'ui.toolbar.theme.current' : 'ui.toolbar.theme.switch',
+                      { label: t(`ui.toolbar.theme.${preference}`) },
+                    )}
+                    title={t(
+                      theme === preference ? 'ui.toolbar.theme.current' : 'ui.toolbar.theme.switch',
+                      { label: t(`ui.toolbar.theme.${preference}`) },
+                    )}
                     onClick={() => {
                       onSetTheme(preference);
                       setThemeMenuOpen(false);
@@ -574,7 +606,7 @@ export default function Toolbar({
                     }}
                     onKeyDown={handleThemeMenuKeyDown}
                   >
-                    {label}
+                    {t(`ui.toolbar.theme.${preference}`)}
                   </button>
                 ))}
               </div>
@@ -587,10 +619,10 @@ export default function Toolbar({
             className="btn btn--sm btn--ghost"
             onClick={() => setIsMinimized(!isMinimized)}
             aria-expanded={!isMinimized}
-            aria-label={isMinimized ? 'ツールバーを展開' : 'ツールバーを最小化'}
-            title={isMinimized ? 'メニューを展開' : 'メニューを最小化'}
+            aria-label={t(isMinimized ? 'ui.toolbar.expandToolbar' : 'ui.toolbar.minimizeToolbar')}
+            title={t(isMinimized ? 'ui.toolbar.expandMenu' : 'ui.toolbar.minimizeMenu')}
           >
-            {isMinimized ? '展開' : '縮小'}
+            {t(isMinimized ? 'ui.toolbar.expandToolbar' : 'ui.toolbar.minimizeToolbar')}
             <ChevronIcon direction={isMinimized ? 'down' : 'up'} size={14} />
           </button>
         </div>
@@ -598,7 +630,7 @@ export default function Toolbar({
 
       {!isMinimized && (
         <>
-          <div className="toolbar__tabs" role="tablist" aria-label="ツールバー">
+          <div className="toolbar__tabs" role="tablist" aria-label={t('ui.toolbar.tabs')}>
             <button
               ref={(element) => {
                 tabRefs.current.score = element;
@@ -613,7 +645,7 @@ export default function Toolbar({
               onClick={() => selectTab('score')}
               onKeyDown={handleTabKeyDown}
             >
-              楽譜
+              {t('ui.toolbar.scoreTab')}
             </button>
             <button
               ref={(element) => {
@@ -629,7 +661,7 @@ export default function Toolbar({
               onClick={() => selectTab('pdf')}
               onKeyDown={handleTabKeyDown}
             >
-              PDF出力
+              {t('ui.toolbar.pdfTab')}
             </button>
           </div>
 
@@ -641,53 +673,53 @@ export default function Toolbar({
             hidden={activeTab !== 'score'}
           >
           <section className="toolbar__section toolbar__section--score-info" aria-labelledby="toolbar-group-score-info">
-            <h2 className="toolbar__section-title" id="toolbar-group-score-info">曲情報</h2>
+            <h2 className="toolbar__section-title" id="toolbar-group-score-info">{t('ui.toolbar.score.info')}</h2>
           {/* 曲情報 (タイトル、作曲者、作詞者、譜面作成者) */}
           <div className="toolbar__info-grid">
             <div className="toolbar__group field field--stack field--title">
-              <label htmlFor="score-title">曲名</label>
+              <label htmlFor="score-title">{t('ui.toolbar.score.title')}</label>
               <input
                 id="score-title"
                 type="text"
                 className="text-input"
                 value={title || ''}
-                placeholder="曲名"
+                placeholder={t('ui.toolbar.score.title')}
                 maxLength={MAX_METADATA_LENGTH}
                 onChange={(e) => onSetTitle(e.target.value)}
               />
             </div>
             <div className="toolbar__group field field--stack">
-              <label htmlFor="score-author">作曲者</label>
+              <label htmlFor="score-author">{t('ui.toolbar.score.author')}</label>
               <input
                 id="score-author"
                 type="text"
                 className="text-input"
                 value={author || ''}
-                placeholder="作曲者"
+                placeholder={t('ui.toolbar.score.author')}
                 maxLength={MAX_METADATA_LENGTH}
                 onChange={(e) => onSetAuthor(e.target.value)}
               />
             </div>
             <div className="toolbar__group field field--stack">
-              <label htmlFor="score-lyricist">作詞者</label>
+              <label htmlFor="score-lyricist">{t('ui.toolbar.score.lyricist')}</label>
               <input
                 id="score-lyricist"
                 type="text"
                 className="text-input"
                 value={lyricist || ''}
-                placeholder="作詞者"
+                placeholder={t('ui.toolbar.score.lyricist')}
                 maxLength={MAX_METADATA_LENGTH}
                 onChange={(e) => onSetLyricist(e.target.value)}
               />
             </div>
             <div className="toolbar__group field field--stack">
-              <label htmlFor="score-transcribed">作成者</label>
+              <label htmlFor="score-transcribed">{t('ui.toolbar.score.transcribedBy')}</label>
               <input
                 id="score-transcribed"
                 type="text"
                 className="text-input"
                 value={transcribedBy || ''}
-                placeholder="譜面作成者"
+                placeholder={t('ui.toolbar.score.transcribedByPlaceholder')}
                 maxLength={MAX_METADATA_LENGTH}
                 onChange={(e) => onSetTranscribedBy(e.target.value)}
               />
@@ -696,11 +728,11 @@ export default function Toolbar({
           </section>
 
           <section className="toolbar__section toolbar__section--score-playback" aria-labelledby="toolbar-group-score-playback">
-            <h2 className="toolbar__section-title" id="toolbar-group-score-playback">演奏設定</h2>
+            <h2 className="toolbar__section-title" id="toolbar-group-score-playback">{t('ui.toolbar.score.playback')}</h2>
           {/* 音楽設定（1行目: BPM/拍子、2行目: キー/調性） */}
           <div className="toolbar__playback-grid">
             <div className="toolbar__group field field--stack field--compact field--bpm">
-              <label htmlFor="score-bpm">BPM</label>
+              <label htmlFor="score-bpm">{t('ui.toolbar.score.bpm')}</label>
               <input
                 id="score-bpm"
                 type="number"
@@ -719,21 +751,21 @@ export default function Toolbar({
               />
             </div>
             <div className="toolbar__group field field--stack field--compact">
-              <label htmlFor="score-bits">拍子</label>
+              <label htmlFor="score-bits">{t('ui.toolbar.score.timeSignature')}</label>
               <select
                 id="score-bits"
                 className="text-input"
                 value={bitsPerPage}
                 onChange={(e) => onSetBitsPerPage(e.target.value)}
               >
-                <option value={16}>4拍子</option>
-                <option value={12}>3拍子</option>
-                <option value={4}>なし(未設定)</option>
+                <option value={16}>{t('ui.toolbar.score.fourBeats')}</option>
+                <option value={12}>{t('ui.toolbar.score.threeBeats')}</option>
+                <option value={4}>{t('ui.toolbar.score.unsetBeats')}</option>
               </select>
             </div>
             {/* キー設定 */}
             <div className="toolbar__group field field--stack field--compact field--pitch">
-              <label htmlFor="score-pitch">キー</label>
+              <label htmlFor="score-pitch">{t('ui.toolbar.score.pitch')}</label>
               <select
                 id="score-pitch"
                 className="text-input"
@@ -748,16 +780,16 @@ export default function Toolbar({
               </select>
             </div>
             <div className="toolbar__group field field--stack field--compact">
-              <label htmlFor="score-key-mode">調性</label>
+              <label htmlFor="score-key-mode">{t('ui.toolbar.score.keyMode')}</label>
               <select
                 id="score-key-mode"
                 className="text-input"
                 value={keyMode}
                 onChange={(e) => onSetKeyMode(e.target.value)}
               >
-                {Object.entries(KEY_MODES).map(([id, mode]) => (
+                {Object.entries(KEY_MODES).map(([id]) => (
                   <option key={id} value={id}>
-                    {mode.label}
+                    {t(`ui.keyMode.${id}`)}
                   </option>
                 ))}
               </select>
@@ -766,7 +798,7 @@ export default function Toolbar({
           </section>
 
           <section className="toolbar__section toolbar__section--score-actions" aria-labelledby="toolbar-group-score-actions">
-            <h2 className="toolbar__section-title" id="toolbar-group-score-actions">編集・保存</h2>
+            <h2 className="toolbar__section-title" id="toolbar-group-score-actions">{t('ui.toolbar.score.actions')}</h2>
           {/* 3行目: 編集操作 */}
           <div className="toolbar__action-bar toolbar__action-bar--score">
             <div className="toolbar__action-cluster toolbar__action-cluster--history">
@@ -775,20 +807,20 @@ export default function Toolbar({
                 className="btn btn--sm btn--ghost"
                 onClick={onUndo}
                 disabled={!canUndo}
-                aria-label="元に戻す"
-                title="元に戻す (Ctrl+Z)"
+                aria-label={t('ui.toolbar.score.undo')}
+                title={t('ui.toolbar.score.undoTitle')}
               >
-                元に戻す
+                {t('ui.toolbar.score.undo')}
               </button>
               <button
                 type="button"
                 className="btn btn--sm btn--ghost"
                 onClick={onRedo}
                 disabled={!canRedo}
-                aria-label="やり直す"
-                title="やり直す (Ctrl+Shift+Z)"
+                aria-label={t('ui.toolbar.score.redo')}
+                title={t('ui.toolbar.score.redoTitle')}
               >
-                やり直す
+                {t('ui.toolbar.score.redo')}
               </button>
             </div>
             <div className="toolbar__action-cluster toolbar__action-cluster--edit">
@@ -796,9 +828,9 @@ export default function Toolbar({
                 type="button"
                 className="btn btn--ghost"
                 onClick={onToggleLayer}
-                title="レイヤー切り替え"
+                title={t('ui.toolbar.score.toggleLayer')}
               >
-                レイヤー切り替え
+                {t('ui.toolbar.score.toggleLayer')}
               </button>
               {/* 橙はモードに入っている最中だけに使う。入る前も橙だと、
                   可逆な操作が破壊的な操作に見える */}
@@ -809,7 +841,7 @@ export default function Toolbar({
                 disabled={isProcessing}
                 aria-pressed={editMode}
               >
-                {editMode ? 'グリッド編集を終了' : 'グリッドの追加/削除'}
+                {t(editMode ? 'ui.toolbar.score.finishGridEdit' : 'ui.toolbar.score.toggleGridEdit')}
               </button>
               {hasData && (
                 <>
@@ -819,7 +851,7 @@ export default function Toolbar({
                   className="btn btn--sm btn--danger-ghost"
                   onClick={onClear}
                 >
-                  全消去
+                  {t('ui.toolbar.score.clear')}
                 </button>
                 </>
               )}
@@ -830,9 +862,9 @@ export default function Toolbar({
                 className="btn btn--success"
                 onClick={onSaveJson}
                 disabled={isProcessing || !hasData}
-                title={isDirty ? '未保存の変更があります' : undefined}
+                title={isDirty ? t('ui.toolbar.score.unsaved') : undefined}
               >
-                JSONを保存
+                {t('ui.toolbar.score.saveJson')}
                 {isDirty && <span className="btn__dot" aria-hidden="true" />}
               </button>
             </div>
@@ -850,7 +882,7 @@ export default function Toolbar({
             hidden={activeTab !== 'pdf'}
           >
           <section className="toolbar__section toolbar__section--pdf-design" aria-labelledby="toolbar-group-pdf-design">
-            {renderPdfSectionHeading('design', 'デザイン')}
+            {renderPdfSectionHeading('design', 'ui.toolbar.pdf.section.design')}
             <div
               className="toolbar__section-panel"
               id="toolbar-panel-pdf-design"
@@ -858,41 +890,41 @@ export default function Toolbar({
             >
             <div className="toolbar__design-grid">
             <div className="toolbar__design-column toolbar__design-column--colors">
-            <h3 className="toolbar__subsection-title">色と背景</h3>
+            <h3 className="toolbar__subsection-title">{t('ui.toolbar.pdf.colorsAndBackground')}</h3>
           <div className="toolbar__appearance-basics">
             <div className="toolbar__group field field--stack field--compact toolbar__palette-field">
-              <label htmlFor="pdf-preset">配色</label>
+                <label htmlFor="pdf-preset">{t('ui.pdfPreset.diff.presetId')}</label>
               <select
                 id="pdf-preset"
                 className="text-input"
                 value={pdfPrefs.presetId}
                 onChange={(e) => onSetPdfPrefs({ ...pdfPrefs, presetId: e.target.value })}
               >
-                <optgroup label="標準">
-                  <option value="print">{PDF_PRESETS.print.label}</option>
+                <optgroup label={t('ui.toolbar.pdf.preset.standardGroup')}>
+                  <option value="print">{pdfOptionLabel('preset', 'print')}</option>
                 </optgroup>
-                <optgroup label="四季・明">
-                  <option value="springLight">{PDF_PRESETS.springLight.label}</option>
-                  <option value="summerLight">{PDF_PRESETS.summerLight.label}</option>
-                  <option value="autumnLight">{PDF_PRESETS.autumnLight.label}</option>
-                  <option value="winterLight">{PDF_PRESETS.winterLight.label}</option>
+                <optgroup label={t('ui.toolbar.pdf.preset.lightGroup')}>
+                  <option value="springLight">{pdfOptionLabel('preset', 'springLight')}</option>
+                  <option value="summerLight">{pdfOptionLabel('preset', 'summerLight')}</option>
+                  <option value="autumnLight">{pdfOptionLabel('preset', 'autumnLight')}</option>
+                  <option value="winterLight">{pdfOptionLabel('preset', 'winterLight')}</option>
                 </optgroup>
                 {/* 暗色4種が印刷向けでないことを、選ぶ前に伝えるためグループ名で区別する */}
-                <optgroup label="四季・暗">
-                  <option value="springDark">{PDF_PRESETS.springDark.label}</option>
-                  <option value="summerDark">{PDF_PRESETS.summerDark.label}</option>
-                  <option value="autumnDark">{PDF_PRESETS.autumnDark.label}</option>
-                  <option value="winterDark">{PDF_PRESETS.winterDark.label}</option>
+                <optgroup label={t('ui.toolbar.pdf.preset.darkGroup')}>
+                  <option value="springDark">{pdfOptionLabel('preset', 'springDark')}</option>
+                  <option value="summerDark">{pdfOptionLabel('preset', 'summerDark')}</option>
+                  <option value="autumnDark">{pdfOptionLabel('preset', 'autumnDark')}</option>
+                  <option value="winterDark">{pdfOptionLabel('preset', 'winterDark')}</option>
                 </optgroup>
-                <optgroup label="カスタム">
-                  <option value={CUSTOM_PRESET_ID}>カスタム</option>
+                <optgroup label={t('ui.toolbar.pdf.custom')}>
+                  <option value={CUSTOM_PRESET_ID}>{t('ui.toolbar.pdf.custom')}</option>
                 </optgroup>
               </select>
             </div>
 
             <div className="toolbar__palette-panel">
               <div className="toolbar__palette-panel-header">
-                <h3>使用色</h3>
+                <h3>{t('ui.toolbar.pdf.colors')}</h3>
                 {isCustomPreset && (
                   <div className="toolbar__palette-actions">
                     <button
@@ -901,7 +933,7 @@ export default function Toolbar({
                       aria-pressed={isCustomDetailEditing}
                       onClick={() => setIsCustomDetailEditing((value) => !value)}
                     >
-                      {isCustomDetailEditing ? '編集を終了' : '詳細色を編集'}
+                      {t(isCustomDetailEditing ? 'ui.toolbar.pdf.editFinished' : 'ui.toolbar.pdf.editDetails')}
                     </button>
                     <button
                       type="button"
@@ -910,7 +942,7 @@ export default function Toolbar({
                         onSetPdfPrefs({ ...pdfPrefs, custom: { ...DEFAULT_CUSTOM_SEED } })
                       }
                     >
-                      既定の色に戻す
+                      {t('ui.toolbar.pdf.resetColors')}
                     </button>
                   </div>
                 )}
@@ -919,25 +951,27 @@ export default function Toolbar({
               <div className="toolbar__palette-groups">
                 {[
                   {
-                    title: '基本色',
-                    description: isCustomPreset ? '色面を選択して変更' : '',
+                    titleKey: 'ui.toolbar.pdf.palette.basic',
+                    descriptionKey: isCustomPreset ? 'ui.toolbar.pdf.palette.edit' : '',
                     keys: CUSTOM_SEED_SIMPLE_KEYS,
                     editable: isCustomPreset,
                   },
                   {
-                    title: '詳細色',
-                    description: isCustomPreset ? (isCustomDetailEditing ? '色面を選択して変更' : '表示のみ') : '',
+                    titleKey: 'ui.toolbar.pdf.palette.detail',
+                    descriptionKey: isCustomPreset
+                      ? (isCustomDetailEditing ? 'ui.toolbar.pdf.palette.edit' : 'ui.toolbar.pdf.palette.viewOnly')
+                      : '',
                     keys: customSeedDetailKeys,
                     editable: isCustomPreset && isCustomDetailEditing,
                   },
-                ].map(({ title: groupTitle, description, keys, editable }) => (
+                ].map(({ titleKey, descriptionKey, keys, editable }) => (
                   <div
                     className={`toolbar__palette-group${keys.includes('accent2') ? ' toolbar__palette-group--two-layer' : ''}`}
                     key={keys[0]}
                   >
                     <div className="toolbar__palette-group-header">
-                      <h4>{groupTitle}</h4>
-                      {description && <span>{description}</span>}
+                      <h4>{t(titleKey)}</h4>
+                      {descriptionKey && <span>{t(descriptionKey)}</span>}
                     </div>
                     <div className="toolbar__palette-strip">
                       {keys.map((key) => (
@@ -1003,9 +1037,9 @@ export default function Toolbar({
                     type="button"
                     className="btn btn--ghost btn--sm pdf-bg-control"
                     onClick={() => bgFileInputRef.current?.click()}
-                    aria-label="背景画像を選択"
+                    aria-label={t('ui.toolbar.pdf.background.select')}
                   >
-                    背景画像を選択
+                    {t('ui.toolbar.pdf.background.select')}
                   </button>
                 )}
                 {backgroundImage && (
@@ -1019,9 +1053,9 @@ export default function Toolbar({
                       onClick={() => setImageMenuOpen((v) => !v)}
                       aria-haspopup="true"
                       aria-expanded={imageMenuOpen}
-                      aria-label="背景画像を変更または外す"
+                      aria-label={t('ui.toolbar.pdf.background.changeOrRemove')}
                     >
-                      <img src={backgroundImage.dataUrl} alt="背景画像のプレビュー" />
+                      <img src={backgroundImage.dataUrl} alt={t('ui.toolbar.pdf.background.previewAlt')} />
                     </button>
                     {imageMenuOpen && (
                       <div className="pdf-bg-menu__panel" role="menu">
@@ -1034,7 +1068,7 @@ export default function Toolbar({
                             bgFileInputRef.current?.click();
                           }}
                         >
-                          変更
+                          {t('ui.toolbar.pdf.background.change')}
                         </button>
                         <button
                           type="button"
@@ -1045,7 +1079,7 @@ export default function Toolbar({
                             onRemoveBackgroundImage();
                           }}
                         >
-                          外す
+                          {t('ui.toolbar.pdf.background.remove')}
                         </button>
                       </div>
                     )}
@@ -1056,7 +1090,7 @@ export default function Toolbar({
               {backgroundImage && (
                 <div className="toolbar__group field field--stack field--compact toolbar__background-opacity">
                   <div className="pdf-range-label">
-                    <label htmlFor="pdf-bg-opacity">不透明度</label>
+                    <label htmlFor="pdf-bg-opacity">{t('ui.toolbar.pdf.background.opacity')}</label>
                     <output id="pdf-bg-opacity-value" htmlFor="pdf-bg-opacity">
                       {Math.round(backgroundImageOpacity * 100)}%
                     </output>
@@ -1084,43 +1118,43 @@ export default function Toolbar({
             <div className="pdf-notes">
               {showDarkNote && (
                 <p className="pdf-note">
-                  用紙全面を塗ります。印刷ではインクを多く使います。
+                  {t('ui.toolbar.pdf.note.darkBackground')}
                 </p>
               )}
               {/* 破綻を禁止はしないため、出力を止めずに知らせるだけにする */}
               {showContrastWarning && (
                 <p className="pdf-note pdf-note--warning">
-                  背景と文字の色が近く、読みにくい可能性があります。
+                  {t('ui.toolbar.pdf.note.contrast')}
                 </p>
               )}
             </div>
           )}
           </div>
           <div className="toolbar__design-column toolbar__design-column--grid">
-            <h3 className="toolbar__subsection-title">グリッド</h3>
+            <h3 className="toolbar__subsection-title">{t('ui.toolbar.pdf.grid.title')}</h3>
 
             <div className="toolbar__grid-style-controls">
               <div className="toolbar__group field field--stack field--compact toolbar__grid-style-select">
-                <label htmlFor="pdf-grid-style">グリッドデザイン</label>
+                <label htmlFor="pdf-grid-style">{t('ui.toolbar.pdf.grid.design')}</label>
                 <select
                   id="pdf-grid-style"
                   className="text-input"
                   value={pdfPrefs.gridStyleId}
                   onChange={(e) => onSetPdfPrefs({ ...pdfPrefs, gridStyleId: e.target.value })}
                 >
-                  {Object.entries(PDF_GRID_STYLES).map(([id, style]) => (
+                  {Object.entries(PDF_GRID_STYLES).map(([id]) => (
                     <option key={id} value={id}>
-                      {style.label}
+                      {pdfOptionLabel('gridStyle', id)}
                     </option>
                   ))}
-                  <option value="custom">カスタム</option>
+                  <option value="custom">{t('ui.toolbar.pdf.custom')}</option>
                 </select>
               </div>
 
               {pdfPrefs.gridStyleId === 'custom' && (
                 <div className="toolbar__grid-style-custom">
                   <div className="toolbar__grid-style-custom-header">
-                    <h4>カスタム設定</h4>
+                    <h4>{t('ui.toolbar.pdf.grid.customSettings')}</h4>
                     <button
                       type="button"
                       className="btn btn--ghost btn--sm"
@@ -1131,13 +1165,13 @@ export default function Toolbar({
                         })
                       }
                     >
-                      既定の値に戻す
+                      {t('ui.toolbar.pdf.grid.reset')}
                     </button>
                   </div>
                   <div className="toolbar__grid-style-custom-groups">
-                    {PDF_GRID_STYLE_CUSTOM_GROUPS.map(({ title: groupTitle, keys }) => (
-                      <div className="toolbar__grid-style-custom-group" key={groupTitle}>
-                        <h5>{groupTitle}</h5>
+                    {PDF_GRID_STYLE_CUSTOM_GROUPS.map(({ titleKey, keys }) => (
+                      <div className="toolbar__grid-style-custom-group" key={titleKey}>
+                        <h5>{t(titleKey)}</h5>
                         {keys.map((key) => {
                           const range = PDF_GRID_STYLE_CUSTOM_RANGES[key];
                           const value = resolvedGridStyle[key];
@@ -1147,7 +1181,7 @@ export default function Toolbar({
                             <div className="pdf-range-field" key={key}>
                               <div className="pdf-range-label">
                                 <label htmlFor={inputId}>
-                                  {PDF_GRID_STYLE_CUSTOM_LABELS[key]}
+                                  {t(PDF_GRID_STYLE_CUSTOM_LABEL_KEYS[key])}
                                 </label>
                                 <output id={outputId} htmlFor={inputId}>{value}</output>
                               </div>
@@ -1174,11 +1208,12 @@ export default function Toolbar({
 
             <SegmentedRadioField
               className="toolbar__grid-number-settings"
-              legend="グリッド番号"
-              ariaLabel="グリッド番号の表示"
+              legend={t('ui.toolbar.pdf.grid.number')}
+              ariaLabel={t('ui.toolbar.pdf.grid.numberAria')}
               name="pdf-grid-number-display"
               value={pdfPrefs.gridNumberDisplayId}
               options={PDF_GRID_NUMBER_DISPLAYS}
+              labelGroup="gridNumber"
               onChange={(gridNumberDisplayId) => onSetPdfPrefs({
                 ...pdfPrefs,
                 gridNumberDisplayId,
@@ -1190,7 +1225,7 @@ export default function Toolbar({
           </section>
 
           <section className="toolbar__section toolbar__section--pdf-typography" aria-labelledby="toolbar-group-pdf-typography">
-            {renderPdfSectionHeading('typography', '文字')}
+            {renderPdfSectionHeading('typography', 'ui.toolbar.pdf.section.typography')}
             <div
               className="toolbar__section-panel"
               id="toolbar-panel-pdf-typography"
@@ -1198,39 +1233,39 @@ export default function Toolbar({
             >
             <div className="toolbar__typography-grid">
               <div className="toolbar__group field field--stack field--compact">
-                <label htmlFor="pdf-font">書体</label>
+                <label htmlFor="pdf-font">{t('ui.toolbar.pdf.typography.font')}</label>
                 <select
                   id="pdf-font"
                   className="text-input"
-                  value={pdfPrefs.fontId}
+                  value={effectivePdfFont.fontId}
                   onChange={(e) => onSetPdfPrefs({ ...pdfPrefs, fontId: e.target.value })}
                 >
-                  {Object.entries(PDF_FONTS).map(([id, font]) => (
+                  {pdfFontIds.map((id) => (
                     <option key={id} value={id}>
-                      {font.label}
+                      {pdfOptionLabel('font', id)}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="toolbar__group field field--stack field--compact">
-                <label htmlFor="pdf-font-weight">太さ</label>
+                <label htmlFor="pdf-font-weight">{t('ui.toolbar.pdf.typography.weight')}</label>
                 <select
                   id="pdf-font-weight"
                   className="text-input"
                   value={pdfPrefs.fontWeightId}
                   onChange={(e) => onSetPdfPrefs({ ...pdfPrefs, fontWeightId: e.target.value })}
                 >
-                  {Object.entries(PDF_FONT_WEIGHTS).map(([id, weight]) => (
+                  {Object.entries(PDF_FONT_WEIGHTS).map(([id]) => (
                     <option key={id} value={id}>
-                      {weight.label}
+                      {pdfOptionLabel('fontWeight', id)}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="toolbar__group field field--stack field--compact">
-                <label htmlFor="pdf-title-size">曲名（pt）</label>
+                <label htmlFor="pdf-title-size">{t('ui.toolbar.pdf.typography.titleSize')}</label>
                 <input
                   id="pdf-title-size"
                   type="number"
@@ -1252,7 +1287,7 @@ export default function Toolbar({
               </div>
 
               <div className="toolbar__group field field--stack field--compact">
-                <label htmlFor="pdf-meta-size">曲情報（pt）</label>
+                <label htmlFor="pdf-meta-size">{t('ui.toolbar.pdf.typography.metaSize')}</label>
                 <input
                   id="pdf-meta-size"
                   type="number"
@@ -1274,7 +1309,7 @@ export default function Toolbar({
               </div>
 
               <div className="toolbar__group field field--stack field--compact">
-                <label htmlFor="pdf-lyric-size">歌詞（%）</label>
+                <label htmlFor="pdf-lyric-size">{t('ui.toolbar.pdf.typography.lyricSize')}</label>
                 <input
                   id="pdf-lyric-size"
                   type="number"
@@ -1307,14 +1342,14 @@ export default function Toolbar({
 
             {showMinchoNote && (
               <div className="pdf-notes">
-                <p className="pdf-note">初回のPDF生成時に約8MBを読み込みます。</p>
+                <p className="pdf-note">{t('ui.toolbar.pdf.note.mincho')}</p>
               </div>
             )}
             </div>
           </section>
 
           <section className="toolbar__section toolbar__section--pdf-score-info" aria-labelledby="toolbar-group-pdf-score-info">
-            {renderPdfSectionHeading('score-info', '曲情報')}
+            {renderPdfSectionHeading('score-info', 'ui.toolbar.pdf.section.scoreInfo')}
             <div
               className="toolbar__section-panel"
               id="toolbar-panel-pdf-score-info"
@@ -1322,7 +1357,7 @@ export default function Toolbar({
             >
             <div className="toolbar__score-info-grid">
               <div className="toolbar__group field field--stack field--compact">
-                <label htmlFor="pdf-score-info-design">曲情報デザイン</label>
+                <label htmlFor="pdf-score-info-design">{t('ui.toolbar.pdf.scoreInfo.design')}</label>
                 <select
                   id="pdf-score-info-design"
                   className="text-input"
@@ -1332,9 +1367,9 @@ export default function Toolbar({
                     scoreInfoDesignId: e.target.value,
                   })}
                 >
-                  {Object.entries(PDF_SCORE_INFO_DESIGNS).map(([id, design]) => (
+                  {Object.entries(PDF_SCORE_INFO_DESIGNS).map(([id]) => (
                     <option key={id} value={id}>
-                      {design.label}
+                      {pdfOptionLabel('scoreInfoDesign', id)}
                     </option>
                   ))}
                 </select>
@@ -1342,11 +1377,12 @@ export default function Toolbar({
 
               {pdfPrefs.scoreInfoDesignId === 'masthead' && (
                 <SegmentedRadioField
-                  legend="向き"
-                  ariaLabel="シンプルの向き"
+                  legend={t('ui.toolbar.pdf.scoreInfo.direction')}
+                  ariaLabel={t('ui.toolbar.pdf.scoreInfo.directionAria')}
                   name="pdf-masthead-direction"
                   value={pdfPrefs.mastheadDirectionId}
                   options={PDF_MASTHEAD_DIRECTIONS}
+                  labelGroup="mastheadDirection"
                   onChange={(mastheadDirectionId) => onSetPdfPrefs({
                     ...pdfPrefs,
                     mastheadDirectionId,
@@ -1355,7 +1391,7 @@ export default function Toolbar({
               )}
 
               <div className="toolbar__group field field--stack field--compact">
-                <label htmlFor="pdf-tempo-value-mode">♩の値</label>
+                <label htmlFor="pdf-tempo-value-mode">{t('ui.toolbar.pdf.scoreInfo.tempoValue')}</label>
                 <select
                   id="pdf-tempo-value-mode"
                   className="text-input"
@@ -1365,9 +1401,9 @@ export default function Toolbar({
                     tempoValueModeId: e.target.value,
                   })}
                 >
-                  {Object.entries(PDF_TEMPO_VALUE_MODES).map(([id, mode]) => (
+                  {Object.entries(PDF_TEMPO_VALUE_MODES).map(([id]) => (
                     <option key={id} value={id}>
-                      {mode.label}
+                      {pdfOptionLabel('tempoValueMode', id)}
                     </option>
                   ))}
                 </select>
@@ -1375,7 +1411,7 @@ export default function Toolbar({
 
               {pdfPrefs.tempoValueModeId === 'custom' && (
                 <div className="toolbar__group field field--stack field--compact">
-                  <label htmlFor="pdf-custom-tempo-value">カスタム値</label>
+                  <label htmlFor="pdf-custom-tempo-value">{t('ui.toolbar.pdf.scoreInfo.customValue')}</label>
                   <input
                     id="pdf-custom-tempo-value"
                     type="number"
@@ -1398,7 +1434,7 @@ export default function Toolbar({
 
               {showKeyNotation && (
                 <div className="toolbar__group field field--stack field--compact">
-                  <label htmlFor="pdf-key-notation">キー表記</label>
+                  <label htmlFor="pdf-key-notation">{t('ui.toolbar.pdf.scoreInfo.keyNotation')}</label>
                   <select
                     id="pdf-key-notation"
                     className="text-input"
@@ -1408,9 +1444,9 @@ export default function Toolbar({
                       keyNotationId: e.target.value,
                     })}
                   >
-                    {Object.entries(KEY_NOTATIONS).map(([id, notation]) => (
-                      <option key={id} value={id}>
-                        {notation.label}
+                  {Object.entries(KEY_NOTATIONS).map(([id]) => (
+                    <option key={id} value={id}>
+                      {pdfOptionLabel('keyNotation', id)}
                       </option>
                     ))}
                   </select>
@@ -1418,21 +1454,23 @@ export default function Toolbar({
               )}
 
               <div className="toolbar__group field field--stack field--compact">
-                <label htmlFor="pdf-key-mode-notation">調性表記</label>
+                <label htmlFor="pdf-key-mode-notation">{t('ui.toolbar.pdf.scoreInfo.keyModeNotation')}</label>
                 <select
                   id="pdf-key-mode-notation"
                   className="text-input"
-                  value={pdfPrefs.keyModeNotationId}
+                  value={resolveKeyModeNotationIdForLanguage(pdfPrefs.keyModeNotationId, language)}
                   onChange={(e) => onSetPdfPrefs({
                     ...pdfPrefs,
                     keyModeNotationId: e.target.value,
                   })}
                 >
-                  {Object.keys(KEY_MODE_NOTATIONS).map((id) => (
+                  {Object.keys(KEY_MODE_NOTATIONS)
+                    .filter((id) => language === 'ja' || !['japanese', 'traditional'].includes(id))
+                    .map((id) => (
                     <option key={id} value={id}>
                       {keyModeNotationLabel(keyMode, id)}
                     </option>
-                  ))}
+                    ))}
                 </select>
               </div>
 
@@ -1441,7 +1479,7 @@ export default function Toolbar({
           </section>
 
           <section className="toolbar__section toolbar__section--pdf-page" aria-labelledby="toolbar-group-pdf-page">
-            {renderPdfSectionHeading('page', 'ページ')}
+            {renderPdfSectionHeading('page', 'ui.toolbar.pdf.section.page')}
             <div
               className="toolbar__section-panel"
               id="toolbar-panel-pdf-page"
@@ -1450,16 +1488,16 @@ export default function Toolbar({
             <div className="toolbar__page-grid">
 
               <div className="toolbar__group field field--stack field--compact">
-                <label htmlFor="pdf-page-number-format">ページ番号</label>
+                <label htmlFor="pdf-page-number-format">{t('ui.toolbar.pdf.page.number')}</label>
                 <select
                   id="pdf-page-number-format"
                   className="text-input"
                   value={pdfPrefs.pageNumberFormatId}
                   onChange={(e) => onSetPdfPrefs({ ...pdfPrefs, pageNumberFormatId: e.target.value })}
                 >
-                  {Object.entries(PDF_PAGE_NUMBER_FORMATS).map(([id, format]) => (
+                  {Object.entries(PDF_PAGE_NUMBER_FORMATS).map(([id]) => (
                     <option key={id} value={id}>
-                      {format.label}
+                      {pdfOptionLabel('pageNumberFormat', id)}
                     </option>
                   ))}
                 </select>
@@ -1468,23 +1506,23 @@ export default function Toolbar({
               {pdfPrefs.pageNumberFormatId !== 'none' && (
                 <>
               <div className="toolbar__group field field--stack field--compact">
-                <label htmlFor="pdf-page-number-position">ページ番号の位置</label>
+                <label htmlFor="pdf-page-number-position">{t('ui.toolbar.pdf.page.numberPosition')}</label>
                 <select
                   id="pdf-page-number-position"
                   className="text-input"
                   value={pdfPrefs.pageNumberPositionId}
                   onChange={(e) => onSetPdfPrefs({ ...pdfPrefs, pageNumberPositionId: e.target.value })}
                 >
-                  {Object.entries(PDF_PAGE_NUMBER_POSITIONS).map(([id, position]) => (
+                  {Object.entries(PDF_PAGE_NUMBER_POSITIONS).map(([id]) => (
                     <option key={id} value={id}>
-                      {position.label}
+                      {pdfOptionLabel('pageNumberPosition', id)}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="toolbar__group field field--stack field--compact">
-                <label htmlFor="pdf-page-number-size">ページ番号サイズ（pt）</label>
+                <label htmlFor="pdf-page-number-size">{t('ui.toolbar.pdf.page.numberSize')}</label>
                 <input
                   id="pdf-page-number-size"
                   type="number"
@@ -1516,32 +1554,32 @@ export default function Toolbar({
               )}
 
               <div className="toolbar__group field field--stack field--compact">
-                <label htmlFor="pdf-running-header">柱</label>
+                <label htmlFor="pdf-running-header">{t('ui.toolbar.pdf.page.runningHeader')}</label>
                 <select
                   id="pdf-running-header"
                   className="text-input"
                   value={pdfPrefs.runningHeaderId}
                   onChange={(e) => onSetPdfPrefs({ ...pdfPrefs, runningHeaderId: e.target.value })}
                 >
-                  {Object.entries(PDF_RUNNING_HEADERS).map(([id, header]) => (
+                  {Object.entries(PDF_RUNNING_HEADERS).map(([id]) => (
                     <option key={id} value={id}>
-                      {header.label}
+                      {pdfOptionLabel('runningHeader', id)}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="toolbar__group field field--stack field--compact">
-                <label htmlFor="pdf-footer-credit">フッター</label>
+                <label htmlFor="pdf-footer-credit">{t('ui.toolbar.pdf.page.footer')}</label>
                 <select
                   id="pdf-footer-credit"
                   className="text-input"
                   value={pdfPrefs.footerCreditId}
                   onChange={(e) => onSetPdfPrefs({ ...pdfPrefs, footerCreditId: e.target.value })}
                 >
-                  {Object.entries(PDF_FOOTER_CREDITS).map(([id, footer]) => (
+                  {Object.entries(PDF_FOOTER_CREDITS).map(([id]) => (
                     <option key={id} value={id}>
-                      {footer.label}
+                      {pdfOptionLabel('footerCredit', id)}
                     </option>
                   ))}
                 </select>
@@ -1551,7 +1589,7 @@ export default function Toolbar({
           </section>
 
           <section className="toolbar__section toolbar__section--pdf-paper" aria-labelledby="toolbar-group-pdf-paper">
-            {renderPdfSectionHeading('paper', '紙面')}
+            {renderPdfSectionHeading('paper', 'ui.toolbar.pdf.section.paper')}
             <div
               className="toolbar__section-panel"
               id="toolbar-panel-pdf-paper"
@@ -1559,23 +1597,23 @@ export default function Toolbar({
             >
             <div className="toolbar__layout-grid">
               <div className="toolbar__group field field--stack field--compact toolbar__layout-sheet">
-                <label htmlFor="pdf-sheet-layout">面付け</label>
+                <label htmlFor="pdf-sheet-layout">{t('ui.toolbar.pdf.paper.sheetLayout')}</label>
                 <select
                   id="pdf-sheet-layout"
                   className="text-input"
                   value={pdfPrefs.sheetLayoutId}
                   onChange={(e) => onSetPdfPrefs({ ...pdfPrefs, sheetLayoutId: e.target.value })}
                 >
-                  {Object.entries(PDF_SHEET_LAYOUTS).map(([id, sheetLayout]) => (
+                  {Object.entries(PDF_SHEET_LAYOUTS).map(([id]) => (
                     <option key={id} value={id}>
-                      {sheetLayout.label}
+                      {pdfOptionLabel('sheetLayout', id)}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="toolbar__group field field--stack field--compact toolbar__layout-rows">
-                <label htmlFor="pdf-max-rows">1ページの行数</label>
+                <label htmlFor="pdf-max-rows">{t('ui.toolbar.pdf.paper.maxRows')}</label>
                 <input
                   id="pdf-max-rows"
                   type="number"
@@ -1595,7 +1633,7 @@ export default function Toolbar({
               </div>
 
               <div className="toolbar__group field field--stack field--compact toolbar__layout-columns">
-                <label htmlFor="pdf-columns-per-page">1ページの列数</label>
+                <label htmlFor="pdf-columns-per-page">{t('ui.toolbar.pdf.paper.columns')}</label>
                 <select
                   id="pdf-columns-per-page"
                   className="text-input"
@@ -1606,8 +1644,8 @@ export default function Toolbar({
                     <option key={id} value={id}>
                       {/* 拍子に合わせる場合の実際の列数は、PDF出力と同じ関数から出す */}
                       {option.columns === null
-                        ? `${option.label}（${autoColumns}列）`
-                        : option.label}
+                        ? t('ui.toolbar.pdf.autoColumns', { label: pdfOptionLabel('columnsPerPage', id), n: autoColumns })
+                        : pdfOptionLabel('columnsPerPage', id)}
                     </option>
                   ))}
                 </select>
@@ -1617,41 +1655,42 @@ export default function Toolbar({
                   fieldsetのままでも他のプルダウンと同じ列に収まる */}
               <SegmentedRadioField
                 className="toolbar__layout-row-shading"
-                legend="偶数行を暗くする"
-                ariaLabel="偶数行の網掛け"
+                legend={t('ui.toolbar.pdf.paper.rowShading')}
+                ariaLabel={t('ui.toolbar.pdf.paper.rowShadingAria')}
                 name="pdf-row-shading"
                 value={pdfPrefs.rowShadingId}
                 options={PDF_ROW_SHADINGS}
+                labelGroup="rowShading"
                 onChange={(rowShadingId) => onSetPdfPrefs({ ...pdfPrefs, rowShadingId })}
               />
 
               <div className="toolbar__group field field--stack field--compact toolbar__layout-margin">
-                <label htmlFor="pdf-page-margin">余白</label>
+                <label htmlFor="pdf-page-margin">{t('ui.toolbar.pdf.paper.margin')}</label>
                 <select
                   id="pdf-page-margin"
                   className="text-input"
                   value={pdfPrefs.pageMarginId}
                   onChange={(e) => onSetPdfPrefs({ ...pdfPrefs, pageMarginId: e.target.value })}
                 >
-                  {Object.entries(PDF_PAGE_MARGINS).map(([id, margin]) => (
+                  {Object.entries(PDF_PAGE_MARGINS).map(([id]) => (
                     <option key={id} value={id}>
-                      {margin.label}
+                      {pdfOptionLabel('margin', id)}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="toolbar__group field field--stack field--compact toolbar__layout-gap">
-                <label htmlFor="pdf-grid-gap">グリッド間隔</label>
+                <label htmlFor="pdf-grid-gap">{t('ui.toolbar.pdf.paper.gap')}</label>
                 <select
                   id="pdf-grid-gap"
                   className="text-input"
                   value={pdfPrefs.gridGapId}
                   onChange={(e) => onSetPdfPrefs({ ...pdfPrefs, gridGapId: e.target.value })}
                 >
-                  {Object.entries(PDF_GRID_GAPS).map(([id, gap]) => (
+                  {Object.entries(PDF_GRID_GAPS).map(([id]) => (
                     <option key={id} value={id}>
-                      {gap.label}
+                      {pdfOptionLabel('gap', id)}
                     </option>
                   ))}
                 </select>
@@ -1661,7 +1700,7 @@ export default function Toolbar({
           </section>
 
           <div className="toolbar__pdf-action-bar">
-            <p className="toolbar__pdf-action-note">新しいタブを開けない場合はPDFをダウンロードします。</p>
+            <p className="toolbar__pdf-action-note">{t('ui.toolbar.pdf.actionNote')}</p>
             <div className="toolbar__action-cluster toolbar__action-cluster--pdf-preset">
               <button
                 type="button"
@@ -1669,7 +1708,7 @@ export default function Toolbar({
                 onClick={() => onOpenPdfPreset('export')}
                 disabled={isProcessing}
               >
-                設定を書き出す
+                {t('ui.toolbar.pdf.exportSettings')}
               </button>
               <button
                 type="button"
@@ -1677,7 +1716,7 @@ export default function Toolbar({
                 onClick={() => onOpenPdfPreset('import')}
                 disabled={isProcessing}
               >
-                設定を読み込む
+                {t('ui.toolbar.pdf.importSettings')}
               </button>
             </div>
             <div className="toolbar__action-cluster toolbar__action-cluster--pdf-export">
@@ -1687,7 +1726,7 @@ export default function Toolbar({
                 onClick={onExportPdf}
                 disabled={isProcessing || !hasData}
               >
-                {isProcessing ? '処理中…' : 'PDFを生成'}
+                {t(isProcessing ? 'ui.toolbar.pdf.processing' : 'ui.toolbar.pdf.generate')}
               </button>
             </div>
           </div>

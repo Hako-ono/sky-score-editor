@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import { t } from '../i18n/index.js';
 
 export class ErrorBoundary extends Component {
   constructor(props) {
@@ -18,10 +19,10 @@ export class ErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text)' }}>
-          <h2>表示中にエラーが発生しました</h2>
-          <p>データが破損しているか、予期せぬ不具合が発生しました。</p>
+          <h2>{t('ui.errorBoundary.title')}</h2>
+          <p>{t('ui.errorBoundary.body')}</p>
           <button className="btn btn--primary" onClick={() => window.location.reload()}>
-            ページを再読み込みする
+            {t('ui.errorBoundary.reload')}
           </button>
         </div>
       );

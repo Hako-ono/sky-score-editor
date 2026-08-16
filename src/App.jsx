@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLanguage, useT } from './i18n/LanguageContext.jsx';
 
 import Toolbar from './components/Toolbar.jsx';
 import PdfPresetDialog from './components/PdfPresetDialog.jsx';
@@ -86,6 +87,8 @@ function jsonFilename() {
 }
 
 export default function App() {
+  const t = useT();
+  const { language } = useLanguage();
   const { score, dispatch, reset, undo, redo, canUndo, canRedo } =
     useUndoableScore();
 
@@ -100,8 +103,8 @@ export default function App() {
   const [pdfPresetDialog, setPdfPresetDialog] = useState(null);
   const pdfPresetReturnFocusRef = useRef(null);
   const pdfPresetScoreContext = useMemo(
-    () => ({ pitchLevel: score.pitchLevel, keyMode: score.keyMode }),
-    [score.keyMode, score.pitchLevel],
+    () => ({ pitchLevel: score.pitchLevel, keyMode: score.keyMode, language }),
+    [language, score.keyMode, score.pitchLevel],
   );
   // 背景画像は利用者が出力のたびにローカルから選ぶもので、pdfPrefsとは違い
   // localStorageに保存しない。
@@ -151,9 +154,9 @@ export default function App() {
       initialImportText: fragment.tooLarge
         ? ''
         : `${window.location.origin}${window.location.pathname}${window.location.search}#pdf-preset=${fragment.value}`,
-      initialError: fragment.tooLarge ? '保存・共有用URLが長すぎます。' : '',
+      initialError: fragment.tooLarge ? t('ui.pdfPresetDialog.error.inputTooLarge') : '',
     });
-  }, []);
+  }, [t]);
 
   const hasData = score.grids.length > 0;
   const layerAnalysis = useMemo(() => analyzeScoreLayers(score.grids), [score.grids]);
@@ -171,8 +174,10 @@ export default function App() {
   const isDirty = currentSerialized !== savedSnapshot;
   
   useEffect(() => {
-    document.title = score.title ? `${score.title} - Sky楽譜エディター` : 'Sky楽譜エディター';
-  }, [score.title]);
+    document.title = score.title
+      ? t('ui.app.documentTitle', { title: score.title })
+      : t('ui.app.documentTitleDefault');
+  }, [score.title, t]);
 
   const gridsRef = useRef(score.grids);
   useEffect(() => {
@@ -248,11 +253,11 @@ export default function App() {
     // reducer 側にも最終防御があるが、押せてしまってから理由を伝えないと
     // 利用者には何も起きなかったようにしか見えない
     if (gridsRef.current.length >= MAX_GRIDS) {
-      showStatus(`グリッド数が上限（${MAX_GRIDS}）に達しているため追加できません。`, 'error', false);
+      showStatus(t('ui.app.maxGrids', { n: MAX_GRIDS }), 'error', false);
       return;
     }
     dispatch({ type: 'INSERT', insertIndex });
-  }, [dispatch, showStatus]);
+  }, [dispatch, showStatus, t]);
 
   const handlePlayFrom = useCallback((index) => {
     playFrom(index);
@@ -341,7 +346,7 @@ export default function App() {
         // なるため、成功に戻るまでは最初の1回だけ知らせる
         saveFailedRef.current = true;
         showStatus(
-          '編集内容をブラウザに自動保存できませんでした。プライベートブラウズや保存容量が原因の可能性があります。「JSONを保存」で手元に残してください。',
+          t('ui.app.autosaveFailed'),
           'error',
           false,
         );
@@ -350,7 +355,7 @@ export default function App() {
     // 下書き削除ボタンがこのタイマーを止められるよう ref にも控えておく
     autoSaveTimerRef.current = id;
     return () => clearTimeout(id);
-  }, [score, currentSerialized, showStatus]);
+  }, [score, currentSerialized, showStatus, t]);
 
   // --- 離脱時の未保存警告 ---
   useEffect(() => {
@@ -368,7 +373,7 @@ export default function App() {
   const loadFile = useCallback(
     async (file) => {
       if (file.size > 10 * 1024 * 1024) {
-        showStatus('ファイルサイズが大きすぎます (上限 10MB)。', 'error', false);
+        showStatus(t('ui.app.fileTooLarge'), 'error', false);
         return;
       }
 
@@ -378,11 +383,11 @@ export default function App() {
       const acceptedByName = lowerName.endsWith('.json') || lowerName.endsWith('.txt');
       const acceptedByType = file.type === 'application/json' || file.type === 'text/plain';
       if (!acceptedByName && !acceptedByType) {
-        showStatus('JSON (.json) またはテキスト (.txt) ファイルを選択してください。', 'error', false);
+        showStatus(t('ui.app.fileType'), 'error', false);
         return;
       }
       setFileName(file.name);
-      showStatus('ファイルを読み込んでいます…', 'loading', false);
+      showStatus(t('ui.app.loadingFile'), 'loading', false);
       try {
         const bytes = await file.arrayBuffer();
         const text = decodeScoreFileBytes(bytes);
@@ -400,7 +405,7 @@ export default function App() {
           // 切り詰め等の警告は見逃されると「読み込みが壊れた」と誤解される。
           // 自動で消さず、利用者が閉じるまで残す
           showStatus(
-            `読み込み完了 (全 ${parsed.grids.length} グリッド) — ${parsed.warning}`,
+            t('ui.app.loaded', { n: parsed.grids.length, warning: parsed.warning }),
             'warning',
             false,
           );
@@ -413,16 +418,16 @@ export default function App() {
         const msg =
           err instanceof ParseError
             ? err.message
-            : `読み込みに失敗しました。(${err.message})`;
+            : t('ui.app.loadFailed', { message: err.message });
         showStatus(msg, 'error', false);
       }
     },
-    [reset, markSaved, showStatus, dismissStatus],
+    [reset, markSaved, showStatus, dismissStatus, t],
   );
 
   // --- 新規作成 ---
   const newScore = useCallback(() => {
-    if (isDirty && !window.confirm('未保存の変更があります。新規作成しますか?')) {
+    if (isDirty && !window.confirm(t('ui.app.confirmNew'))) {
       return;
     }
     const next = createScore({
@@ -438,7 +443,7 @@ export default function App() {
     markSaved(serializeScoreForCompare(next));
     setFileName('');
     setEditMode(true);
-  }, [isDirty, score.bpm, score.pitchLevel, score.keyMode, reset, markSaved]);
+  }, [isDirty, score.bpm, score.pitchLevel, score.keyMode, reset, markSaved, t]);
 
   const restoreDraft = useCallback(() => {
     const draft = loadDraft();
@@ -457,8 +462,8 @@ export default function App() {
   const clearAll = useCallback(() => {
     // 保存状態にかかわらず、必ず確認メッセージを表示する
     const confirmMessage = isDirty
-      ? '未保存の変更があります。すべて消去しますか？'
-      : '現在の楽譜をすべて消去します。よろしいですか？';
+      ? t('ui.app.confirmClearDirty')
+      : t('ui.app.confirmClear');
 
     if (!window.confirm(confirmMessage)) {
       return; // キャンセルされたら何もしない
@@ -474,11 +479,11 @@ export default function App() {
     setEditMode(false);
     // 破壊的だが可逆な操作。取り消し手段をツールバーまで探しに行かせず、
     // 通知そのものに載せる。自動で消すと押す機会ごと失われるため消さない
-    showStatus('楽譜を消去しました。', 'info', false, {
-      label: '元に戻す',
+    showStatus(t('ui.app.cleared'), 'info', false, {
+      label: t('ui.toolbar.score.undo'),
       onClick: undo,
     });
-  }, [isDirty, dispatch, showStatus, undo]);
+  }, [isDirty, dispatch, showStatus, undo, t]);
 
   // --- 下書き削除 (共用端末でのデータ消去手段) ---
   const handleClearDraft = useCallback(() => {
@@ -487,13 +492,13 @@ export default function App() {
     // コールバックが走って saveDraft(score) が下書きを書き戻してしまうため、
     // 削除の直前に予約済みタイマーを止める。削除後の編集で新しい下書きが
     // 作られるのは自動保存の約束どおりの動作なので、それは止めない
-    if (!window.confirm('ブラウザに保存されている下書きを削除します。よろしいですか?')) {
+    if (!window.confirm(t('ui.app.confirmDeleteDraft'))) {
       return;
     }
     clearTimeout(autoSaveTimerRef.current);
     clearDraft();
     setHasDraft(false);
-  }, []);
+  }, [t]);
 
   // --- JSON 保存 ---
   const saveJson = useCallback(() => {
@@ -503,9 +508,9 @@ export default function App() {
       downloadText(text, jsonFilename(), 'application/json');
       markSaved(serializeScoreForCompare(score));
     } catch (err) {
-      showStatus(`保存に失敗しました。(${err.message})`, 'error', false);
+      showStatus(t('ui.app.saveFailed', { message: err.message }), 'error', false);
     }
-  }, [hasData, score, markSaved, showStatus]);
+  }, [hasData, score, markSaved, showStatus, t]);
 
   // --- PDF背景画像
   // 合成後の背景画像は不透明なJPEGで、PDFでは用紙の背景色の上に重なる。
@@ -518,7 +523,7 @@ export default function App() {
 
   const handleLoadBackgroundImage = useCallback(
     async (file) => {
-      showStatus('背景画像を読み込んでいます…', 'loading', false);
+      showStatus(t('ui.app.loadingBackground'), 'loading', false);
       try {
         // 縮小済み・不透明度100%のsourceを保持しておき、以後の不透明度・
         // 背景色の変更はここから合成し直すだけにする（元ファイルの再デコードをしない）
@@ -534,10 +539,10 @@ export default function App() {
       } catch (err) {
         // 壊れたファイル・巨大なファイル・画像でないファイルでも落ちずに
         // 利用者へ伝える
-        showStatus(err.message || '背景画像を読み込めませんでした。', 'error', false);
+        showStatus(err.message || t('ui.app.backgroundFailed'), 'error', false);
       }
     },
-    [showStatus, dismissStatus, backgroundImageOpacity, paletteBg],
+    [showStatus, dismissStatus, backgroundImageOpacity, paletteBg, t],
   );
 
   // sourceが無い（まだ画像を選んでいない）ときは値を覚えておくだけにし、
@@ -578,22 +583,22 @@ export default function App() {
       // ここでoptionsへ合流させるだけにして pdfPrefs 自体には混ぜない
       const result = await exportPdf(
         score,
-        { ...pdfPrefs, backgroundImage, selectedLayer },
+        { ...pdfPrefs, language, backgroundImage, selectedLayer },
         (msg) => showStatus(msg, 'loading', false),
       );
       showStatus(
         result.opened
-          ? `PDF を新しいタブで開きました。(${result.filename})`
-          : `PDF をダウンロードしました。(${result.filename})`,
+          ? t('ui.app.pdfOpened', { filename: result.filename })
+          : t('ui.app.pdfDownloaded', { filename: result.filename }),
         'success',
       );
     } catch (err) {
-      showStatus(`PDF 生成に失敗しました。(${err.message})`, 'error', false);
+      showStatus(t('ui.app.pdfFailed', { message: err.message }), 'error', false);
     } finally {
       setIsProcessing(false);
       setEditMode(prevEdit);
     }
-  }, [hasData, isProcessing, editMode, score, pdfPrefs, backgroundImage, selectedLayer, showStatus]);
+  }, [hasData, isProcessing, editMode, score, pdfPrefs, language, backgroundImage, selectedLayer, showStatus, t]);
 
   const handleOpenPdfPreset = useCallback((nextMode) => {
     pdfPresetReturnFocusRef.current = document.activeElement;
@@ -748,7 +753,7 @@ export default function App() {
             onClick={() => setEditMode(false)}
             disabled={isProcessing}
           >
-            グリッド編集を終了
+            {t('ui.app.editFinish')}
           </button>
         )}
       </div>

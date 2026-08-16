@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef } from 'react';
+import { useT } from '../i18n/LanguageContext.jsx';
 import NoteGridSvg from './NoteGridSvg.jsx';
 import { useIsActiveGrid } from '../contexts/ActiveGridContext.jsx';
 import { useGrid, useIsPendingFocus, useScoreGridsStore } from '../contexts/ScoreGridsContext.jsx';
@@ -23,6 +24,7 @@ function GridCardCompact({
   onExpand,
   onDelete,
 }) {
+  const t = useT();
   // props ではなく自分の index でストアから引く。DELETE 直後の1フレームでは
   // undefined になりうる（GridCard.jsx と同じ理由）。
   const grid = useGrid(index);
@@ -61,8 +63,8 @@ function GridCardCompact({
               type="button"
               className="icon-btn delete-btn"
               onClick={() => onDelete(index)}
-              aria-label={`グリッド ${index + 1} を削除`}
-              title="このグリッドを削除"
+              aria-label={t('ui.gridCard.delete', { n: index + 1 })}
+              title={t('ui.gridCard.deleteTitle')}
             >
               <CloseIcon />
             </button>
@@ -77,7 +79,7 @@ function GridCardCompact({
         type="button"
         className="grid-card__tap"
         onClick={() => onExpand(index)}
-        aria-label={`グリッド ${index + 1} を拡大`}
+        aria-label={t('ui.gridCard.expand', { n: index + 1 })}
       >
         <NoteGridSvg
           selectedKeys={selectedKeys}

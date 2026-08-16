@@ -8,10 +8,45 @@ import {
   PDF_LAYOUT_RANGES,
   pdfConfig,
 } from '../constants/config.js';
+import { getLanguage } from '../i18n/index.js';
 
 const DEFAULT_LYRIC_MIN_FONT_SIZE_PT = 10;
 const DEFAULT_LYRIC_MAX_FONT_SIZE_PT = 45;
 const DEFAULT_GRID_NUMBER_FONT_SIZE_PT = 11;
+
+export const PDF_FONT_IDS_BY_LANGUAGE = {
+  ja: ['gothic', 'mincho', 'rounded'],
+  en: ['dmSans'],
+  'zh-Hans': ['sarasaSC'],
+  'zh-Hant-TW': ['taipeiTC'],
+  'zh-Hant-HK': ['chironHK'],
+  ko: ['wantedSans'],
+};
+
+export const DEFAULT_PDF_FONT_ID_BY_LANGUAGE = {
+  ja: 'gothic',
+  en: 'dmSans',
+  'zh-Hans': 'sarasaSC',
+  'zh-Hant-TW': 'taipeiTC',
+  'zh-Hant-HK': 'chironHK',
+  ko: 'wantedSans',
+};
+
+function normalizePdfFontLanguage(language) {
+  if (Object.prototype.hasOwnProperty.call(PDF_FONT_IDS_BY_LANGUAGE, language)) {
+    return language;
+  }
+  if (language === 'zh-Hant') return 'zh-Hant-TW';
+  return 'ja';
+}
+
+export function getPdfFontIdsForLanguage(language) {
+  return PDF_FONT_IDS_BY_LANGUAGE[normalizePdfFontLanguage(language)];
+}
+
+export function getDefaultPdfFontIdForLanguage(language) {
+  return DEFAULT_PDF_FONT_ID_BY_LANGUAGE[normalizePdfFontLanguage(language)];
+}
 
 function intInRange(value, range, fallback) {
   if (!Number.isInteger(value) || value < range.min || value > range.max) {
@@ -24,10 +59,13 @@ function intInRange(value, range, fallback) {
  * 書体とウェイトを1つの登録情報へ解決する。フォントファイルは
  * 同時に複数保持せず、呼び出し側がこの戻り値だけをPDFへ渡す。
  */
-export function resolvePdfFont(fontId, fontWeightId) {
-  const safeFontId = Object.prototype.hasOwnProperty.call(PDF_FONTS, fontId)
-    ? fontId
-    : DEFAULT_FONT_ID;
+export function resolvePdfFont(fontId, fontWeightId, language = null) {
+  const isKnownFont = Object.prototype.hasOwnProperty.call(PDF_FONTS, fontId);
+  const safeFontId = language === null
+    ? (isKnownFont ? fontId : DEFAULT_FONT_ID)
+    : isKnownFont && getPdfFontIdsForLanguage(language).includes(fontId)
+      ? fontId
+      : getDefaultPdfFontIdForLanguage(language);
   const safeWeightId = Object.prototype.hasOwnProperty.call(PDF_FONT_WEIGHTS, fontWeightId)
     ? fontWeightId
     : DEFAULT_FONT_WEIGHT_ID;
@@ -37,7 +75,6 @@ export function resolvePdfFont(fontId, fontWeightId) {
   return {
     fontId: safeFontId,
     fontWeightId: safeWeightId,
-    label: family.label,
     flatGlyph: family.flatGlyph,
     file: selected.file,
     name: selected.name,
@@ -51,7 +88,10 @@ export function resolvePdfFont(fontId, fontWeightId) {
  */
 export function resolvePdfTypography(options = {}) {
   const source = options ?? {};
-  const font = resolvePdfFont(source.fontId, source.fontWeightId);
+  const language = Object.prototype.hasOwnProperty.call(source, 'language')
+    ? source.language
+    : getLanguage();
+  const font = resolvePdfFont(source.fontId, source.fontWeightId, language);
   const titleFontSizePt = intInRange(
     source.titleFontSizePt,
     PDF_LAYOUT_RANGES.titleFontSizePt,
@@ -91,6 +131,7 @@ export function resolvePdfTypography(options = {}) {
 
   return {
     ...font,
+    waveDashGlyph: PDF_FONTS[font.fontId].waveDashGlyph,
     titleFontSizePt,
     metaFontSizePt,
     lyricSizePercent,

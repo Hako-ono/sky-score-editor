@@ -1,62 +1,129 @@
+import { useEffect, useRef, useState } from 'react';
+import {
+  getLanguagePreference,
+  LANGUAGE_AUTO,
+  LANGUAGE_OPTIONS,
+} from '../i18n/index.js';
+import { useLanguage, useT } from '../i18n/LanguageContext.jsx';
+import { replacePlaceholders } from '../i18n/replacePlaceholders.js';
+import { useMenuPosition } from '../hooks/useMenuPosition.js';
+import globeIcon from '../assets/Globe_icon.svg';
+
 const LICENSE_URL = `${import.meta.env.BASE_URL}legal/THIRD_PARTY_NOTICES.txt`;
 const INQUIRY_URL = 'https://x.com/Hako_ono_sky';
 const REPO_URL = 'https://github.com/Hako-ono/sky-score-editor';
 const MIT_URL = `${REPO_URL}/blob/main/LICENSE`;
+const LANGUAGE_AUTO_LABEL = 'Auto';
 
 function SiteFooter({ hasDraft, onClearDraft }) {
+  const t = useT();
+  const { language, setLanguage } = useLanguage();
+  const languageMenuRef = useRef(null);
+  const languageTriggerRef = useRef(null);
+  const languageItemRefs = useRef({});
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const languagePanelRef = useMenuPosition(languageMenuOpen);
+  const [languageSelection, setLanguageSelection] = useState(
+    () => getLanguagePreference() ?? LANGUAGE_AUTO,
+  );
+
+  useEffect(() => {
+    if (!languageMenuOpen) return undefined;
+    languageItemRefs.current[languageSelection]?.focus();
+    const handleOutsideClick = (e) => {
+      if (languageMenuRef.current && !languageMenuRef.current.contains(e.target)) {
+        setLanguageMenuOpen(false);
+      }
+    };
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        setLanguageMenuOpen(false);
+        languageTriggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [languageMenuOpen, languageSelection]);
+
+  const handleLanguageMenuKeyDown = (e) => {
+    const languages = LANGUAGE_OPTIONS.map(({ value }) => value);
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setLanguageMenuOpen(false);
+      languageTriggerRef.current?.focus();
+      return;
+    }
+    if (e.key === 'Tab') {
+      setLanguageMenuOpen(false);
+      return;
+    }
+    const focusedIndex = languages.findIndex(
+      (language) => languageItemRefs.current[language] === document.activeElement,
+    );
+    const currentIndex = focusedIndex >= 0 ? focusedIndex : languages.indexOf(languageSelection);
+    let nextIndex;
+    if (e.key === 'ArrowDown') nextIndex = (currentIndex + 1) % languages.length;
+    else if (e.key === 'ArrowUp') nextIndex = (currentIndex - 1 + languages.length) % languages.length;
+    else if (e.key === 'Home') nextIndex = 0;
+    else if (e.key === 'End') nextIndex = languages.length - 1;
+    else return;
+    e.preventDefault();
+    languageItemRefs.current[languages[nextIndex]]?.focus();
+  };
+
+  const selectedLanguageOption = LANGUAGE_OPTIONS.find(
+    ({ value }) => value === languageSelection,
+  ) ?? LANGUAGE_OPTIONS[0];
+  const getLanguageOptionLabel = (option) => (
+    option.value === LANGUAGE_AUTO ? LANGUAGE_AUTO_LABEL : option.label
+  );
+  const selectedLanguageTriggerLabel = selectedLanguageOption.value === LANGUAGE_AUTO
+    ? `Language: ${LANGUAGE_AUTO_LABEL}`
+    : selectedLanguageOption.label;
+
   return (
     <footer className="site-footer">
       <p className="site-footer__lead">
-        本ツールは「Sky: 星を紡ぐ子どもたち」を楽しむための非公式ファンメイドツールです。thatgamecompany, inc. とは関係ありません。
+        {t('ui.siteFooter.lead')}
       </p>
 
-      <nav className="site-footer__links" aria-label="補助リンク">
-        <a href={REPO_URL} target="_blank" rel="noreferrer">ソースコード（GitHub）</a>
-        <a href={MIT_URL} target="_blank" rel="noreferrer">MIT License</a>
-        <a href={LICENSE_URL}>第三者ライセンス</a>
-        <a href={INQUIRY_URL} target="_blank" rel="noreferrer">問い合わせ（X @Hako_ono_sky）</a>
+      <nav className="site-footer__links" aria-label={t('ui.siteFooter.navAria')}>
+        <a href={REPO_URL} target="_blank" rel="noreferrer">{t('ui.siteFooter.sourceCode')}</a>
+        <a href={MIT_URL} target="_blank" rel="noreferrer">{t('ui.siteFooter.mitLicense')}</a>
+        <a href={LICENSE_URL}>{t('ui.siteFooter.thirdPartyLicenses')}</a>
+        <a href={INQUIRY_URL} target="_blank" rel="noreferrer">{t('ui.siteFooter.inquiry')}</a>
       </nav>
 
       <details className="site-footer__details">
-        <summary className="site-footer__summary">利用にあたって</summary>
+        <summary className="site-footer__summary">{t('ui.siteFooter.usageSummary')}</summary>
         <div className="site-footer__content">
           <ul className="site-footer__list">
-            <li>
-              本ツールは、Skyの15鍵の楽譜をつくって編集し、PDFやJSONとして書き出すためのツールです。
-            </li>
-            <li>
-              作った楽譜・歌詞・画像を公開・共有するときは、元になった作品や投稿先のガイドラインをご確認ください。
-            </li>
-            <li>
-              編集内容はブラウザ内に自動保存されますが、ブラウザのデータ消去、プライベートブラウズ、保存容量の不足などで失われることがあります。残しておきたい楽譜は「JSONを保存」で、お使いの端末にもファイルとして保存してください。
-            </li>
-            <li>
-              本ツールは個人が無償で公開しているものです。継続的な提供や動作、出力結果の正確さを保証するものではありません。本ツールの利用によって生じた損害については、法令上やむを得ない場合を除き責任を負いません。
-            </li>
+            <li>{t('ui.siteFooter.usage.purpose')}</li>
+            <li>{t('ui.siteFooter.usage.sharing')}</li>
+            <li>{t('ui.siteFooter.usage.autosave')}</li>
+            <li>{t('ui.siteFooter.usage.disclaimer')}</li>
           </ul>
         </div>
       </details>
 
       <details className="site-footer__details">
-        <summary className="site-footer__summary">プライバシー・端末内保存</summary>
+        <summary className="site-footer__summary">{t('ui.siteFooter.privacySummary')}</summary>
         <div className="site-footer__content">
           <ul className="site-footer__list">
+            <li>{t('ui.siteFooter.privacy.processing')}</li>
             <li>
-              読み込んだ楽譜JSON、PDFの背景画像、設定を読み込むためのQR画像は、すべてお使いのブラウザの中だけで処理されます。これらがサーバーへアップロードされることはありません。
+              {replacePlaceholders(t('ui.siteFooter.privacy.storage'), {
+                debugQuery: <code key="debugQuery">?debug=1</code>,
+              })}
             </li>
-            <li>
-              ブラウザのlocalStorageには、楽譜の下書き・表示テーマ・PDF設定の3つを保存します。PDFの背景画像は保存しないため、出力のたびに選び直してください。URLに<code>?debug=1</code>を付けたときだけ、診断用の直近の計測値をsessionStorageに保存します（タブを閉じると消えます）。
-            </li>
-            <li>
-              PDF設定の「保存・共有用URL」とQRカードは、ブラウザ内だけで作成します。含まれるのはPDFの出力設定と、入力したプリセット名・メモで、楽譜の内容や背景画像は含まれません。設定はURLの「#」以降に埋め込まれ、この部分はブラウザからサーバーへ送信されません。他の人に渡すとプリセット名・メモも一緒に渡ります。
-            </li>
-            <li>本ツールはCookie、広告、アクセス解析を使用していません。</li>
-            <li>
-              サイトの配信にはCloudflare Pagesを使用しています。ページやファイルを読み込む通信に伴い、IPアドレスなどのリクエスト情報をCloudflareが処理する場合があります。上に挙げた楽譜JSON・背景画像・QR画像・PDF設定の内容がCloudflareへ送られることはありません。
-            </li>
-            <li>
-              「下書きを削除」で消えるのは楽譜の下書きだけです。テーマとPDF設定も消したい場合は、ブラウザのサイトデータ削除機能をお使いください。共用の端末では、使い終わったあとに削除することをおすすめします。
-            </li>
+            <li>{t('ui.siteFooter.privacy.presetSharing')}</li>
+            <li>{t('ui.siteFooter.privacy.noTracking')}</li>
+            <li>{t('ui.siteFooter.privacy.cloudflare')}</li>
+            <li>{t('ui.siteFooter.privacy.deleteDraft')}</li>
           </ul>
           <p>
             <button
@@ -64,55 +131,125 @@ function SiteFooter({ hasDraft, onClearDraft }) {
               className="btn btn--sm btn--ghost"
               onClick={onClearDraft}
               disabled={!hasDraft}
-              title={hasDraft ? '保存されている下書きを削除します' : '削除できる下書きはありません'}
+              title={t(hasDraft ? 'ui.siteFooter.deleteDraftTitle' : 'ui.siteFooter.noDraftTitle')}
             >
-              下書きを削除
+              {t('ui.siteFooter.deleteDraftButton')}
             </button>
           </p>
         </div>
       </details>
 
       <details className="site-footer__details">
-        <summary className="site-footer__summary">素材・ライセンス</summary>
+        <summary className="site-footer__summary">{t('ui.siteFooter.licenseSummary')}</summary>
         <div className="site-footer__content site-footer__credits">
           <ul className="site-footer__list">
             <li>
-              本ツールのソースコードは
-              <a href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a>
-              で
-              <a href={MIT_URL} target="_blank" rel="noreferrer">MIT License</a>
-              のもとに公開しています。著作権表示とライセンス本文を残せば、複製・改変・再配布・商用利用ができます。以下の音源・フォントは、それぞれの権利者が定めるライセンス（CC BY 3.0、SIL OFL 1.1）に従ってください。
+              {replacePlaceholders(t('ui.siteFooter.license.source'), {
+                github: <a key="github" href={REPO_URL} target="_blank" rel="noreferrer">{t('ui.siteFooter.github')}</a>,
+                license: <a key="license" href={MIT_URL} target="_blank" rel="noreferrer">{t('ui.siteFooter.mitLicense')}</a>,
+              })}
             </li>
+            <li>{t('ui.siteFooter.license.audio')}</li>
+            <li>{t('ui.siteFooter.license.screenFont')}</li>
+            <li>{t('ui.siteFooter.license.pdfFont')}</li>
+            <li>{t('ui.siteFooter.license.localAssets')}</li>
+            <li>{t('ui.siteFooter.license.rights')}</li>
+            <li>{t('ui.siteFooter.license.qrTrademark')}</li>
             <li>
-              音源: Salamander Grand Piano V3 by Alexander Holm（CC BY 3.0）。
-            </li>
-            <li>
-              画面表示フォント: Noto Sans JP（SIL Open Font License 1.1）。
-            </li>
-            <li>
-              PDF埋め込みフォント: Zen Kaku Gothic New・Shippori Mincho・Zen Maru Gothic（いずれもSIL Open Font License 1.1）。
-            </li>
-            <li>
-              音源・フォントはいずれも本サイト内に置いており、外部のサーバーからは読み込みません。出力したPDFには、選んだ書体のデータが埋め込まれます（SIL Open Font License 1.1は文書への埋め込みを認めています）。
-            </li>
-            <li>
-              アプリのアイコンや画面・PDFの記号は本ツール用に作成したもので、ゲームから抽出した画像・音声・フォントは使用していません。「Sky: 星を紡ぐ子どもたち」に関する権利は thatgamecompany, inc. に帰属します。
-            </li>
-            <li>「QRコード」は株式会社デンソーウェーブの登録商標です。</li>
-            <li>
-              本ツールが利用しているオープンソースソフトウェアと素材の著作権表示・ライセンス本文は、<a href={LICENSE_URL}>第三者ライセンス通知</a>にまとめています。
+              {replacePlaceholders(t('ui.siteFooter.license.notice'), {
+                noticeLink: <a key="noticeLink" href={LICENSE_URL}>{t('ui.siteFooter.license.noticeLink')}</a>,
+              })}
             </li>
           </ul>
         </div>
       </details>
 
       <p className="site-footer__note">
-        不具合、権利に関するご連絡、ライセンス表記の訂正は、Xの<a href={INQUIRY_URL} target="_blank" rel="noreferrer">@Hako_ono_sky</a>へのリプライまたはDMでお知らせください。リプライは公開されるため、個人情報や公開したくない内容はDMをご利用ください。楽譜・歌詞・画像を添付する場合は、ご自身で共有できるものだけを選んでください。
+        {replacePlaceholders(t('ui.siteFooter.note'), {
+          inquiry: <a key="inquiry" href={INQUIRY_URL} target="_blank" rel="noreferrer">{t('ui.siteFooter.inquiryLink')}</a>,
+        })}
       </p>
 
+      <div className="site-footer__controls">
+        <div className="language-menu" ref={languageMenuRef}>
+          <button
+            ref={languageTriggerRef}
+            type="button"
+            className="btn btn--sm btn--ghost"
+            onClick={() => {
+              if (languageMenuOpen) languageTriggerRef.current?.focus();
+              setLanguageMenuOpen(!languageMenuOpen);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown' && !languageMenuOpen) {
+                event.preventDefault();
+                setLanguageMenuOpen(true);
+              }
+            }}
+            aria-haspopup="menu"
+            aria-expanded={languageMenuOpen}
+            aria-controls="site-footer-language-menu"
+            aria-label={t('ui.toolbar.language.select')}
+            title={t('ui.toolbar.language.select')}
+          >
+            <img className="language-menu__icon" src={globeIcon} alt="" aria-hidden="true" />
+            <span>{selectedLanguageTriggerLabel}</span>
+          </button>
+          {languageMenuOpen && (
+            <div
+              ref={languagePanelRef}
+              id="site-footer-language-menu"
+              className="language-menu__panel"
+              role="menu"
+              aria-label={t('ui.toolbar.language.menu')}
+            >
+              {LANGUAGE_OPTIONS.map((option) => {
+                const label = getLanguageOptionLabel(option);
+                const isSelected = languageSelection === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    ref={(element) => {
+                      languageItemRefs.current[option.value] = element;
+                    }}
+                    type="button"
+                    role="menuitemradio"
+                    className="language-menu__item"
+                    aria-checked={isSelected}
+                    aria-label={t(
+                      isSelected ? 'ui.toolbar.language.current' : 'ui.toolbar.language.switch',
+                      { label },
+                    )}
+                    title={t(
+                      isSelected ? 'ui.toolbar.language.current' : 'ui.toolbar.language.switch',
+                      { label },
+                    )}
+                    onClick={() => {
+                      setLanguage(option.value);
+                      setLanguageSelection(option.value);
+                      setLanguageMenuOpen(false);
+                      languageTriggerRef.current?.focus();
+                    }}
+                    onKeyDown={handleLanguageMenuKeyDown}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {language !== 'ja' && (
+          <p className="site-footer__original-notice">
+            {t('ui.siteFooter.originalNotice')}
+          </p>
+        )}
+      </div>
+
       <p className="site-footer__copyright">
-        © 2026 Hako ・ Released under the{' '}
-        <a href={MIT_URL} target="_blank" rel="noreferrer">MIT License</a>
+        {replacePlaceholders(t('ui.siteFooter.copyright'), {
+          license: <a key="copyrightLicense" href={MIT_URL} target="_blank" rel="noreferrer">{t('ui.siteFooter.mitLicense')}</a>,
+        })}
       </p>
     </footer>
   );

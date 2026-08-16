@@ -11,17 +11,22 @@ import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { ActiveGridProvider } from './contexts/ActiveGridContext.jsx';
 import { ExpandedGridProvider } from './contexts/ExpandedGridContext.jsx';
 import { ScoreGridsProvider } from './contexts/ScoreGridsContext.jsx';
+import { LanguageProvider } from './i18n/LanguageContext.jsx';
+import { initializeLanguage } from './i18n/index.js';
 
+initializeLanguage();
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ErrorBoundary>
-      <ActiveGridProvider>
-        <ExpandedGridProvider>
-          <ScoreGridsProvider>
-            <App />
-          </ScoreGridsProvider>
-        </ExpandedGridProvider>
-      </ActiveGridProvider>
-    </ErrorBoundary>
+    <LanguageProvider>
+      <ErrorBoundary>
+        <ActiveGridProvider>
+          <ExpandedGridProvider>
+            <ScoreGridsProvider>
+              <App />
+            </ScoreGridsProvider>
+          </ExpandedGridProvider>
+        </ActiveGridProvider>
+      </ErrorBoundary>
+    </LanguageProvider>
   </StrictMode>,
 );

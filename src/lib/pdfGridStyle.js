@@ -5,7 +5,6 @@
 
 export const PDF_GRID_STYLES = {
   standard: {
-    label: '標準',
     outerRadius: 5,
     cellRadius: 5,
     symbolRadius: 0,
@@ -14,7 +13,6 @@ export const PDF_GRID_STYLES = {
     symbolStrokeWidth: 2.5,
   },
   soft: {
-    label: 'ふんわり',
     outerRadius: 18,
     cellRadius: 14,
     symbolRadius: 3,
@@ -23,7 +21,6 @@ export const PDF_GRID_STYLES = {
     symbolStrokeWidth: 2.5,
   },
   bold: {
-    label: 'どっしり',
     outerRadius: 8,
     cellRadius: 6,
     symbolRadius: 0,
@@ -32,7 +29,6 @@ export const PDF_GRID_STYLES = {
     symbolStrokeWidth: 4.5,
   },
   minimal: {
-    label: 'すっきり',
     outerRadius: 0,
     cellRadius: 0,
     symbolRadius: 0,

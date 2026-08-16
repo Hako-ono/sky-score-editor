@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronIcon } from './icons.jsx';
+import { useT } from '../i18n/LanguageContext.jsx';
 
 /**
  * 「一番上へ戻る」浮遊ボタン。1画面ぶんスクロールしたら出す。
@@ -7,6 +8,7 @@ import { ChevronIcon } from './icons.jsx';
  * 押下は window.scrollTo だけで、再生や追尾の state には一切触れない。
  */
 export default function ScrollTopFab({ editMode }) {
+  const t = useT();
   const [visible, setVisible] = useState(false);
   const rafRef = useRef(0);
 
@@ -38,8 +40,8 @@ export default function ScrollTopFab({ editMode }) {
       type="button"
       className={editMode ? 'scroll-top-fab scroll-top-fab--raised' : 'scroll-top-fab'}
       onClick={() => window.scrollTo({ top: 0, behavior: 'auto' })}
-      aria-label="一番上へ戻る"
-      title="一番上へ戻る"
+      aria-label={t('ui.scrollTopFab.backToTop')}
+      title={t('ui.scrollTopFab.backToTop')}
     >
       <ChevronIcon direction="up" />
     </button>

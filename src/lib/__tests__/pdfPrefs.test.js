@@ -21,6 +21,7 @@ import {
   CUSTOM_PRESET_ID,
   pdfConfig,
   complementHex,
+  resolveKeyModeNotationIdForLanguage,
 } from '../../constants/config.js';
 import { loadPdfPrefs, savePdfPrefs } from '../pdfPrefs.js';
 import {
@@ -499,6 +500,23 @@ describe('loadPdfPrefs', () => {
       fontId: 'mincho',
       keyModeNotationId: DEFAULT_KEY_MODE_NOTATION_ID,
     });
+  });
+
+  it('日本式表記の保存値を維持し、非日本語UIでは実効値だけ短縮表記にする', () => {
+    for (const keyModeNotationId of ['japanese', 'traditional']) {
+      localStorage.setItem(PDF_PREFS_STORAGE_KEY, JSON.stringify({ keyModeNotationId }));
+      const loaded = loadPdfPrefs();
+      expect(loaded.keyModeNotationId).toBe(keyModeNotationId);
+
+      savePdfPrefs(loaded);
+      expect(JSON.parse(localStorage.getItem(PDF_PREFS_STORAGE_KEY)).keyModeNotationId)
+        .toBe(keyModeNotationId);
+      expect(resolveKeyModeNotationIdForLanguage(keyModeNotationId, 'ja'))
+        .toBe(keyModeNotationId);
+      expect(resolveKeyModeNotationIdForLanguage(keyModeNotationId, 'en')).toBe('compact');
+      expect(resolveKeyModeNotationIdForLanguage(keyModeNotationId, 'zh-Hant-HK'))
+        .toBe('compact');
+    }
   });
 
   it('余白・グリッド間隔のidをキーごとに検証する', () => {

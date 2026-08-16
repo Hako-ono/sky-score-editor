@@ -2,27 +2,13 @@ import {
   DEFAULT_CUSTOM_TEMPO_VALUE,
   DEFAULT_TEMPO_VALUE_MODE_ID,
   KEY_NOTATIONS,
-  PDF_FONTS,
-  PDF_FONT_WEIGHTS,
-  PDF_GRID_GAPS,
-  PDF_GRID_NUMBER_DISPLAYS,
-  PDF_COLUMNS_PER_PAGE,
-  PDF_ROW_SHADINGS,
-  PDF_PAGE_MARGINS,
-  PDF_PAGE_NUMBER_FORMATS,
-  PDF_PAGE_NUMBER_POSITIONS,
-  PDF_PRESETS,
-  PDF_RUNNING_HEADERS,
-  PDF_FOOTER_CREDITS,
-  PDF_SCORE_INFO_DESIGNS,
-  PDF_MASTHEAD_DIRECTIONS,
-  PDF_SHEET_LAYOUTS,
-  PDF_TEMPO_VALUE_MODES,
-  keyModeNotationLabel,
+  normalizeKeyMode,
+  normalizeKeyModeNotationId,
+  resolveKeyModeNotationIdForLanguage,
   keyTonicPitchClass,
 } from '../constants/config.js';
+import { t } from '../i18n/index.js';
 import { normalizePdfPrefs } from './pdfPrefs.js';
-import { PDF_GRID_STYLES } from './pdfGridStyle.js';
 import {
   MAX_PDF_PRESET_INPUT_LENGTH,
   MAX_PDF_PRESET_COMPRESSED_BYTES,
@@ -63,7 +49,6 @@ const EXTERNAL_GROUPS = [
   {
     id: 'design',
     code: 'd',
-    label: 'デザイン',
     keys: {
       presetId: 'p',
       custom: 'c',
@@ -75,7 +60,6 @@ const EXTERNAL_GROUPS = [
   {
     id: 'typography',
     code: 't',
-    label: '文字',
     keys: {
       fontId: 'f',
       fontWeightId: 'w',
@@ -88,7 +72,6 @@ const EXTERNAL_GROUPS = [
   {
     id: 'scoreInfo',
     code: 'i',
-    label: '曲情報',
     keys: {
       scoreInfoDesignId: 'd',
       mastheadDirectionId: 'h',
@@ -101,7 +84,6 @@ const EXTERNAL_GROUPS = [
   {
     id: 'page',
     code: 'p',
-    label: 'ページ',
     keys: {
       pageNumberFormatId: 'f',
       pageNumberPositionId: 'p',
@@ -113,7 +95,6 @@ const EXTERNAL_GROUPS = [
   {
     id: 'paper',
     code: 'a',
-    label: '紙面',
     keys: {
       sheetLayoutId: 's',
       maxRowsPerPage: 'r',
@@ -148,9 +129,8 @@ const BLACK_KEY_NOTATION_BY_PITCH = {
   10: { major: 'flat', minor: 'flat' },
 };
 
-const DIFF_GROUPS = EXTERNAL_GROUPS.map(({ id, label, keys }) => ({
+const DIFF_GROUPS = EXTERNAL_GROUPS.map(({ id, keys }) => ({
   id,
-  label,
   keys: Object.keys(keys),
 }));
 
@@ -162,8 +142,11 @@ export class PdfPresetCodecError extends Error {
   }
 }
 
-function throwCodecError(code, message) {
-  throw new PdfPresetCodecError(code, message);
+function throwCodecError(code, messageKey = code, params = {}) {
+  throw new PdfPresetCodecError(
+    code,
+    t(`ui.pdfPresetCodec.error.${messageKey}`, params),
+  );
 }
 
 function isPlainObject(value) {
@@ -172,14 +155,15 @@ function isPlainObject(value) {
   return prototype === Object.prototype || prototype === null;
 }
 
-function sanitizeSharedText(value, maxCodePoints, fieldName) {
+function sanitizeSharedText(value, maxCodePoints, fieldNameKey) {
   if (value === undefined || value === null) return '';
   if (typeof value !== 'string') return '';
   const cleaned = value.replace(CONTROL_CHARACTER_RE, '');
   if ([...cleaned].length > maxCodePoints) {
     throwCodecError(
       'field-too-large',
-      `${fieldName}が長すぎます。`,
+      'field-too-large',
+      { field: t(`ui.pdfPresetCodec.field.${fieldNameKey}`) },
     );
   }
   return cleaned;
@@ -193,7 +177,7 @@ function decodeUtf8(bytes) {
   try {
     return new globalThis.TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {
-    throwCodecError('invalid-utf8', '設定データの文字コードが正しくありません。');
+    throwCodecError('invalid-utf8');
   }
 }
 
@@ -208,19 +192,19 @@ function bytesToBase64Url(bytes) {
   try {
     encoded = globalThis.btoa(binary);
   } catch {
-    throwCodecError('base64-encode-failed', '設定コードを作成できませんでした。');
+    throwCodecError('base64-encode-failed');
   }
   return encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/u, '');
 }
 
 function base64UrlToBytes(value) {
   if (!BASE64URL_RE.test(value) || value.length % 4 === 1) {
-    throwCodecError('invalid-base64', '設定コードのデータが正しくありません。');
+    throwCodecError('invalid-base64');
   }
 
   const estimatedBytes = Math.floor((value.length * 6) / 8);
   if (estimatedBytes > MAX_PDF_PRESET_COMPRESSED_BYTES) {
-    throwCodecError('compressed-too-large', '設定コードのデータが大きすぎます。');
+    throwCodecError('compressed-too-large');
   }
 
   const padded = value.replace(/-/g, '+').replace(/_/g, '/')
@@ -229,32 +213,32 @@ function base64UrlToBytes(value) {
   try {
     binary = globalThis.atob(padded);
   } catch {
-    throwCodecError('invalid-base64', '設定コードのデータが正しくありません。');
+    throwCodecError('invalid-base64');
   }
   if (binary.length > MAX_PDF_PRESET_COMPRESSED_BYTES) {
-    throwCodecError('compressed-too-large', '設定コードのデータが大きすぎます。');
+    throwCodecError('compressed-too-large');
   }
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
 function assertInputLength(value) {
   if (typeof value !== 'string') {
-    throwCodecError('invalid-input', '設定コードを読み取れませんでした。');
+    throwCodecError('invalid-input');
   }
   if (value.length > MAX_PDF_PRESET_INPUT_LENGTH) {
-    throwCodecError('input-too-large', '設定コードが長すぎます。');
+    throwCodecError('input-too-large');
   }
 }
 
 function validateCodeSyntax(code) {
   if (!CODE_RE.test(code)) {
-    throwCodecError('invalid-code', '設定コードの形式が正しくありません。');
+    throwCodecError('invalid-code');
   }
 }
 
 function validateDecodeParts(parts) {
   if (parts.length !== 3 || parts[0] !== CODE_PREFIX || !['G', 'J'].includes(parts[1])) {
-    throwCodecError('invalid-code', '設定コードの形式が正しくありません。');
+    throwCodecError('invalid-code');
   }
 }
 
@@ -276,7 +260,7 @@ async function readStreamBytes(stream, maxBytes = Infinity) {
         } catch {
           // 上限超過のエラーを優先し、cancelの実装差を吸収する。
         }
-        throwCodecError('json-too-large', '展開後の設定データが大きすぎます。');
+        throwCodecError('json-too-large');
       }
       chunks.push(chunk);
     }
@@ -301,10 +285,7 @@ async function gzipBytes(bytes) {
 
 async function gunzipBytes(bytes) {
   if (typeof globalThis.DecompressionStream !== 'function') {
-    throwCodecError(
-      'unsupported-browser',
-      'この設定コードの展開には新しいブラウザが必要です。',
-    );
+    throwCodecError('unsupported-browser');
   }
   try {
     const stream = new globalThis.Blob([bytes]).stream()
@@ -312,7 +293,7 @@ async function gunzipBytes(bytes) {
     return await readStreamBytes(stream, MAX_PDF_PRESET_JSON_BYTES);
   } catch (error) {
     if (error instanceof PdfPresetCodecError) throw error;
-    throwCodecError('invalid-gzip', '設定コードを展開できませんでした。');
+    throwCodecError('invalid-gzip');
   }
 }
 
@@ -365,14 +346,14 @@ function buildExternalSettings(prefs) {
 /** 外部コードの設定を内部キー名の平坦なオブジェクトへ戻す。 */
 function readExternalSettings(settings) {
   if (!isPlainObject(settings)) {
-    throwCodecError('invalid-settings', '設定データの形式が正しくありません。');
+    throwCodecError('invalid-settings');
   }
 
   const flat = {};
   for (const group of EXTERNAL_GROUPS) {
     const source = settings[group.code];
     if (!isPlainObject(source)) {
-      throwCodecError('invalid-settings-group', '設定データの形式が正しくありません。');
+      throwCodecError('invalid-settings-group');
     }
     for (const [key, code] of Object.entries(group.keys)) {
       const value = source[code];
@@ -410,13 +391,13 @@ function parseEnvelope(jsonText, scoreContext) {
   try {
     envelope = JSON.parse(jsonText);
   } catch {
-    throwCodecError('invalid-json', '設定データのJSONが正しくありません。');
+    throwCodecError('invalid-json');
   }
   if (!isPlainObject(envelope)) {
-    throwCodecError('invalid-json', '設定データの形式が正しくありません。');
+    throwCodecError('invalid-json', 'invalid-json-format');
   }
   if (envelope.v !== EXTERNAL_FORMAT_VERSION) {
-    throwCodecError('unsupported-version', '対応していないバージョンの設定です。');
+    throwCodecError('unsupported-version');
   }
 
   const flat = readExternalSettings(envelope.s);
@@ -424,8 +405,8 @@ function parseEnvelope(jsonText, scoreContext) {
 
   return {
     version: EXTERNAL_FORMAT_VERSION,
-    name: sanitizeSharedText(envelope.n, MAX_PDF_PRESET_NAME_CODE_POINTS, '名前'),
-    memo: sanitizeSharedText(envelope.m, MAX_PDF_PRESET_MEMO_CODE_POINTS, 'メモ'),
+    name: sanitizeSharedText(envelope.n, MAX_PDF_PRESET_NAME_CODE_POINTS, 'name'),
+    memo: sanitizeSharedText(envelope.m, MAX_PDF_PRESET_MEMO_CODE_POINTS, 'memo'),
     prefs: importedPrefs,
   };
 }
@@ -438,13 +419,13 @@ export async function encodePdfPreset({ name, memo, prefs } = {}) {
   const normalizedPrefs = normalizePdfPrefs(prefs);
   const envelope = {
     v: EXTERNAL_FORMAT_VERSION,
-    n: sanitizeSharedText(name, MAX_PDF_PRESET_NAME_CODE_POINTS, '名前'),
-    m: sanitizeSharedText(memo, MAX_PDF_PRESET_MEMO_CODE_POINTS, 'メモ'),
+    n: sanitizeSharedText(name, MAX_PDF_PRESET_NAME_CODE_POINTS, 'name'),
+    m: sanitizeSharedText(memo, MAX_PDF_PRESET_MEMO_CODE_POINTS, 'memo'),
     s: buildExternalSettings(normalizedPrefs),
   };
   const jsonBytes = encodeUtf8(JSON.stringify(envelope));
   if (jsonBytes.byteLength > MAX_PDF_PRESET_JSON_BYTES) {
-    throwCodecError('json-too-large', '設定データが大きすぎます。');
+    throwCodecError('json-too-large', 'json-too-large-input');
   }
 
   let mode = 'J';
@@ -454,12 +435,12 @@ export async function encodePdfPreset({ name, memo, prefs } = {}) {
     payload = await gzipBytes(jsonBytes);
   }
   if (payload.byteLength > MAX_PDF_PRESET_COMPRESSED_BYTES) {
-    throwCodecError('compressed-too-large', '設定コードのデータが大きすぎます。');
+    throwCodecError('compressed-too-large');
   }
 
   const code = `${CODE_PREFIX}.${mode}.${bytesToBase64Url(payload)}`;
   if (code.length > MAX_PDF_PRESET_INPUT_LENGTH) {
-    throwCodecError('input-too-large', '設定コードが長すぎます。');
+    throwCodecError('input-too-large');
   }
   return code;
 }
@@ -475,7 +456,7 @@ export async function decodePdfPresetCode(code, scoreContext) {
   // 旧version（SKYPDF1）と将来のversionは、どちらもこの形式では読めない。
   // 読めないまま既定値へ落として黙って別の設定を適用しないよう、明示的に断る。
   if (parts.length === 3 && /^SKYPDF\d+$/u.test(parts[0]) && parts[0] !== CODE_PREFIX) {
-    throwCodecError('unsupported-version', '対応していないバージョンの設定です。');
+    throwCodecError('unsupported-version');
   }
   validateDecodeParts(parts);
 
@@ -485,7 +466,7 @@ export async function decodePdfPresetCode(code, scoreContext) {
     jsonBytes = await gunzipBytes(payload);
   } else {
     if (payload.byteLength > MAX_PDF_PRESET_JSON_BYTES) {
-      throwCodecError('json-too-large', '設定データが大きすぎます。');
+      throwCodecError('json-too-large', 'json-too-large-input');
     }
     jsonBytes = payload;
   }
@@ -514,7 +495,7 @@ export function buildPdfPresetUrl(code, locationLike, baseUrl) {
   const normalizedCode = code.trim();
   validateCodeSyntax(normalizedCode);
   if (!locationLike || typeof locationLike.origin !== 'string') {
-    throwCodecError('invalid-location', '設定共有URLを作成できませんでした。');
+    throwCodecError('invalid-location');
   }
 
   const path = typeof baseUrl === 'string' && baseUrl ? baseUrl : '/';
@@ -522,10 +503,10 @@ export function buildPdfPresetUrl(code, locationLike, baseUrl) {
   try {
     url = new URL(path, locationLike.origin);
   } catch {
-    throwCodecError('invalid-location', '設定共有URLを作成できませんでした。');
+    throwCodecError('invalid-location');
   }
   if (url.origin !== locationLike.origin) {
-    throwCodecError('invalid-location', '設定共有URLを作成できませんでした。');
+    throwCodecError('invalid-location');
   }
   url.hash = `pdf-preset=${normalizedCode}`;
   return url.toString();
@@ -551,65 +532,83 @@ function valuesEqual(left, right) {
   return Object.is(left, right);
 }
 
-function labelFrom(table, value) {
-  return table[value]?.label ?? '既定値';
+function diffValueLabel(group, value) {
+  return t(`ui.pdfPreset.value.${group}.${value}`);
+}
+
+function keyModeNotationDiffValue(value, keyMode) {
+  const safeKeyMode = normalizeKeyMode(keyMode);
+  const safeNotationId = normalizeKeyModeNotationId(value);
+  return t(`ui.pdfPreset.value.keyModeNotation.${safeNotationId}.${safeKeyMode}`);
+}
+
+function resolvePdfPresetValuesForLanguage(prefs, scoreContext) {
+  return {
+    ...prefs,
+    keyModeNotationId: resolveKeyModeNotationIdForLanguage(
+      prefs.keyModeNotationId,
+      scoreContext?.language,
+    ),
+  };
 }
 
 function formatDiffValue(key, value, scoreContext) {
   switch (key) {
     case 'presetId':
-      return value === 'custom' ? 'カスタム' : labelFrom(PDF_PRESETS, value);
+      return value === 'custom' ? t('ui.pdfPreset.value.custom') : diffValueLabel('preset', value);
     case 'custom':
-      return 'カスタム配色';
+      return t('ui.pdfPreset.value.customPalette');
     case 'gridStyleId':
-      return value === 'custom' ? 'カスタム' : labelFrom(PDF_GRID_STYLES, value);
+      return value === 'custom'
+        ? t('ui.pdfPreset.value.custom')
+        : diffValueLabel('gridStyle', value);
     case 'gridStyleCustom':
-      return 'カスタム形状';
+      return t('ui.pdfPreset.value.customShape');
     case 'gridNumberDisplayId':
-      return labelFrom(PDF_GRID_NUMBER_DISPLAYS, value);
+      return diffValueLabel('gridNumber', value);
     case 'fontId':
-      return labelFrom(PDF_FONTS, value);
+      return diffValueLabel('font', value);
     case 'fontWeightId':
-      return labelFrom(PDF_FONT_WEIGHTS, value);
+      return diffValueLabel('fontWeight', value);
     case 'titleFontSizePt':
     case 'metaFontSizePt':
     case 'pageNumberFontSizePt':
-      return `${value}pt`;
+      return t('ui.pdfPreset.value.points', { value });
     case 'lyricSizePercent':
     case 'gridNumberSizePercent':
-      return `${value}%`;
+      return t('ui.pdfPreset.value.percent', { value });
     case 'scoreInfoDesignId':
-      return labelFrom(PDF_SCORE_INFO_DESIGNS, value);
+      return diffValueLabel('scoreInfoDesign', value);
     case 'mastheadDirectionId':
-      return labelFrom(PDF_MASTHEAD_DIRECTIONS, value);
+      return diffValueLabel('mastheadDirection', value);
     case 'tempoValueModeId':
-      return labelFrom(PDF_TEMPO_VALUE_MODES, value);
+      return diffValueLabel('tempoValueMode', value);
     case 'customTempoValue':
       return String(value);
     case 'keyNotationId':
-      return labelFrom(KEY_NOTATIONS, value);
+      return diffValueLabel('keyNotation', value);
     case 'keyModeNotationId':
-      return keyModeNotationLabel(scoreContext?.keyMode, value);
+      return keyModeNotationDiffValue(value, scoreContext?.keyMode);
     case 'pageNumberFormatId':
-      return labelFrom(PDF_PAGE_NUMBER_FORMATS, value);
+      return diffValueLabel('pageNumberFormat', value);
     case 'pageNumberPositionId':
-      return labelFrom(PDF_PAGE_NUMBER_POSITIONS, value);
+      return diffValueLabel('pageNumberPosition', value);
     case 'runningHeaderId':
-      return labelFrom(PDF_RUNNING_HEADERS, value);
+      return diffValueLabel('runningHeader', value);
     case 'footerCreditId':
-      return labelFrom(PDF_FOOTER_CREDITS, value);
+      return diffValueLabel('footerCredit', value);
     case 'sheetLayoutId':
-      return labelFrom(PDF_SHEET_LAYOUTS, value);
+      return diffValueLabel('sheetLayout', value);
     case 'maxRowsPerPage':
-      return `${value}行`;
+      return t('ui.pdfPreset.value.rows', { value });
     case 'columnsPerPageId':
-      return labelFrom(PDF_COLUMNS_PER_PAGE, value);
+      return diffValueLabel('columnsPerPage', value);
     case 'rowShadingId':
-      return labelFrom(PDF_ROW_SHADINGS, value);
+      return diffValueLabel('rowShading', value);
     case 'pageMarginId':
-      return labelFrom(PDF_PAGE_MARGINS, value);
+      return diffValueLabel('margin', value);
     case 'gridGapId':
-      return labelFrom(PDF_GRID_GAPS, value);
+      return diffValueLabel('gap', value);
     default:
       return '';
   }
@@ -617,51 +616,28 @@ function formatDiffValue(key, value, scoreContext) {
 
 /** 5つの設定sectionごとに、利用者向けラベルで差分を返す。 */
 export function buildPdfPresetDiff(currentPrefs, importedPrefs, scoreContext) {
-  const current = normalizePdfPrefs(currentPrefs);
+  const current = resolvePdfPresetValuesForLanguage(
+    normalizePdfPrefs(currentPrefs),
+    scoreContext,
+  );
   // 差分は「適用したらどうなるか」なので、読み込み時の解決を通した値と比べる
-  const imported = normalizePdfPrefs(applyImportContext(importedPrefs, scoreContext));
+  const imported = resolvePdfPresetValuesForLanguage(
+    normalizePdfPrefs(applyImportContext(importedPrefs, scoreContext)),
+    scoreContext,
+  );
 
   return DIFF_GROUPS.map((group) => {
     const changes = group.keys
       .filter((key) => !valuesEqual(current[key], imported[key]))
       .map((key) => ({
         key,
-        label: {
-          presetId: '配色',
-          custom: 'カスタム配色',
-          gridStyleId: 'グリッド形状',
-          gridStyleCustom: '形状の詳細',
-          gridNumberDisplayId: 'グリッド番号',
-          fontId: '書体',
-          fontWeightId: 'ウェイト',
-          titleFontSizePt: '曲名サイズ',
-          metaFontSizePt: '曲情報サイズ',
-          lyricSizePercent: '歌詞サイズ',
-          gridNumberSizePercent: '番号サイズ',
-          scoreInfoDesignId: '曲情報デザイン',
-          mastheadDirectionId: 'マストヘッドの向き',
-          tempoValueModeId: '♩の値',
-          customTempoValue: 'カスタム値',
-          keyNotationId: 'キー表記',
-          keyModeNotationId: '調性表記',
-          pageNumberFormatId: 'ページ番号',
-          pageNumberPositionId: 'ページ番号の位置',
-          pageNumberFontSizePt: 'ページ番号サイズ',
-          runningHeaderId: '柱',
-          footerCreditId: 'フッター',
-          sheetLayoutId: '面付け',
-          maxRowsPerPage: '1ページの行数',
-          columnsPerPageId: '1ページの列数',
-          rowShadingId: '偶数行を暗くする',
-          pageMarginId: '余白',
-          gridGapId: 'グリッド間隔',
-        }[key],
+        label: t(`ui.pdfPreset.diff.${key}`),
         current: formatDiffValue(key, current[key], scoreContext),
         imported: formatDiffValue(key, imported[key], scoreContext),
       }));
     return {
       id: group.id,
-      label: group.label,
+      label: t(`ui.pdfPreset.group.${group.id}`),
       changed: changes.length > 0,
       changes,
     };

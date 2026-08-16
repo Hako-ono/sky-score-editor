@@ -1,3 +1,5 @@
+import { useT } from '../i18n/LanguageContext.jsx';
+
 export default function PlaybackBar({
   playbackState,
   onTogglePlayPause,
@@ -5,6 +7,7 @@ export default function PlaybackBar({
   isAutoScroll,
   setIsAutoScroll,
 }) {
+  const t = useT();
   const isPlaying = playbackState === 'playing';
 
   return (
@@ -16,10 +19,10 @@ export default function PlaybackBar({
           onClick={onTogglePlayPause}
         >
           {isPlaying
-            ? '一時停止'
+            ? t('ui.playbackBar.pause')
             : playbackState === 'paused'
-              ? '再開'
-              : '最初から再生'}
+              ? t('ui.playbackBar.resume')
+              : t('ui.playbackBar.restart')}
         </button>
         <button
           type="button"
@@ -27,7 +30,7 @@ export default function PlaybackBar({
           onClick={onStop}
           disabled={playbackState === 'stopped'}
         >
-          停止
+          {t('ui.playbackBar.stop')}
         </button>
         <span className="v-sep" aria-hidden="true" />
         {/* 状態はラベルではなく押し込み表現で示す。ラベルに ON/OFF を
@@ -38,9 +41,9 @@ export default function PlaybackBar({
           className="btn btn--toggle"
           onClick={() => setIsAutoScroll(!isAutoScroll)}
           aria-pressed={isAutoScroll}
-          title="再生中のグリッドを画面中央に自動スクロールします"
+          title={t('ui.playbackBar.autoScrollTitle')}
         >
-          追尾
+          {t('ui.playbackBar.autoScroll')}
         </button>
       </div>
     </div>

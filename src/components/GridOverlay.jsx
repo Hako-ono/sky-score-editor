@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { useT } from '../i18n/LanguageContext.jsx';
 import GridCard from './GridCard.jsx';
 import { ChevronIcon, CloseIcon } from './icons.jsx';
 import {
@@ -124,6 +125,7 @@ export default function GridOverlay({
   usesSecondHighlightColor,
   onToggleLayer,
 }) {
+  const t = useT();
   const store = useExpandedGridStore();
   const scoreGridsStore = useScoreGridsStore();
   const rawIndex = useExpandedGridIndex();
@@ -601,7 +603,7 @@ export default function GridOverlay({
         className="grid-overlay__viewport"
         role="dialog"
         aria-modal="true"
-        aria-label={`グリッド ${index + 1}`}
+        aria-label={t('ui.gridOverlay.grid', { n: index + 1 })}
       >
         <div ref={trackRef} className="grid-overlay__track">
           <OverlaySlide index={index - 1} isCenter={false} {...slideProps} />
@@ -616,7 +618,7 @@ export default function GridOverlay({
           onClick={goPrev}
           onMouseDown={preventFocusShift}
           disabled={index === 0}
-          aria-label="前のグリッド"
+          aria-label={t('ui.gridOverlay.previous')}
         >
           <ChevronIcon direction="left" />
         </button>
@@ -626,7 +628,7 @@ export default function GridOverlay({
           onClick={goNext}
           onMouseDown={preventFocusShift}
           disabled={index === total - 1}
-          aria-label="次のグリッド"
+          aria-label={t('ui.gridOverlay.next')}
         >
           <ChevronIcon direction="right" />
         </button>
@@ -638,7 +640,7 @@ export default function GridOverlay({
           type="button"
           className="grid-overlay__close"
           onClick={close}
-          aria-label="拡大表示を閉じる"
+          aria-label={t('ui.gridOverlay.close')}
         >
           <CloseIcon />
         </button>

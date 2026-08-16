@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 /**
  * アプリ全体で共有する定数と、画面/PDF 両方で使うグリッド幾何情報。
  * 元アプリの HTML テンプレートに埋め込まれていた座標・記号配置をここへ集約した。
@@ -26,18 +28,18 @@ export const MAX_TEXT_LENGTH = 100;
 
 /** PDF本文の余白プリセット。値ではなくidをpdf-prefsへ保存する。 */
 export const PDF_PAGE_MARGINS = {
-  narrow: { label: '狭い', marginPt: 24 },
-  standard: { label: '標準', marginPt: 40 },
-  wide: { label: '広い', marginPt: 64 },
+  narrow: { marginPt: 24 },
+  standard: { marginPt: 40 },
+  wide: { marginPt: 64 },
 };
 
 export const DEFAULT_PAGE_MARGIN_ID = 'standard';
 
 /** PDF内のグリッド間隔プリセット。横・縦を別々に自由入力させない。 */
 export const PDF_GRID_GAPS = {
-  tight: { label: '詰める', horizontalPt: 12, verticalPt: 45 },
-  standard: { label: '標準', horizontalPt: 30, verticalPt: 80 },
-  loose: { label: '広げる', horizontalPt: 56, verticalPt: 130 },
+  tight: { horizontalPt: 12, verticalPt: 45 },
+  standard: { horizontalPt: 30, verticalPt: 80 },
+  loose: { horizontalPt: 56, verticalPt: 130 },
 };
 
 export const DEFAULT_GRID_GAP_ID = 'standard';
@@ -149,7 +151,6 @@ export const COMBINED_SYMBOL_PATH =
  */
 export const PDF_PRESETS = {
   print: {
-    label: '印刷用',
     isDark: false,
     seed: {
       bg: '#FFFFFF', ink: '#212529', line: '#ADB5BD',
@@ -158,7 +159,6 @@ export const PDF_PRESETS = {
     },
   },
   springLight: {
-    label: '春・淡',
     isDark: false,
     seed: {
       bg: '#FAFCF2', ink: '#35402B', line: '#B2C795',
@@ -169,7 +169,6 @@ export const PDF_PRESETS = {
     },
   },
   springDark: {
-    label: '春・宵',
     isDark: true,
     seed: {
       bg: '#33262F', ink: '#F5E9EE', line: '#806573',
@@ -177,7 +176,6 @@ export const PDF_PRESETS = {
     },
   },
   summerLight: {
-    label: '夏・涼',
     isDark: false,
     seed: {
       bg: '#EFF8FD', ink: '#0F3A57', line: '#93BFDA',
@@ -185,7 +183,6 @@ export const PDF_PRESETS = {
     },
   },
   summerDark: {
-    label: '夏・夜',
     isDark: true,
     seed: {
       bg: '#1E3336', ink: '#E2EFE8', line: '#5E807C',
@@ -193,7 +190,6 @@ export const PDF_PRESETS = {
     },
   },
   autumnLight: {
-    label: '秋・実',
     isDark: false,
     seed: {
       bg: '#FDFAF3', ink: '#40301F', line: '#C2A47D',
@@ -201,7 +197,6 @@ export const PDF_PRESETS = {
     },
   },
   autumnDark: {
-    label: '秋・暮',
     isDark: true,
     seed: {
       bg: '#33261D', ink: '#F5E9DA', line: '#836B52',
@@ -209,7 +204,6 @@ export const PDF_PRESETS = {
     },
   },
   winterLight: {
-    label: '冬・雪',
     isDark: false,
     seed: {
       bg: '#FAFCFE', ink: '#263440', line: '#A9BDCB',
@@ -217,7 +211,6 @@ export const PDF_PRESETS = {
     },
   },
   winterDark: {
-    label: '冬・凛',
     isDark: true,
     seed: {
       bg: '#232C39', ink: '#E9F0F8', line: '#64788E',
@@ -360,8 +353,8 @@ export function buildPdfPalette(preset, mix = PRESET_MIX) {
  */
 export const PDF_FONTS = {
   gothic: {
-    label: 'ゴシック',
     flatGlyph: '♭',
+    waveDashGlyph: '〜',
     regular: {
       name: 'Zen Kaku Gothic New',
       file: 'ZenKakuGothicNew-Regular.ttf',
@@ -373,9 +366,9 @@ export const PDF_FONTS = {
     approxMB: 2.3,
   },
   mincho: {
-    label: '明朝',
     // Shippori MinchoはU+266Dを持たないため、PDFでは欠落しないASCII表記に落とす。
     flatGlyph: 'b',
+    waveDashGlyph: '〜',
     regular: {
       name: 'Shippori Mincho',
       file: 'ShipporiMincho-Regular.ttf',
@@ -387,8 +380,8 @@ export const PDF_FONTS = {
     approxMB: 8.3,
   },
   rounded: {
-    label: '丸ゴシック',
     flatGlyph: '♭',
+    waveDashGlyph: '〜',
     regular: {
       name: 'Zen Maru Gothic',
       file: 'ZenMaruGothic-Regular.ttf',
@@ -399,12 +392,77 @@ export const PDF_FONTS = {
     },
     approxMB: 3.7,
   },
+  dmSans: {
+    flatGlyph: 'b',
+    waveDashGlyph: '~',
+    regular: {
+      name: 'DM Sans',
+      file: 'DMSans-Regular.ttf',
+    },
+    bold: {
+      name: 'DM Sans Bold',
+      file: 'DMSans-Bold.ttf',
+    },
+    approxMB: 0.08,
+  },
+  sarasaSC: {
+    flatGlyph: '♭',
+    waveDashGlyph: '〜',
+    regular: {
+      name: 'Sarasa Gothic SC',
+      file: 'SarasaGothicSC-Regular.ttf',
+    },
+    bold: {
+      name: 'Sarasa Gothic SC Bold',
+      file: 'SarasaGothicSC-Bold.ttf',
+    },
+    approxMB: 24.0,
+  },
+  taipeiTC: {
+    flatGlyph: '♭',
+    waveDashGlyph: '〜',
+    regular: {
+      name: 'Taipei Sans TC',
+      file: 'TaipeiSansTC-Regular.ttf',
+    },
+    bold: {
+      name: 'Taipei Sans TC Bold',
+      file: 'TaipeiSansTC-Bold.ttf',
+    },
+    approxMB: 20.7,
+  },
+  chironHK: {
+    flatGlyph: '♭',
+    waveDashGlyph: '〜',
+    regular: {
+      name: 'Chiron Hei HK',
+      file: 'ChironHeiHK-Regular.ttf',
+    },
+    bold: {
+      name: 'Chiron Hei HK Bold',
+      file: 'ChironHeiHK-Bold.ttf',
+    },
+    approxMB: 14.4,
+  },
+  wantedSans: {
+    flatGlyph: 'b',
+    waveDashGlyph: '~',
+    regular: {
+      name: 'Wanted Sans',
+      file: 'WantedSans-Regular.ttf',
+    },
+    bold: {
+      name: 'Wanted Sans Bold',
+      file: 'WantedSans-Bold.ttf',
+    },
+    approxMB: 2.4,
+  },
 };
 
 export const DEFAULT_FONT_ID = 'gothic';
 export const PDF_FONT_WEIGHTS = {
-  regular: { label: '標準' },
-  bold: { label: '太字' },
+  regular: {},
+  bold: {},
 };
 export const DEFAULT_FONT_WEIGHT_ID = 'regular';
 
@@ -539,8 +597,8 @@ export const PDF_LAYOUT_RANGES = {
 
 /** PDFグリッド番号の表示設定。番号の有無はグリッド寸法とは分離する。 */
 export const PDF_GRID_NUMBER_DISPLAYS = {
-  show: { label: '表示' },
-  none: { label: 'なし' },
+  show: {},
+  none: {},
 };
 
 export const DEFAULT_GRID_NUMBER_DISPLAY_ID = 'show';
@@ -551,8 +609,8 @@ export const DEFAULT_GRID_NUMBER_DISPLAY_ID = 'show';
  * （任意のN面付けには一般化しない）。
  */
 export const PDF_SHEET_LAYOUTS = {
-  single: { label: '1面付け' },
-  double: { label: '2面付け' },
+  single: {},
+  double: {},
 };
 
 export const DEFAULT_SHEET_LAYOUT_ID = 'single';
@@ -573,14 +631,14 @@ export const DEFAULT_SHEET_LAYOUT_ID = 'single';
  * 先頭が `auto` でなくなる。表示順を保つため接頭辞付きのidにしている。
  */
 export const PDF_COLUMNS_PER_PAGE = {
-  auto: { label: '拍子に合わせる', columns: null },
-  col2: { label: '2列', columns: 2 },
-  col3: { label: '3列', columns: 3 },
-  col4: { label: '4列', columns: 4 },
-  col5: { label: '5列', columns: 5 },
-  col6: { label: '6列', columns: 6 },
-  col7: { label: '7列', columns: 7 },
-  col8: { label: '8列', columns: 8 },
+  auto: { columns: null },
+  col2: { columns: 2 },
+  col3: { columns: 3 },
+  col4: { columns: 4 },
+  col5: { columns: 5 },
+  col6: { columns: 6 },
+  col7: { columns: 7 },
+  col8: { columns: 8 },
 };
 
 export const DEFAULT_COLUMNS_PER_PAGE_ID = 'auto';
@@ -596,8 +654,8 @@ export function normalizeColumnsPerPageId(value) {
  * 補助であり、既定は無効。
  */
 export const PDF_ROW_SHADINGS = {
-  none: { label: '無効' },
-  even: { label: '有効' },
+  none: {},
+  even: {},
 };
 
 export const DEFAULT_ROW_SHADING_ID = 'none';
@@ -641,20 +699,20 @@ export function shadeRowPalette(palette, opacity) {
   };
 }
 export const PDF_FIRST_PAGE_LAYOUTS = {
-  editorial: { label: '左揃え' },
-  classic: { label: '中央揃え' },
-  right: { label: '右揃え' },
-  cover: { label: '独立表紙' },
+  editorial: {},
+  classic: {},
+  right: {},
+  cover: {},
 };
 
 export const DEFAULT_FIRST_PAGE_LAYOUT_ID = 'classic';
 
 /** 旧PDF設定を新しい完成組版へ移行するために残す形式id。 */
 export const PDF_SCORE_INFO_FORMATS = {
-  standard: { label: '標準' },
-  combined: { label: 'まとめて表示' },
-  itemized: { label: '項目ごとに表示' },
-  twoColumn: { label: '2列で表示' },
+  standard: {},
+  combined: {},
+  itemized: {},
+  twoColumn: {},
 };
 
 export const DEFAULT_SCORE_INFO_FORMAT_ID = 'standard';
@@ -667,15 +725,15 @@ export function normalizeScoreInfoFormatId(value) {
 
 /** 位置を含めて完成させたPDF曲情報デザイン。 */
 export const PDF_SCORE_INFO_DESIGNS = {
-  score: { label: '楽譜' },
-  masthead: { label: 'シンプル' },
-  specSheet: { label: '詳細' },
-  cover: { label: '表紙' },
+  score: {},
+  masthead: {},
+  specSheet: {},
+  cover: {},
 };
 
 export const PDF_MASTHEAD_DIRECTIONS = {
-  left: { label: '左' },
-  right: { label: '右' },
+  left: {},
+  right: {},
 };
 
 export const DEFAULT_SCORE_INFO_DESIGN_ID = 'score';
@@ -750,9 +808,9 @@ export function scoreInfoDesignToFirstPageLayoutId(
 
 /** PDF曲情報の四分音符へ表示する値の求め方。 */
 export const PDF_TEMPO_VALUE_MODES = {
-  quarter: { label: 'BPM値 ÷ 4', divisor: 4 },
-  half: { label: 'BPM値 ÷ 2', divisor: 2 },
-  custom: { label: 'カスタム' },
+  quarter: { divisor: 4 },
+  half: { divisor: 2 },
+  custom: {},
 };
 
 export const DEFAULT_TEMPO_VALUE_MODE_ID = 'quarter';
@@ -775,27 +833,27 @@ export function sanitizeCustomTempoValue(value) {
 
 /** PDFのページ装飾設定。選択肢は自由入力にせず、既知のidだけを受け付ける。 */
 export const PDF_PAGE_NUMBER_FORMATS = {
-  currentTotal: { label: 'n / N' },
-  current: { label: 'n' },
-  none: { label: 'なし' },
+  currentTotal: {},
+  current: {},
+  none: {},
 };
 
 export const PDF_PAGE_NUMBER_POSITIONS = {
-  bottomCenter: { label: '中央' },
-  bottomLeft: { label: '左' },
-  bottomRight: { label: '右' },
-  bottomOuter: { label: '見開き外側' },
-  bottomInner: { label: '見開き内側' },
+  bottomCenter: {},
+  bottomLeft: {},
+  bottomRight: {},
+  bottomOuter: {},
+  bottomInner: {},
 };
 
 export const PDF_RUNNING_HEADERS = {
-  none: { label: 'なし' },
-  title: { label: '曲名' },
+  none: {},
+  title: {},
 };
 
 export const PDF_FOOTER_CREDITS = {
-  none: { label: 'なし' },
-  transcribedBy: { label: '譜面作成者' },
+  none: {},
+  transcribedBy: {},
 };
 
 export const DEFAULT_PAGE_NUMBER_FORMAT_ID = 'currentTotal';
@@ -814,17 +872,17 @@ export const GRID_MIDI_NOTES = [
 
 /** 同じ15鍵の音集合を長調／相対短調のどちらとして表記するか。 */
 export const KEY_MODES = {
-  major: { label: 'メジャー' },
-  minor: { label: 'マイナー' },
+  major: {},
+  minor: {},
 };
 
 export const DEFAULT_KEY_MODE = 'major';
 
 /** PDFだけに適用する黒鍵キーの表記方法。 */
 export const KEY_NOTATIONS = {
-  both: { label: '併記' },
-  sharp: { label: '#' },
-  flat: { label: '♭' },
+  both: {},
+  sharp: {},
+  flat: {},
 };
 
 export const DEFAULT_KEY_NOTATION_ID = 'both';
@@ -832,20 +890,20 @@ export const DEFAULT_KEY_NOTATION_ID = 'both';
 /** PDFのキー名へ付ける調性表記。表示ラベルと接尾辞は現在の調性で切り替える。 */
 export const KEY_MODE_NOTATIONS = {
   compact: {
-    major: { label: 'なし', suffix: '', separator: '', repeatForAlternatives: true },
-    minor: { label: 'm', suffix: 'm', separator: '', repeatForAlternatives: true },
+    major: { suffix: '', separator: '', repeatForAlternatives: true },
+    minor: { suffix: 'm', separator: '', repeatForAlternatives: true },
   },
   english: {
-    major: { label: 'major', suffix: 'major', separator: ' ', repeatForAlternatives: false },
-    minor: { label: 'minor', suffix: 'minor', separator: ' ', repeatForAlternatives: false },
+    major: { suffix: 'major', separator: ' ', repeatForAlternatives: false },
+    minor: { suffix: 'minor', separator: ' ', repeatForAlternatives: false },
   },
   japanese: {
-    major: { label: 'メジャー', suffix: 'メジャー', separator: ' ', repeatForAlternatives: false },
-    minor: { label: 'マイナー', suffix: 'マイナー', separator: ' ', repeatForAlternatives: false },
+    major: { suffix: 'メジャー', separator: ' ', repeatForAlternatives: false },
+    minor: { suffix: 'マイナー', separator: ' ', repeatForAlternatives: false },
   },
   traditional: {
-    major: { label: '長調(日本式)', suffix: '長調', separator: '', repeatForAlternatives: false },
-    minor: { label: '短調(日本式)', suffix: '短調', separator: '', repeatForAlternatives: false },
+    major: { suffix: '長調', separator: '', repeatForAlternatives: false },
+    minor: { suffix: '短調', separator: '', repeatForAlternatives: false },
   },
 };
 
@@ -891,13 +949,22 @@ export function normalizeKeyModeNotationId(value) {
     : DEFAULT_KEY_MODE_NOTATION_ID;
 }
 
+/** 日本語固有の調性表記は、非日本語UIでは短縮表記へ解決する。 */
+export function resolveKeyModeNotationIdForLanguage(value, language = 'ja') {
+  const safeNotationId = normalizeKeyModeNotationId(value);
+  if (language !== 'ja' && ['japanese', 'traditional'].includes(safeNotationId)) {
+    return DEFAULT_KEY_MODE_NOTATION_ID;
+  }
+  return safeNotationId;
+}
+
 export function keyModeNotationLabel(
   keyMode = DEFAULT_KEY_MODE,
   keyModeNotationId = DEFAULT_KEY_MODE_NOTATION_ID,
 ) {
   const safeKeyMode = normalizeKeyMode(keyMode);
   const safeNotationId = normalizeKeyModeNotationId(keyModeNotationId);
-  return KEY_MODE_NOTATIONS[safeNotationId][safeKeyMode].label;
+  return t(`pdf.keyModeNotation.${safeNotationId}.${safeKeyMode}`);
 }
 
 export function formatKeyNameWithMode(

@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef } from 'react';
+import { useT } from '../i18n/LanguageContext.jsx';
 import NoteGridSvg from './NoteGridSvg.jsx';
 import { useIsActiveGrid } from '../contexts/ActiveGridContext.jsx';
 import { useGrid, useIsPendingFocus, useScoreGridsStore } from '../contexts/ScoreGridsContext.jsx';
@@ -63,6 +64,7 @@ function GridCard({
   onToggleBreak,
   onRequestNext,
 }) {
+  const t = useT();
   // props ではなく自分の index でストアから引く。DELETE 直後の1フレームや
   // GridOverlay の前後スライド（配列の外）では undefined になりうる。
   const grid = useGrid(index);
@@ -107,8 +109,8 @@ function GridCard({
             type="button"
             className="icon-btn"
             onClick={() => onPlayFrom(index)}
-            title="ここから再生"
-            aria-label={`グリッド ${index + 1} から再生`}
+            title={t('ui.gridCard.playFromTitle')}
+            aria-label={t('ui.gridCard.playFrom', { n: index + 1 })}
           >
             <PlayIcon />
           </button>
@@ -118,8 +120,8 @@ function GridCard({
             onClick={() => onPlaySingle(index)}
             disabled={isEmpty}
             style={{ opacity: isEmpty ? 0.3 : 1 }}
-            title="このグリッドのみ再生"
-            aria-label={`グリッド ${index + 1} のみ再生`}
+            title={t('ui.gridCard.playSingleTitle')}
+            aria-label={t('ui.gridCard.playSingle', { n: index + 1 })}
           >
             <NoteIcon />
           </button>
@@ -130,8 +132,8 @@ function GridCard({
               e.stopPropagation();
               onToggleLayer();
             }}
-            title="レイヤー切り替え"
-            aria-label="レイヤー切り替え"
+            title={t('ui.gridCard.layerSwitch')}
+            aria-label={t('ui.gridCard.layerSwitch')}
           >
             <LayerSwitchIcon />
           </button>
@@ -144,10 +146,10 @@ function GridCard({
             aria-pressed={grid.forceBreakAfter}
             aria-label={
               grid.forceBreakAfter
-                ? `グリッド ${index + 1} の後の改行を解除`
-                : `グリッド ${index + 1} の後で改行`
+                ? t('ui.gridCard.breakOff', { n: index + 1 })
+                : t('ui.gridCard.breakOn', { n: index + 1 })
             }
-            title="このグリッドの後で改行"
+            title={t('ui.gridCard.breakTitle')}
           >
             <BreakIcon />
           </button>
@@ -156,8 +158,8 @@ function GridCard({
               type="button"
               className="icon-btn delete-btn"
               onClick={() => onDelete(index)}
-              aria-label={`グリッド ${index + 1} を削除`}
-              title="このグリッドを削除"
+              aria-label={t('ui.gridCard.delete', { n: index + 1 })}
+              title={t('ui.gridCard.deleteTitle')}
             >
               <CloseIcon />
             </button>
@@ -192,7 +194,7 @@ function GridCard({
             onPlayPreview(audibleKeys);
           }
         }}
-        aria-label={`グリッド ${index + 1} のテキスト`}
+        aria-label={t('ui.gridCard.text', { n: index + 1 })}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault(); // Enter は常に防ぐ

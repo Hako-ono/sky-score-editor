@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useT } from '../i18n/LanguageContext.jsx';
 import GridCard from './GridCard.jsx';
 import GridCardCompact from './GridCardCompact.jsx';
 import InsertButton from './InsertButton.jsx';
@@ -106,6 +107,7 @@ function ScoreCanvas({
   onToggleBreak,
   onInsert,
 }) {
+  const t = useT();
   // CSS変数用の列数だけがここで必要で、bitsPerPage は既に props で渡って
   // いるためストアの columns を別途公開する API は増やさず、ここで
   // columnsForBits から求める（ストアの rows 計算と同じ式を使う）。
@@ -282,7 +284,7 @@ function ScoreCanvas({
       ref={canvasEl}
       className="score-canvas"
       role="list"
-      aria-label="楽譜グリッド一覧"
+      aria-label={t('ui.scoreCanvas.list')}
       style={{
         '--columns': columns,
         paddingTop: startRow * rowPitch,
@@ -311,7 +313,7 @@ function ScoreCanvas({
                   <InsertButton
                     index={index}
                     onInsert={onInsert}
-                    label={`グリッド ${index + 1} の前に挿入`}
+                    label={t('ui.scoreCanvas.insertBefore', { n: index + 1 })}
                   />
                 )}
                 {isMobile ? (
@@ -348,7 +350,7 @@ function ScoreCanvas({
               <InsertButton
                 index={row[row.length - 1] + 1}
                 onInsert={onInsert}
-                label={`グリッド ${row[row.length - 1] + 1} の後に挿入`}
+                label={t('ui.scoreCanvas.insertAfter', { n: row[row.length - 1] + 1 })}
               />
             )}
           </div>

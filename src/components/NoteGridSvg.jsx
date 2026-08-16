@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useT } from '../i18n/LanguageContext.jsx';
 import {
   GRID_CELL_SHAPES,
   CELL_CORNER_RADIUS,
@@ -32,8 +33,6 @@ function Symbols({ symbols }) {
   );
 }
 
-const KEY_LABEL = ['左上', '', '', '', '右上', '', '', '中央', '', '', '左下', '', '', '', '右下'];
-
 /**
  * 15 鍵グリッド。各鍵は role="button" の <g>。クリック/Enter/Space で切替。
  * viewBox は 0 0 350 210 (ボタン領域のみ)。
@@ -47,6 +46,7 @@ export default function NoteGridSvg({
   onToggleKey,
   interactive,
 }) {
+  const t = useT();
   const [focusedIndex, setFocusedIndex] = useState(0);
   const gridRef = useRef(null);
   const selected = Array.isArray(selectedKeys) ? selectedKeys : keys;
@@ -87,7 +87,7 @@ export default function NoteGridSvg({
       viewBox="0 0 350 210"
       xmlns="http://www.w3.org/2000/svg"
       role="group"
-      aria-label="15鍵グリッド"
+      aria-label={t('ui.noteGrid.ariaLabel')}
     >
       {GRID_CELL_SHAPES.map((cell) => {
         const selectedLayer = selectedSet.has(cell.index);
@@ -96,16 +96,25 @@ export default function NoteGridSvg({
         const isSecondLayer = usesTwoLayers
           ? !selectedLayer && otherLayer
           : usesSecondHighlightColor && (selectedLayer || otherLayer);
-        const membership = selectedLayer && otherLayer
-          ? '選択レイヤーと非選択レイヤー'
+        const membershipKey = selectedLayer && otherLayer
+          ? 'ui.noteGrid.selectedAndOther'
           : selectedLayer
-            ? '選択レイヤー'
+            ? 'ui.noteGrid.selected'
             : otherLayer
-              ? '非選択レイヤー'
-              : '';
-        const label = `鍵 ${cell.index + 1}${
-          KEY_LABEL[cell.index] ? ` (${KEY_LABEL[cell.index]})` : ''
-        } ${active ? 'オン' : 'オフ'}${membership ? `（${membership}）` : ''}`;
+              ? 'ui.noteGrid.other'
+              : null;
+        const position = t(`ui.noteGrid.keyPosition.${cell.index}`);
+        const key = position
+          ? t('ui.noteGrid.keyWithPosition', { n: cell.index + 1, position })
+          : t('ui.noteGrid.key', { n: cell.index + 1 });
+        const membership = membershipKey
+          ? t('ui.noteGrid.membership', { value: t(membershipKey) })
+          : '';
+        const label = t('ui.noteGrid.label', {
+          key,
+          state: t(active ? 'ui.noteGrid.on' : 'ui.noteGrid.off'),
+          membership,
+        });
         return (
           <g
             key={cell.index}

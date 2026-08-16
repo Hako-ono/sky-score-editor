@@ -1,4 +1,7 @@
+import { useT } from '../i18n/LanguageContext.jsx';
+
 export default function EmptyState({ onLoadFile, hasDraft, onRestoreDraft }) {
+  const t = useT();
   return (
     <div className="empty-state">
       <div className="empty-state__mark" aria-hidden="true">
@@ -17,16 +20,16 @@ export default function EmptyState({ onLoadFile, hasDraft, onRestoreDraft }) {
           )}
         </svg>
       </div>
-      <p className="empty-state__title">楽譜がまだありません</p>
+      <p className="empty-state__title">{t('ui.emptyState.title')}</p>
       <p className="empty-state__body">
-        「楽譜を開く」から既存の楽譜を読み込めます。空の楽譜はツールバーの「新規作成」から作成できます。
+        {t('ui.emptyState.body')}
       </p>
       <p className="empty-state__hint">
-        新規作成すると編集モードになります。グリッドの鍵をクリックして音を置いてください。
+        {t('ui.emptyState.hint')}
       </p>
       <div className="empty-state__actions">
         <label className="btn btn--primary file-label">
-          楽譜を開く
+          {t('ui.toolbar.openScore')}
           <input
             type="file"
             accept=".json,.txt,application/json,text/plain"
@@ -40,7 +43,7 @@ export default function EmptyState({ onLoadFile, hasDraft, onRestoreDraft }) {
         </label>
         {hasDraft && (
           <button type="button" className="btn btn--ghost" onClick={onRestoreDraft}>
-            前回の続きを復元
+            {t('ui.emptyState.restoreDraft')}
           </button>
         )}
       </div>
