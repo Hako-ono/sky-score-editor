@@ -347,6 +347,20 @@ export function buildPdfPalette(preset, mix = PRESET_MIX) {
 }
 
 /**
+ * 曲情報の項目を隔てる「1単位ぶんの空き」。
+ *
+ * 全角スペース(U+3000)は使わない。和文・中文・韓文の書体では約1emだが、
+ * DM Sans / IBM Plex Sans Thai Looped / Be Vietnam Pro / Golos Text には
+ * 収録されておらず、そのまま使うと区切りが約1/5の幅に潰れるため。
+ *
+ * 半角スペースの送り幅は埋め込み8書体で0.22〜0.28emに収まっており、
+ * 4個ならどの書体でも0.88〜1.12emとほぼ1emになる。書体ごとに分岐せず、
+ * この1つの定数だけで全言語の間隔を揃える（詰めたい・広げたいときは
+ * ここの個数だけを変える）。
+ */
+export const SCORE_INFO_SPACE_UNIT = '    ';
+
+/**
  * PDF埋め込みフォントの選択肢。idを書体名ではなく意味ベース
  * （gothic/mincho/rounded）にしているのは、将来フォントの実体を
  * 差し替えても利用者の localStorage に残った値が無効にならないため。
@@ -456,6 +470,48 @@ export const PDF_FONTS = {
       file: 'WantedSans-Bold.ttf',
     },
     approxMB: 2.4,
+  },
+  plexThaiLooped: {
+    // この書体はU+266D/U+301Cを持たないため、既存のASCII代替規則を使う。
+    flatGlyph: 'b',
+    waveDashGlyph: '~',
+    regular: {
+      name: 'IBM Plex Sans Thai Looped',
+      file: 'IBMPlexSansThaiLooped-Regular.ttf',
+    },
+    bold: {
+      name: 'IBM Plex Sans Thai Looped Bold',
+      file: 'IBMPlexSansThaiLooped-Bold.ttf',
+    },
+    approxMB: 0.13,
+  },
+  beVietnamPro: {
+    // この書体はU+266D/U+301Cを持たないため、既存のASCII代替規則を使う。
+    flatGlyph: 'b',
+    waveDashGlyph: '~',
+    regular: {
+      name: 'Be Vietnam Pro',
+      file: 'BeVietnamPro-Regular.ttf',
+    },
+    bold: {
+      name: 'Be Vietnam Pro Bold',
+      file: 'BeVietnamPro-Bold.ttf',
+    },
+    approxMB: 0.13,
+  },
+  golosText: {
+    // この書体はU+266D/U+301Cを持たないため、既存のASCII代替規則を使う。
+    flatGlyph: 'b',
+    waveDashGlyph: '~',
+    regular: {
+      name: 'Golos Text',
+      file: 'GolosText-Regular.ttf',
+    },
+    bold: {
+      name: 'Golos Text Bold',
+      file: 'GolosText-Bold.ttf',
+    },
+    approxMB: 0.06,
   },
 };
 
@@ -594,6 +650,55 @@ export const PDF_LAYOUT_RANGES = {
   gridNumberSizePercent: { min: 70, max: 140 },
   pageNumberFontSizePt: { min: 8, max: 14 },
 };
+
+/**
+ * 歌詞の既定サイズ割合を言語ごとに変える必要があるのは、タイ文字だけが
+ * 上下に記号を積み重ねるためである。グリッド内で歌詞に使える高さは
+ * 鍵盤セル下端(205)からグリッド枠下端(gridBaseHeight=275)までの70単位しかなく、
+ * 上下3単位ずつのクリアランスを引くと64単位になる。IBM Plex Sans Thai Looped の
+ * 字形を実測すると、上母音＋声調の積み上げと、尾のある字＋下母音の組み合わせで
+ * 最大1.976em を占める。64 / 1.976 = 32.38pt が収まる上限で、これは既定の
+ * 上限45pt に対して71.9%にあたる。切り上げると上限を超えるため71%とする。
+ *
+ * 上限を強制せず既定値だけ下げているのは、はみ出しても出力自体は成立し、
+ * どこまで許容するかは利用者が決めてよいため（Toolbar.jsx が既定値を超えた
+ * ときだけ注意書きを出す）。
+ */
+export const LYRIC_SIZE_PERCENT_BY_LANGUAGE = {
+  th: 71,
+};
+
+export const DEFAULT_LYRIC_SIZE_PERCENT = 100;
+
+export function getDefaultLyricSizePercent(language) {
+  return Object.prototype.hasOwnProperty.call(LYRIC_SIZE_PERCENT_BY_LANGUAGE, language)
+    ? LYRIC_SIZE_PERCENT_BY_LANGUAGE[language]
+    : DEFAULT_LYRIC_SIZE_PERCENT;
+}
+
+/**
+ * 表示言語を切り替えたときの歌詞サイズを返す。
+ *
+ * 端末の言語設定がタイ語でない利用者（英語端末を使うタイ語話者など）は、
+ * 初回表示が別言語になるため、手動でタイ語へ切り替えた時点では既に他言語の
+ * 既定値が保存されている。そのまま据え置くと、実用上の上限である71%を
+ * 自分で入力してもらうことになるため、切替時にも既定値を追従させる。
+ *
+ * ただし追従させるのは「切替前の言語の既定値のまま使っていた場合」だけとする。
+ * 利用者が自分で決めた値は、言語を切り替えただけで失わせない。
+ * 既定値そのものを選んでいた場合は「触っていない」と区別できないが、
+ * その場合も新しい既定値へ移すのが望ましい挙動なので問題にならない。
+ */
+export function resolveLyricSizePercentOnLanguageChange(
+  currentPercent,
+  previousLanguage,
+  nextLanguage,
+) {
+  const previousDefault = getDefaultLyricSizePercent(previousLanguage);
+  const nextDefault = getDefaultLyricSizePercent(nextLanguage);
+  if (previousDefault === nextDefault) return currentPercent;
+  return currentPercent === previousDefault ? nextDefault : currentPercent;
+}
 
 /** PDFグリッド番号の表示設定。番号の有無はグリッド寸法とは分離する。 */
 export const PDF_GRID_NUMBER_DISPLAYS = {

@@ -104,6 +104,7 @@ export default {
           darkBackground: '용지 전체를 채웁니다. 인쇄 시 잉크가 많이 듭니다.',
           contrast: '배경과 글자 색이 비슷해 읽기 어려울 수 있습니다.',
           mincho: '처음 PDF를 생성할 때 약 8MB를 불러옵니다.',
+          lyricOverflow: '이보다 크게 하면 위아래로 기호가 겹치는 글자(สระ, วรรณยุกต์)가 그리드를 벗어날 수 있습니다. 기본값은 {percent}%입니다.',
         },
         grid: {
           title: '그리드',
@@ -301,7 +302,7 @@ export default {
         source: '이 도구의 소스 코드는 {github}에서 {license}에 따라 공개합니다. 저작권 표시와 라이선스 본문을 남기면 복제, 수정, 재배포, 상업적 이용이 가능합니다. 아래 음원과 글꼴은 각 권리자가 정한 라이선스(CC BY 3.0, SIL OFL 1.1)를 따르세요.',
         audio: '음원: Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0).',
         screenFont: '화면 글꼴: Noto Sans JP (SIL Open Font License 1.1).',
-        pdfFont: 'PDF 임베드 글꼴: Zen Kaku Gothic New, Shippori Mincho, Zen Maru Gothic, DM Sans, Sarasa Gothic SC, Taipei Sans TC, Chiron Hei HK, Wanted Sans (모두 SIL Open Font License 1.1).',
+        pdfFont: 'PDF 임베드 글꼴: Zen Kaku Gothic New, Shippori Mincho, Zen Maru Gothic, DM Sans, Sarasa Gothic SC, Taipei Sans TC, Chiron Hei HK, Wanted Sans, IBM Plex Sans Thai Looped, Be Vietnam Pro, Golos Text (모두 SIL Open Font License 1.1).',
         localAssets: '음원과 글꼴은 모두 이 사이트에 보관하며 외부 서버에서 불러오지 않습니다. 내보낸 PDF에는 선택한 글꼴이 임베드됩니다 (SIL Open Font License 1.1은 문서에 임베드하는 것을 허용합니다).',
         rights: '앱 아이콘과 화면 및 PDF에 사용한 기호에는 이 도구를 위해 제작한 것과 언어 전환에 사용하는 Wikimedia Commons 출처의 퍼블릭 도메인 SVG가 포함됩니다. 게임에서 추출한 이미지, 오디오, 글꼴은 사용하지 않았습니다. Sky: 빛의 아이들의 권리는 thatgamecompany, inc.에 있습니다.',
         qrTrademark: '“QR Code”는 DENSO WAVE INCORPORATED의 등록 상표입니다.',
@@ -632,6 +633,9 @@ export default {
       taipeiTC: 'Taipei Sans TC',
       chironHK: 'Chiron Hei HK',
       wantedSans: 'Wanted Sans',
+      plexThaiLooped: 'IBM Plex Sans Thai Looped',
+      beVietnamPro: 'Be Vietnam Pro',
+      golosText: 'Golos Text',
     },
     fontWeight: {
       regular: '일반',

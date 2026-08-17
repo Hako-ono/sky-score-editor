@@ -20,6 +20,7 @@ import {
   PDF_PRESETS,
   PDF_SCORE_INFO_DESIGNS,
   PITCH_CLASSES,
+  SCORE_INFO_SPACE_UNIT,
   keyDisplayName,
   keyTonicPitchClass,
   hasEnharmonicKeyName,
@@ -67,6 +68,11 @@ function withSvgDocument(callback) {
     else globalThis.document = previousDocument;
   }
 }
+
+// 曲情報の区切り。実装と同じ単位定数から組み立てて、間隔を変えたときに
+// 期待値を書き換えなくて済むようにする（幅の妥当性は専用のテストで見る）。
+const SEPARATOR = SCORE_INFO_SPACE_UNIT.repeat(3);
+const COMPACT_SEPARATOR = `${SCORE_INFO_SPACE_UNIT} `;
 
 // truncateToUnitWidth は doc.getStringUnitWidth(fontSize=1相当の幅) しか
 // 使わないため、最小のスタブで足りる。1文字1幅の単純なスタブ。
@@ -121,15 +127,60 @@ describe('PDFの曲情報クレジット', () => {
       transcribedBy: '譜面作成者',
     };
 
-    expect(buildMusicCredit(score)).toBe('作曲: 作曲者　　　作詞: 作詞者');
+    expect(buildMusicCredit(score)).toBe(`作曲: 作曲者${SEPARATOR}作詞: 作詞者`);
     expect(buildHeaderCredit(score)).toBe(
-      '作曲: 作曲者　　　作詞: 作詞者　　　譜面作成: 譜面作成者',
+      `作曲: 作曲者${SEPARATOR}作詞: 作詞者${SEPARATOR}譜面作成: 譜面作成者`,
     );
   });
 
   it('空欄は区切りごと省略し、作詞者だけでも表示できる', () => {
     expect(buildMusicCredit({ lyricist: '作詞者' })).toBe('作詞: 作詞者');
     expect(buildHeaderCredit({ lyricist: '作詞者' })).toBe('作詞: 作詞者');
+  });
+
+  it('区切りに全角スペースを使わず、全書体で同じ空きにする', () => {
+    // U+3000 は DM Sans / IBM Plex Sans Thai Looped / Be Vietnam Pro /
+    // Golos Text に無く、混ぜると同じ設定で言語ごとに幅が変わってしまう。
+    const score = {
+      bpm: 120,
+      bitsPerPage: 16,
+      pitchLevel: 0,
+      keyMode: 'major',
+      author: '作曲者',
+      lyricist: '作詞者',
+      transcribedBy: '譜面作成者',
+    };
+    const texts = [
+      buildMusicCredit(score),
+      buildHeaderCredit(score),
+      buildMetaLeft(score),
+      ...buildScoreInfoRows(score, 'score').flatMap((row) => row.texts),
+      ...buildScoreInfoRows(score, 'masthead').flatMap((row) => row.texts),
+    ];
+
+    for (const text of texts) {
+      expect(text).not.toContain('　');
+    }
+  });
+
+  it('区切りの空きは単位定数だけで決まる', () => {
+    const score = { author: '作曲者', lyricist: '作詞者' };
+    const separator = SCORE_INFO_SPACE_UNIT.repeat(3);
+
+    expect(buildMusicCredit(score)).toBe(`作曲: 作曲者${separator}作詞: 作詞者`);
+    expect(buildHeaderCredit(score)).toBe(`作曲: 作曲者${separator}作詞: 作詞者`);
+  });
+
+  it('単位はどの埋め込み書体でもほぼ1emになる個数にする', () => {
+    // 半角スペースの送り幅の実測範囲（埋め込み8書体で0.22〜0.28em）。
+    // 個数を変えるときは、この範囲で0.85〜1.15emに収まることを確認する。
+    const minSpaceEm = 0.22;
+    const maxSpaceEm = 0.28;
+    const count = SCORE_INFO_SPACE_UNIT.length;
+
+    expect(SCORE_INFO_SPACE_UNIT).toBe(' '.repeat(count));
+    expect(count * minSpaceEm).toBeGreaterThan(0.85);
+    expect(count * maxSpaceEm).toBeLessThan(1.15);
   });
 
   it('4デザインを完成組版の名前で定義し、未知idは楽譜へ戻す', () => {
@@ -168,7 +219,7 @@ describe('PDFの曲情報クレジット', () => {
       },
       {
         kind: 'columns',
-        texts: ['♩ = 30　 4拍子　 C', ''],
+        texts: [`♩ = 30${COMPACT_SEPARATOR}4拍子${COMPACT_SEPARATOR}C`, ''],
       },
     ]);
     expect(buildScoreInfoRows(score, 'masthead')).toEqual([{
@@ -182,7 +233,7 @@ describe('PDFの曲情報クレジット', () => {
         '4拍子',
         'C',
       ],
-      text: '作曲: 作曲者　　　作詞: 作詞者　　　譜面作成: 譜面作成者　　　♩ = 30　　　4拍子　　　C',
+      text: `作曲: 作曲者${SEPARATOR}作詞: 作詞者${SEPARATOR}譜面作成: 譜面作成者${SEPARATOR}♩ = 30${SEPARATOR}4拍子${SEPARATOR}C`,
     }]);
     expect(buildScoreInfoRows(score, 'specSheet')).toEqual([
       {
@@ -230,6 +281,11 @@ describe('PDFの曲情報クレジット', () => {
       .toBe('作曲: 作~曲');
   });
 
+  it('PDF出力前に文字列をNFCへ正規化する', () => {
+    expect(sanitizeForPdf('e\u0301')).toBe('é');
+    expect(sanitizeForPdf('か\u3099')).toBe('が');
+  });
+
   it('詳細では未入力項目のラベルと値を同時に省略する', () => {
     expect(buildScoreInfoRows({
       author: '',
@@ -260,7 +316,7 @@ describe('PDFの曲情報クレジット', () => {
       { kind: 'columns', texts: ['', ''] },
       { kind: 'columns', texts: ['', ''] },
       { kind: 'columns', texts: ['', '作詞: 作詞者'] },
-      { kind: 'columns', texts: ['♩ = 25　 C', ''] },
+      { kind: 'columns', texts: [`♩ = 25${COMPACT_SEPARATOR}C`, ''] },
     ]);
   });
 
@@ -444,27 +500,27 @@ describe('キー表示', () => {
   it('既定の短縮表記はメジャーで接尾辞なし、マイナーで各音名へmを付ける', () => {
     const score = { bpm: 120, bitsPerPage: 16, pitchLevel: 4, keyMode: 'minor' };
     expect(buildMetaLeft(score))
-      .toBe('♩ = 30　　　4拍子　　　C#m / D♭m');
+      .toBe(`♩ = 30${SEPARATOR}4拍子${SEPARATOR}C#m / D♭m`);
     expect(buildMetaLeft(score, '♭', 'sharp'))
-      .toBe('♩ = 30　　　4拍子　　　C#m');
+      .toBe(`♩ = 30${SEPARATOR}4拍子${SEPARATOR}C#m`);
     expect(buildMetaLeft(score, '♭', 'flat'))
-      .toBe('♩ = 30　　　4拍子　　　D♭m');
+      .toBe(`♩ = 30${SEPARATOR}4拍子${SEPARATOR}D♭m`);
     expect(buildMetaLeft(score, 'b', 'flat'))
-      .toBe('♩ = 30　　　4拍子　　　Dbm');
+      .toBe(`♩ = 30${SEPARATOR}4拍子${SEPARATOR}Dbm`);
     expect(buildMetaLeft({ ...score, keyMode: 'major' }))
-      .toBe('♩ = 30　　　4拍子　　　E');
+      .toBe(`♩ = 30${SEPARATOR}4拍子${SEPARATOR}E`);
   });
 
   it('英語・カタカナの調性表記を切り替えられる', () => {
     const score = { bpm: 90, bitsPerPage: 12, pitchLevel: 0, keyMode: 'minor' };
     expect(buildMetaLeft(score, '♭', 'both', 'english'))
-      .toBe('♩ = 22.5　　　3拍子　　　A minor');
+      .toBe(`♩ = 22.5${SEPARATOR}3拍子${SEPARATOR}A minor`);
     expect(buildMetaLeft(score, '♭', 'both', 'japanese'))
-      .toBe('♩ = 22.5　　　3拍子　　　A マイナー');
+      .toBe(`♩ = 22.5${SEPARATOR}3拍子${SEPARATOR}A マイナー`);
     expect(buildMetaLeft({ ...score, keyMode: 'major' }, '♭', 'both', 'english'))
-      .toBe('♩ = 22.5　　　3拍子　　　C major');
+      .toBe(`♩ = 22.5${SEPARATOR}3拍子${SEPARATOR}C major`);
     expect(buildMetaLeft({ ...score, keyMode: 'major' }, '♭', 'both', 'japanese'))
-      .toBe('♩ = 22.5　　　3拍子　　　C メジャー');
+      .toBe(`♩ = 22.5${SEPARATOR}3拍子${SEPARATOR}C メジャー`);
   });
 
   it('♩の値はBPM÷4・BPM÷2・カスタムを切り替えられる', () => {
@@ -504,7 +560,7 @@ describe('キー表示', () => {
 
   it('旧データ・旧PDF設定は接尾辞なしのメジャーとしてPDFへ出す', () => {
     expect(buildMetaLeft({ bpm: 120, bitsPerPage: 16, pitchLevel: 1 }))
-      .toBe('♩ = 30　　　4拍子　　　C# / D♭');
+      .toBe(`♩ = 30${SEPARATOR}4拍子${SEPARATOR}C# / D♭`);
   });
 });
 

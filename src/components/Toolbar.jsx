@@ -34,6 +34,7 @@ import {
   deriveSeedFromSimple,
   resolvePaletteSeed,
   MOBILE_MEDIA_QUERY,
+  getDefaultLyricSizePercent,
 } from '../constants/config.js';
 // コンポーネント外の関数用に直接importも残している
 import {
@@ -486,6 +487,11 @@ export default function Toolbar({
   const pdfFontIds = getPdfFontIdsForLanguage(language);
   const showDarkNote = isDarkSeedBg(effectiveSeed.bg);
   const showMinchoNote = effectivePdfFont.fontId === 'mincho';
+  // 上下に記号を積むタイ文字だけ、既定値を超えるとグリッドからはみ出しうる。
+  // 出力は止めず、既定値より大きいときだけ知らせる（showContrastWarningと同じ方針）。
+  const defaultLyricSizePercent = getDefaultLyricSizePercent(language);
+  const showLyricOverflowNote =
+    defaultLyricSizePercent < 100 && pdfPrefs.lyricSizePercent > defaultLyricSizePercent;
   const showKeyNotation = hasEnharmonicKeyName(pitchLevel, keyMode);
   // 警告であって禁止ではない（出力は止めない）。本文の読みやすさの下限4.5を
   // 下回ったときだけ知らせる。判定は保存値ではなく effectiveSeed（実際に
@@ -1340,9 +1346,18 @@ export default function Toolbar({
 
             </div>
 
-            {showMinchoNote && (
+            {(showMinchoNote || showLyricOverflowNote) && (
               <div className="pdf-notes">
-                <p className="pdf-note">{t('ui.toolbar.pdf.note.mincho')}</p>
+                {showMinchoNote && (
+                  <p className="pdf-note">{t('ui.toolbar.pdf.note.mincho')}</p>
+                )}
+                {showLyricOverflowNote && (
+                  <p className="pdf-note">
+                    {t('ui.toolbar.pdf.note.lyricOverflow', {
+                      percent: defaultLyricSizePercent,
+                    })}
+                  </p>
+                )}
               </div>
             )}
             </div>

@@ -40,8 +40,8 @@ npm run lint     # ESLint
 - 再生位置を行単位で追尾する。
 
 **PDF 出力**
-- 配色プリセット（印刷用＋四季×明暗）とカスタム配色、3 書体 × Regular / Bold から
-  選ぶ埋め込みフォント。
+- 配色プリセット（印刷用＋四季×明暗）とカスタム配色、言語ごとに用意した埋め込み
+  フォント（Regular / Bold）から選択できます。
 - 文字サイズ・1 ページあたりの列数（拍子に合わせる／2〜8 列）と行数・2 面付け・余白・
   偶数行の網掛け、ページ番号や柱などのページ装飾、
   曲情報のデザイン 4 種と独立表紙、背景画像。
@@ -53,6 +53,8 @@ npm run lint     # ESLint
 - モバイルではグリッド一覧を簡略化し、タップで拡大するカルーセル UI に切り替える。
 - 3000 グリッドまでを想定し、グリッド一覧は可視範囲だけを描画する（仮想化）。
 - URL に `?debug=1` を付けたときだけ、内部状態を表示する診断オーバレイが出る。
+- 言語切替（日本語、English、简体中文、繁體中文（台灣）、繁體中文（香港）、
+  한국어、ไทย、Tiếng Việt、Русский）。フッターから切り替えでき、自動判定にも対応します。
 
 ## 入力フォーマット
 
@@ -77,10 +79,12 @@ JSONや下書き、PDF設定には保存されません。
   ビルド時に `dist/assets/` へ同梱される（外部サーバへの通信なし）。
 - **PDF 埋め込み**: 日本語UIでは Zen Kaku Gothic New／Shippori Mincho／Zen Maru Gothic、
   英語では DM Sans、簡体字中国語では Sarasa Gothic SC、繁体字中国語（台湾）では
-  Taipei Sans TC、繁体字中国語（香港）では Chiron Hei HK、韓国語では Wanted Sansを
-  選択できる（`src/constants/config.js` の `PDF_FONTS`）。いずれも Regular/Boldの
-  静的TTFを `public/fonts/` に同梱しており、選択された書体・ウェイトだけを実行時に
-  取得して埋め込む。直近に使った1書体だけを base64 キャッシュし、切り替えると差し替わる。
+  Taipei Sans TC、繁体字中国語（香港）では Chiron Hei HK、韓国語では Wanted Sans、
+  タイ語では IBM Plex Sans Thai Looped、ベトナム語では Be Vietnam Pro、ロシア語では
+  Golos Textを選択できます（`src/constants/config.js` の `PDF_FONTS`）。いずれも
+  Regular/Boldの静的TTFを `public/fonts/` に同梱しており、選択された書体・ウェイトだけを
+  実行時に取得して埋め込みます。直近に使った1書体だけを base64 キャッシュし、切り替えると
+  差し替わります。
   選択はツールバーの「配色」欄の隣に置いた「書体」欄から行い、localStorage
   （`sky-score-editor:pdf-prefs:v1`）に保存されて次回に引き継がれる。
   画面表示とは別の書体群になっているのは、jsPDF の `addFont` が TrueType 形式のみ
@@ -101,6 +105,7 @@ src/
 ├─ hooks/
 │  ├─ useUndoableScore.js  undo/redo 履歴 + 連続入力の集約
 │  └─ useKeyboardShortcuts.js
+├─ i18n/                   9 言語の辞書・言語判定・言語切替コンテキスト
 ├─ components/             Toolbar / ScoreCanvas / GridCard / NoteGridSvg / …
 ├─ App.jsx                 状態統合・ファイル IO・自動保存・PDF
 └─ styles/index.css        テーマトークン(light/dark)・レスポンシブ
@@ -155,7 +160,8 @@ src/
 * **画面表示フォント**: Noto Sans JP (Licensed under [SIL Open Font License 1.1](https://scripts.sil.org/OFL))。
   `@fontsource/noto-sans-jp` として自前ホスト。
 * **PDF 埋め込みフォント**: Zen Kaku Gothic New / Shippori Mincho / Zen Maru Gothic /
-  DM Sans / Sarasa Gothic SC / Taipei Sans TC / Chiron Hei HK / Wanted Sans
+  DM Sans / Sarasa Gothic SC / Taipei Sans TC / Chiron Hei HK / Wanted Sans /
+  IBM Plex Sans Thai Looped / Be Vietnam Pro / Golos Text
   (いずれも Licensed under [SIL Open Font License 1.1](https://scripts.sil.org/OFL))。
   それぞれの配布元から取得し、`public/fonts/` に
   自前ホスト。
@@ -178,7 +184,7 @@ Copyright (c) 2026 Hako.
 | 対象 | ライセンス |
 | --- | --- |
 | ソースコード・ドキュメント | [MIT License](LICENSE) |
-| PDF埋め込みフォント（`public/fonts/` の8書体） | [SIL Open Font License 1.1](https://scripts.sil.org/OFL) |
+| PDF埋め込みフォント（`public/fonts/` の11書体） | [SIL Open Font License 1.1](https://scripts.sil.org/OFL) |
 | 画面表示フォント（`@fontsource/noto-sans-jp`） | [SIL Open Font License 1.1](https://scripts.sil.org/OFL) |
 | 音源データ（`public/audio/salamander/`） | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
 

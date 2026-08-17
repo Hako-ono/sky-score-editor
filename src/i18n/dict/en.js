@@ -104,6 +104,7 @@ export default {
           darkBackground: 'Fills the entire page. Printing uses more ink.',
           contrast: 'The background and text colors may be too similar to read easily.',
           mincho: 'About 8 MB is loaded when generating a PDF for the first time.',
+          lyricOverflow: 'Larger values may push characters with stacked vowel signs and tone marks (สระ, วรรณยุกต์) outside the grid. The default is {percent}%.',
         },
         grid: {
           title: 'Grid',
@@ -301,7 +302,7 @@ export default {
         source: 'The source code for this tool is available on {github} under the {license}. You may copy, modify, redistribute, and use it commercially if you retain the copyright notice and license text. Follow the licenses set by the respective rights holders for the audio and fonts below (CC BY 3.0 and SIL OFL 1.1).',
         audio: 'Audio: Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0).',
         screenFont: 'Screen font: Noto Sans JP (SIL Open Font License 1.1).',
-        pdfFont: 'Embedded PDF fonts: Zen Kaku Gothic New, Shippori Mincho, Zen Maru Gothic, DM Sans, Sarasa Gothic SC, Taipei Sans TC, Chiron Hei HK, and Wanted Sans (all SIL Open Font License 1.1).',
+        pdfFont: 'Embedded PDF fonts: Zen Kaku Gothic New, Shippori Mincho, Zen Maru Gothic, DM Sans, Sarasa Gothic SC, Taipei Sans TC, Chiron Hei HK, Wanted Sans, IBM Plex Sans Thai Looped, Be Vietnam Pro, and Golos Text (all SIL Open Font License 1.1).',
         localAssets: 'All audio and fonts are hosted on this site and are not loaded from external servers. The selected typeface is embedded in exported PDFs (the SIL Open Font License 1.1 permits embedding in documents).',
         rights: 'The app icons and the symbols used in the screen and PDF include items created for this tool and a public-domain SVG from Wikimedia Commons used for language switching. No images, audio, or fonts were extracted from the game. Rights to Sky: Children of the Light belong to thatgamecompany, inc.',
         qrTrademark: '“QR Code” is a registered trademark of DENSO WAVE INCORPORATED.',
@@ -632,6 +633,9 @@ export default {
       taipeiTC: 'Taipei Sans TC',
       chironHK: 'Chiron Hei HK',
       wantedSans: 'Wanted Sans',
+      plexThaiLooped: 'IBM Plex Sans Thai Looped',
+      beVietnamPro: 'Be Vietnam Pro',
+      golosText: 'Golos Text',
     },
     fontWeight: {
       regular: 'Regular',

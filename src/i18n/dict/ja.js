@@ -104,6 +104,7 @@ export default {
           darkBackground: '用紙全面を塗ります。印刷ではインクを多く使います。',
           contrast: '背景と文字の色が近く、読みにくい可能性があります。',
           mincho: '初回のPDF生成時に約8MBを読み込みます。',
+          lyricOverflow: 'これより大きくすると、上下に記号が重なる文字（สระ・วรรณยุกต์）がグリッドからはみ出すことがあります。既定は{percent}%です。',
         },
         grid: {
           title: 'グリッド',
@@ -301,7 +302,7 @@ export default {
         source: '本ツールのソースコードは{github}で{license}のもとに公開しています。著作権表示とライセンス本文を残せば、複製・改変・再配布・商用利用ができます。以下の音源・フォントは、それぞれの権利者が定めるライセンス（CC BY 3.0、SIL OFL 1.1）に従ってください。',
         audio: '音源: Salamander Grand Piano V3 by Alexander Holm（CC BY 3.0）。',
         screenFont: '画面表示フォント: Noto Sans JP（SIL Open Font License 1.1）。',
-        pdfFont: 'PDF埋め込みフォント: Zen Kaku Gothic New・Shippori Mincho・Zen Maru Gothic・DM Sans・Sarasa Gothic SC・Taipei Sans TC・Chiron Hei HK・Wanted Sans（いずれもSIL Open Font License 1.1）。',
+        pdfFont: 'PDF埋め込みフォント: Zen Kaku Gothic New・Shippori Mincho・Zen Maru Gothic・DM Sans・Sarasa Gothic SC・Taipei Sans TC・Chiron Hei HK・Wanted Sans・IBM Plex Sans Thai Looped・Be Vietnam Pro・Golos Text（いずれもSIL Open Font License 1.1）。',
         localAssets: '音源・フォントはいずれも本サイト内に置いており、外部のサーバーからは読み込みません。出力したPDFには、選んだ書体のデータが埋め込まれます（SIL Open Font License 1.1は文書への埋め込みを認めています）。',
         rights: 'アプリのアイコンや画面・PDFの記号には本ツール用に作成したものと、言語切替に使用するWikimedia Commons由来のパブリックドメインSVGが含まれます。ゲームから抽出した画像・音声・フォントは使用していません。「Sky: 星を紡ぐ子どもたち」に関する権利は thatgamecompany, inc. に帰属します。',
         qrTrademark: '「QRコード」は株式会社デンソーウェーブの登録商標です。',
@@ -632,6 +633,9 @@ export default {
       taipeiTC: 'Taipei Sans TC',
       chironHK: 'Chiron Hei HK',
       wantedSans: 'Wanted Sans',
+      plexThaiLooped: 'IBM Plex Sans Thai Looped',
+      beVietnamPro: 'Be Vietnam Pro',
+      golosText: 'Golos Text',
     },
     fontWeight: {
       regular: '標準',

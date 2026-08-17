@@ -4,6 +4,9 @@ import zhHans from './dict/zh-Hans.js';
 import zhHantTW from './dict/zh-Hant-TW.js';
 import zhHantHK from './dict/zh-Hant-HK.js';
 import ko from './dict/ko.js';
+import th from './dict/th.js';
+import vi from './dict/vi.js';
+import ru from './dict/ru.js';
 
 const DEFAULT_LANGUAGE = 'ja';
 export const LANGUAGE_STORAGE_KEY = 'sky-score-editor:lang:v1';
@@ -14,6 +17,9 @@ export const SUPPORTED_LANGUAGES = [
   'zh-Hant-TW',
   'zh-Hant-HK',
   'ko',
+  'th',
+  'vi',
+  'ru',
 ];
 export const LANGUAGE_AUTO = 'auto';
 export const LANGUAGE_OPTIONS = [
@@ -24,6 +30,9 @@ export const LANGUAGE_OPTIONS = [
   { value: 'zh-Hant-TW', label: '繁體中文（台灣）' },
   { value: 'zh-Hant-HK', label: '繁體中文（香港）' },
   { value: 'ko', label: '한국어' },
+  { value: 'th', label: 'ไทย' },
+  { value: 'vi', label: 'Tiếng Việt' },
+  { value: 'ru', label: 'Русский' },
 ];
 const dictionaries = {
   ja,
@@ -32,6 +41,9 @@ const dictionaries = {
   'zh-Hant-TW': zhHantTW,
   'zh-Hant-HK': zhHantHK,
   ko,
+  th,
+  vi,
+  ru,
 };
 const fallbackLanguagesByLanguage = {
   ja: ['ja'],
@@ -40,6 +52,9 @@ const fallbackLanguagesByLanguage = {
   'zh-Hant-TW': ['zh-Hant-TW', 'ja'],
   'zh-Hant-HK': ['zh-Hant-HK', 'zh-Hant-TW', 'ja'],
   ko: ['ko', 'ja'],
+  th: ['th', 'ja'],
+  vi: ['vi', 'ja'],
+  ru: ['ru', 'ja'],
 };
 let currentLanguage = DEFAULT_LANGUAGE;
 const ZH_TAIWAN_REGIONS = new Set(['tw']);
@@ -171,6 +186,9 @@ export function detectLanguage(candidates = getDefaultLanguageCandidates()) {
     if (parsed.primary === 'ja') return 'ja';
     if (parsed.primary === 'en') return 'en';
     if (parsed.primary === 'ko') return 'ko';
+    if (parsed.primary === 'th') return 'th';
+    if (parsed.primary === 'vi') return 'vi';
+    if (parsed.primary === 'ru') return 'ru';
     if (parsed.primary === 'zh') return resolveChineseLanguage(parsed.tag);
   }
   return DEFAULT_LANGUAGE;

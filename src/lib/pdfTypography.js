@@ -6,6 +6,7 @@ import {
   PDF_FONT_WEIGHTS,
   PDF_GRID_NUMBER_DISPLAYS,
   PDF_LAYOUT_RANGES,
+  getDefaultLyricSizePercent,
   pdfConfig,
 } from '../constants/config.js';
 import { getLanguage } from '../i18n/index.js';
@@ -21,6 +22,9 @@ export const PDF_FONT_IDS_BY_LANGUAGE = {
   'zh-Hant-TW': ['taipeiTC'],
   'zh-Hant-HK': ['chironHK'],
   ko: ['wantedSans'],
+  th: ['plexThaiLooped'],
+  vi: ['beVietnamPro'],
+  ru: ['golosText'],
 };
 
 export const DEFAULT_PDF_FONT_ID_BY_LANGUAGE = {
@@ -30,6 +34,9 @@ export const DEFAULT_PDF_FONT_ID_BY_LANGUAGE = {
   'zh-Hant-TW': 'taipeiTC',
   'zh-Hant-HK': 'chironHK',
   ko: 'wantedSans',
+  th: 'plexThaiLooped',
+  vi: 'beVietnamPro',
+  ru: 'golosText',
 };
 
 function normalizePdfFontLanguage(language) {
@@ -105,7 +112,7 @@ export function resolvePdfTypography(options = {}) {
   const lyricSizePercent = intInRange(
     source.lyricSizePercent,
     PDF_LAYOUT_RANGES.lyricSizePercent,
-    100,
+    getDefaultLyricSizePercent(language),
   );
   const gridNumberSizePercent = intInRange(
     source.gridNumberSizePercent,

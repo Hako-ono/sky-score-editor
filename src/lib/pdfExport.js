@@ -15,6 +15,7 @@ import { t } from '../i18n/index.js';
 import {
   pdfConfig,
   GRID_NUMBER_POS,
+  SCORE_INFO_SPACE_UNIT,
   GRID_TEXT_CENTER,
   PDF_PRESETS,
   PDF_PAGE_MARGINS,
@@ -68,6 +69,7 @@ import {
 } from './gridShapes.js';
 import { derivePdfGridEdgePadding, resolvePdfGridStyle } from './pdfGridStyle.js';
 import { computeGridBlockSize, resolvePdfDensity } from './pdfDensity.js';
+import { shapeThai } from './thaiShaping.js';
 import {
   analyzeScoreLayers,
   getAudibleKeys,
@@ -313,7 +315,7 @@ async function loadFontBase64(font) {
 // Windows の IME は「〜」を U+FF5E で確定することが多く、そのまま渡すと
 // 「曲名～サブ～」のような表記が豆腐になる。描画の直前だけ字形のある符号へ寄せる。
 export function sanitizeForPdf(text, waveDashGlyph = '〜') {
-  return String(text)
+  return String(text).normalize('NFC')
     .replace(/～/g, '〜')
     .replace(/〜/g, waveDashGlyph)
     .replace(/－/g, '−');
@@ -473,13 +475,12 @@ function buildGridGroup(
     // （doc.setFont(fontName) 済みであることが前提。呼び出し元で保証している）。
     const unitWidth = doc.getStringUnitWidth(text);
 
-    let lyric;
     if (!Number.isFinite(unitWidth) || unitWidth <= 0) {
       // fitFontSize と同じく、埋め込み書体が幅を返せない場合がある
       // （コメント参照）。x の計算に NaN/0 が混じると歌詞そのものが
       // 描かれなくなるため、実測を諦めて設定後の上限サイズ（text-anchor=
       // 'middle'・中央位置はsvg2pdfのフォールバック書体実測任せ）に落とす。
-      lyric = el('text', {
+      const lyric = el('text', {
         x: GRID_TEXT_CENTER.x,
         y: GRID_TEXT_CENTER.y + (typography.lyricMaxFontSizePt * 0.35),
         'font-family': fontName,
@@ -487,6 +488,8 @@ function buildGridGroup(
         fill: palette.text,
         'text-anchor': 'middle',
       });
+      lyric.textContent = text;
+      group.appendChild(lyric);
     } else {
       // 幅300に収まる最大サイズを実測から求める。設定割合は上限・下限の
       // 両方へ同じ割合で適用し、縮小後の実効サイズで省略幅も測る。
@@ -505,20 +508,30 @@ function buildGridGroup(
       text = truncateToUnitWidth(doc, text, 300 / fontSize);
       const renderedWidth = doc.getStringUnitWidth(text) * fontSize;
 
-      lyric = el('text', {
-        // text-anchor='middle' は svg2pdf がフォールバック書体で幅を測って
-        // 中央を決めてしまい、埋め込み書体との差の半分だけ左右にずれるため
-        // 使わない。'start' にして中央位置を自前で計算する
-        x: GRID_TEXT_CENTER.x - renderedWidth / 2,
-        y: GRID_TEXT_CENTER.y + (fontSize * 0.35), // サイズに合わせてY位置も微調整
-        'font-family': fontName,
-        'font-size': fontSize,
-        fill: palette.text,
-        'text-anchor': 'start',
+      // text-anchor='middle' は svg2pdf がフォールバック書体で幅を測って
+      // 中央を決めてしまい、埋め込み書体との差の半分だけ左右にずれるため
+      // 使わない。'start' にして中央位置を自前で計算する。結合記号を
+      // 独立要素にしても、送り幅は元の全体文字列で測った値を使う。
+      const startX = GRID_TEXT_CENTER.x - renderedWidth / 2;
+      const baseY = GRID_TEXT_CENTER.y + (fontSize * 0.35);
+      const segments = shapeThai(text);
+      const chars = Array.from(text);
+      let charIndex = 0;
+      segments.forEach((segment) => {
+        const prefix = chars.slice(0, charIndex).join('');
+        const lyric = el('text', {
+          x: startX + doc.getStringUnitWidth(prefix) * fontSize + segment.dx * fontSize,
+          y: baseY + segment.dy * fontSize,
+          'font-family': fontName,
+          'font-size': fontSize,
+          fill: palette.text,
+          'text-anchor': 'start',
+        });
+        lyric.textContent = segment.text;
+        group.appendChild(lyric);
+        charIndex += Array.from(segment.text).length;
       });
     }
-    lyric.textContent = text;
-    group.appendChild(lyric);
   }
 
   return group;
@@ -727,8 +740,9 @@ export function getAlignedTextRightPt(anchorX, align, widthPt) {
   return anchorX + widthPt / 2;
 }
 
-const SCORE_INFO_SEPARATOR = '　　　';
-const SCORE_INFO_COMPACT_SEPARATOR = '　 ';
+// 区切りは書体によらず SCORE_INFO_SPACE_UNIT だけで決める（config.js 参照）。
+const SCORE_INFO_SEPARATOR = SCORE_INFO_SPACE_UNIT.repeat(3);
+const SCORE_INFO_COMPACT_SEPARATOR = `${SCORE_INFO_SPACE_UNIT} `;
 const TEMPO_NOTE = '♩';
 // 埋め込み3書体にU+2669が無いため、同程度の送り幅だけを測る代替文字を使う。
 const TEMPO_NOTE_MEASURE_GLYPH = 'M';
@@ -810,11 +824,16 @@ export function buildMetaLeft(
 }
 
 export function buildMusicCredit(score, waveDashGlyph = '〜') {
-  return buildCreditItems(score, waveDashGlyph).slice(0, 2).filter(Boolean).join(SCORE_INFO_SEPARATOR);
+  return buildCreditItems(score, waveDashGlyph)
+    .slice(0, 2)
+    .filter(Boolean)
+    .join(SCORE_INFO_SEPARATOR);
 }
 
 export function buildHeaderCredit(score, waveDashGlyph = '〜') {
-  return buildCreditItems(score, waveDashGlyph).filter(Boolean).join(SCORE_INFO_SEPARATOR);
+  return buildCreditItems(score, waveDashGlyph)
+    .filter(Boolean)
+    .join(SCORE_INFO_SEPARATOR);
 }
 
 function buildSpecGroup(labels, values) {
@@ -1016,6 +1035,47 @@ function drawTextWithQuarterNotes(doc, text, sourceText, x, y, align, fontSize, 
   }
 }
 
+function drawTextWithThaiShaping(doc, text, sourceText, x, y, align, fontSize, color) {
+  const segments = shapeThai(text);
+  if (segments.length === 1 && segments[0].dx === 0 && segments[0].dy === 0) {
+    drawTextWithQuarterNotes(doc, text, sourceText, x, y, align, fontSize, color);
+    return;
+  }
+
+  const chars = Array.from(text);
+  const sourceChars = Array.from(sourceText);
+  const unitWidth = doc.getStringUnitWidth(text);
+  const textWidth = Number.isFinite(unitWidth) ? unitWidth * fontSize : 0;
+  const startX = align === 'center'
+    ? x - textWidth / 2
+    : align === 'right'
+      ? x - textWidth
+      : x;
+  let charIndex = 0;
+
+  segments.forEach((segment) => {
+    const segmentChars = Array.from(segment.text);
+    const prefix = chars.slice(0, charIndex).join('');
+    const segmentSource = sourceChars
+      .slice(charIndex, charIndex + segmentChars.length)
+      .join('');
+    const segmentX = startX
+      + doc.getStringUnitWidth(prefix) * fontSize
+      + segment.dx * fontSize;
+    drawTextWithQuarterNotes(
+      doc,
+      segment.text,
+      segmentSource,
+      segmentX,
+      y + segment.dy * fontSize,
+      'left',
+      fontSize,
+      color,
+    );
+    charIndex += segmentChars.length;
+  });
+}
+
 function drawHeaderText(
   doc,
   {
@@ -1045,7 +1105,7 @@ function drawHeaderText(
     minFontSize,
   });
   doc.setFontSize(prepared.fontSize);
-  drawTextWithQuarterNotes(
+  drawTextWithThaiShaping(
     doc,
     prepared.text,
     text,
@@ -1309,11 +1369,16 @@ function drawCover(
     const title = sanitizeForPdf(score.title, waveDashGlyph);
     const titleFontSize = fitFontSize(doc, title, contentWidthPt, layout.titleFontSizePt, 9);
     doc.setFontSize(titleFontSize);
-    doc.text(
-      truncateToUnitWidth(doc, title, contentWidthPt / titleFontSize),
+    const truncatedTitle = truncateToUnitWidth(doc, title, contentWidthPt / titleFontSize);
+    drawTextWithThaiShaping(
+      doc,
+      truncatedTitle,
+      truncatedTitle,
       centerX,
       titleOriginY,
-      { align: 'center' },
+      'center',
+      titleFontSize,
+      palette.title,
     );
   }
 
@@ -1396,11 +1461,15 @@ function drawRunningHeader(
   doc.setFontSize(fontSize);
   doc.setTextColor(palette.number);
   const truncated = truncateToUnitWidth(doc, title, layout.contentWidthPt / fontSize);
-  doc.text(
+  drawTextWithThaiShaping(
+    doc,
+    truncated,
     truncated,
     origin.x + layout.pageWidthPt / 2,
     origin.y + layout.contentTopPt + fontSize,
-    { align: 'center' },
+    'center',
+    fontSize,
+    palette.number,
   );
 }
 
@@ -1436,11 +1505,15 @@ function drawFooterCredit(
   doc.setFontSize(fontSize);
   doc.setTextColor(palette.number);
   const truncated = truncateToUnitWidth(doc, text, (layout.contentWidthPt * 0.4) / fontSize);
-  doc.text(
+  drawTextWithThaiShaping(
+    doc,
+    truncated,
     truncated,
     origin.x + placement.footer.x,
     origin.y + layout.pageNumberBaselinePt,
-    { align: placement.footer.align },
+    placement.footer.align,
+    fontSize,
+    palette.number,
   );
 }
 
@@ -1474,11 +1547,15 @@ function drawPageNumber(
   doc.setFont(fontName);
   doc.setFontSize(layout.pageNumberFontSizePt);
   doc.setTextColor(palette.number);
-  doc.text(
+  drawTextWithThaiShaping(
+    doc,
+    text,
     text,
     origin.x + placement.pageNumber.x,
     origin.y + layout.pageNumberBaselinePt,
-    { align: placement.pageNumber.align },
+    placement.pageNumber.align,
+    layout.pageNumberFontSizePt,
+    palette.number,
   );
 }
 

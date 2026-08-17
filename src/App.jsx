@@ -39,7 +39,12 @@ import {
   DEFAULT_BACKGROUND_IMAGE_OPACITY,
 } from './lib/backgroundImage.js';
 import { audioEngine } from './lib/audioEngine.js';
-import { DEFAULT_BPM, MAX_GRIDS, resolvePaletteSeed } from './constants/config.js';
+import {
+  DEFAULT_BPM,
+  MAX_GRIDS,
+  resolveLyricSizePercentOnLanguageChange,
+  resolvePaletteSeed,
+} from './constants/config.js';
 import { normalizeThemePreference, resolveTheme } from './lib/theme.js';
 import {
   analyzeScoreLayers,
@@ -307,6 +312,28 @@ export default function App() {
   useEffect(() => {
     savePdfPrefs(pdfPrefs);
   }, [pdfPrefs]);
+
+  // 表示言語を切り替えたときだけ歌詞サイズの既定値を追従させる。初回表示分は
+  // loadPdfPrefs が済ませているため、ref で「前回の言語」を持って変化時のみ動かす。
+  // 追従条件は resolveLyricSizePercentOnLanguageChange 側に集約している。
+  const previousLanguageRef = useRef(language);
+  useEffect(() => {
+    const previousLanguage = previousLanguageRef.current;
+    if (previousLanguage === language) return;
+    previousLanguageRef.current = language;
+
+    setPdfPrefs((prefs) => {
+      const nextPercent = resolveLyricSizePercentOnLanguageChange(
+        prefs.lyricSizePercent,
+        previousLanguage,
+        language,
+      );
+      // 同じ参照を返して、変化が無いときの保存とレンダーを増やさない
+      return nextPercent === prefs.lyricSizePercent
+        ? prefs
+        : { ...prefs, lyricSizePercent: nextPercent };
+    });
+  }, [language]);
 
   // tone のチャンク（約340KB）を先に取得しておく。初回タップ時に取りに行くと、
   // ダウンロードの間に iOS のユーザー操作の有効期間が切れて音が出なくなる。

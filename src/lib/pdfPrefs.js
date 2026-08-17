@@ -23,6 +23,8 @@ import {
   DEFAULT_KEY_NOTATION_ID,
   DEFAULT_KEY_MODE_NOTATION_ID,
   CUSTOM_PRESET_ID,
+  PDF_LAYOUT_RANGES,
+  getDefaultLyricSizePercent,
   normalizeKeyNotationId,
   normalizeKeyModeNotationId,
   resolvePdfScoreInfoDesign,
@@ -32,6 +34,7 @@ import {
   pdfConfig,
 } from '../constants/config.js';
 import { resolvePdfTypography } from './pdfTypography.js';
+import { getLanguage } from '../i18n/index.js';
 import { resolvePdfPageFurniture } from './pdfPageFurniture.js';
 import { resolvePdfDensity } from './pdfDensity.js';
 import {
@@ -170,13 +173,32 @@ export function serializePdfPrefs(prefs) {
 }
 
 /** 保存済み設定をJSON parse後に純粋な正規化へ渡す薄いラッパー。 */
+function hasStoredLyricSizePercent(source) {
+  if (!isRecord(source)) return false;
+  const { min, max } = PDF_LAYOUT_RANGES.lyricSizePercent;
+  const value = source.lyricSizePercent;
+  return Number.isInteger(value) && value >= min && value <= max;
+}
+
 export function loadPdfPrefs() {
+  let stored;
   try {
     const raw = localStorage.getItem(PDF_PREFS_STORAGE_KEY);
-    return raw ? normalizePdfPrefs(JSON.parse(raw)) : normalizePdfPrefs(undefined);
+    stored = raw ? JSON.parse(raw) : undefined;
   } catch {
-    return normalizePdfPrefs(undefined);
+    stored = undefined;
   }
+
+  const prefs = normalizePdfPrefs(stored);
+  // 歌詞サイズだけは、保存値が無いときに限り表示言語の既定値を入れる
+  // （タイ文字は上下に記号を積むため、既定の100%ではグリッドからはみ出す。
+  // 根拠は config.js の LYRIC_SIZE_PERCENT_BY_LANGUAGE 参照）。
+  // 保存値がある場合は言語を切り替えても書き換えない。日本語UIで決めた値が
+  // 別言語UIへ移っただけで失われると、戻したときに復元できないため。
+  if (!hasStoredLyricSizePercent(stored)) {
+    prefs.lyricSizePercent = getDefaultLyricSizePercent(getLanguage());
+  }
+  return prefs;
 }
 
 /** localStorageの利用可否をUI経路から切り離す薄いラッパー。 */

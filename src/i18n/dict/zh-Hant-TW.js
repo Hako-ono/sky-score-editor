@@ -104,6 +104,7 @@ export default {
           darkBackground: '填滿整張紙面。列印時會使用較多墨水。',
           contrast: '背景和文字色彩可能過於接近，難以閱讀。',
           mincho: '首次產生 PDF 時會載入約 8 MB。',
+          lyricOverflow: '調大後，帶有上下疊加母音符號與聲調符號（สระ、วรรณยุกต์）的字元可能超出網格。預設值為 {percent}%。',
         },
         grid: {
           title: '網格',
@@ -301,7 +302,7 @@ export default {
         source: '本工具的原始碼發布於 {github}，遵循 {license}。保留著作權聲明和授權條款文字即可複製、修改、再發布和商業使用。以下音源和字型請遵循各權利人規定的授權條款（CC BY 3.0、SIL OFL 1.1）。',
         audio: '音源：Salamander Grand Piano V3，作者 Alexander Holm（CC BY 3.0）。',
         screenFont: '螢幕字型：Noto Sans JP（SIL Open Font License 1.1）。',
-        pdfFont: 'PDF 嵌入字型：Zen Kaku Gothic New、Shippori Mincho、Zen Maru Gothic、DM Sans、Sarasa Gothic SC、Taipei Sans TC、Chiron Hei HK、Wanted Sans（均為 SIL Open Font License 1.1）。',
+        pdfFont: 'PDF 嵌入字型：Zen Kaku Gothic New、Shippori Mincho、Zen Maru Gothic、DM Sans、Sarasa Gothic SC、Taipei Sans TC、Chiron Hei HK、Wanted Sans、IBM Plex Sans Thai Looped、Be Vietnam Pro、Golos Text（均為 SIL Open Font License 1.1）。',
         localAssets: '音源和字型都存放在本網站內，不會從外部伺服器載入。匯出的 PDF 會嵌入所選字型（SIL Open Font License 1.1 允許嵌入文件）。',
         rights: '應用程式圖示以及畫面和 PDF 中的符號包括本工具製作的素材，以及用於語言切換、來自 Wikimedia Commons 的公有領域 SVG。未使用從遊戲中擷取的圖片、音訊或字型。《光·遇》的相關權利歸 thatgamecompany, inc. 所有。',
         qrTrademark: '「QR Code」是株式會社電裝波動的註冊商標。',
@@ -632,6 +633,9 @@ export default {
       taipeiTC: 'Taipei Sans TC',
       chironHK: 'Chiron Hei HK',
       wantedSans: 'Wanted Sans',
+      plexThaiLooped: 'IBM Plex Sans Thai Looped',
+      beVietnamPro: 'Be Vietnam Pro',
+      golosText: 'Golos Text',
     },
     fontWeight: {
       regular: '一般',
