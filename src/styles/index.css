@@ -1203,6 +1203,56 @@ body {
   outline: none;
 }
 
+/* 出力形式のスプリットボタン。ボタンを2つ並べる案はモバイルで縦に積まれて
+   表示領域を食うため採らない。
+   見た目を1つのボタンに揃える指定（角丸・余白の打ち消し）は .btn より後に
+   置かないと効かないため、下の「ボタン」節の直後にまとめてある */
+.export-split {
+  position: relative;
+  display: inline-flex;
+}
+
+.export-split__panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.25rem);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-width: 100%;
+  padding: 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-width: calc(100vw - 1rem);
+  max-height: calc(100vh - 1rem);
+  max-height: calc(100dvh - 1rem);
+  overflow-y: auto;
+  transform: translate(var(--menu-shift, 0px), var(--menu-y-shift, 0px));
+}
+
+.export-split__item {
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.export-split__item:hover,
+.export-split__item:focus-visible {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-2));
+  outline: none;
+}
+
+.export-split__item[aria-checked='true'] {
+  font-weight: 700;
+}
+
 .theme-menu,
 .language-menu {
   position: relative;
@@ -1461,6 +1511,41 @@ select.text-input {
 .history-fab__btn svg,
 .grid-card__tap svg {
   pointer-events: none;
+}
+
+/* スプリットボタンを「1つのボタンの右端に区切り線が引かれている」見た目に
+   揃える指定。.btn / .btn--lg の border-radius・padding を打ち消すため、
+   同じ詳細度でも後に来るこの位置に置く必要がある（前に置くと角丸が
+   両方に残り、キャレット側も btn--lg の余白のままで、ボタンが2つ並んで
+   いるようにしか見えない） */
+.export-split__main {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  /* 隣接部分の境界線を消し、地色を左右で連続させる */
+  border-right: 0;
+}
+
+.export-split__toggle {
+  position: relative;
+  /* キャレットだけの領域なので btn--lg の横余白(1.3rem)は要らないが、
+     0.4remでは窮屈だったため0.6remへ拡げた */
+  padding: 0 0.6rem;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 0;
+}
+
+/* 区切り線。高さいっぱいに引くと2つのボタンの継ぎ目に見えるため、
+   上下に余白を残した短い線にする */
+.export-split__toggle::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 1px;
+  height: 55%;
+  transform: translateY(-50%);
+  background: color-mix(in srgb, #fff 45%, transparent);
 }
 
 .file-label {
@@ -2186,6 +2271,26 @@ select.text-input {
 
   .toolbar__action-cluster--pdf-export .btn {
     width: 100%;
+  }
+
+  /* スプリットボタンは全幅にするのがまとまり単位。主ボタンだけを伸ばし、
+     キャレットは内容ぶんの幅に留める（上の 100% 指定を打ち消す） */
+  .toolbar__action-cluster--pdf-export .export-split {
+    display: flex;
+    width: 100%;
+  }
+
+  .toolbar__action-cluster--pdf-export .export-split__main {
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  .toolbar__action-cluster--pdf-export .export-split__toggle {
+    flex: 0 0 auto;
+    width: auto;
+    /* デスクトップの0.6remだとタップ的に狭いため、モバイル幅だけ倍近くに
+       広げる */
+    padding: 0 1.1rem;
   }
 
   .toolbar__action-bar--score {

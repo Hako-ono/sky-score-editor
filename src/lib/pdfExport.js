@@ -1634,9 +1634,18 @@ function openOrDownloadPdfBlob(blob, filename) {
  *          関与しない。App.jsx が options へ合流させる）。背景画像は背景色の
  *          上に重ねて描かれ、配色（bg）には影響しない。
  * @param {(msg: string) => void} [onProgress]
- * @returns {Promise<{ filename: string, opened: boolean }>}
+ * @param {string} [pageProgressKey] ページ単位の進捗に使うi18nキー。PNG出力は
+ *          この組み立てを「2段のうちの1段目」として見せるため差し替える
+ *          （`pngExport.js`）。既定値は従来のPDF向け文言で、`exportPdf` から
+ *          見た挙動は変わらない。
+ * @returns {Promise<{ filename: string, blob: Blob }>}
  */
-export async function exportPdf(score, options, onProgress = () => {}) {
+export async function buildPdfBlob(
+  score,
+  options,
+  onProgress = () => {},
+  pageProgressKey = 'ui.progress.pageGenerating',
+) {
   const { grids, bitsPerPage } = score;
   if (!grids || grids.length === 0) {
     throw new Error(t('ui.pdfExport.error.noData'));
@@ -1840,7 +1849,7 @@ export async function exportPdf(score, options, onProgress = () => {}) {
 
       const bodySlots = physicalPage.bodySlots ?? [];
       for (const { slotIndex, pageIndex: p } of bodySlots) {
-        onProgress(t('ui.progress.pageGenerating', {
+        onProgress(t(pageProgressKey, {
           page: p + 1,
           total: pages.length,
         }));
@@ -1951,5 +1960,22 @@ export async function exportPdf(score, options, onProgress = () => {}) {
 
   const filename = `sky_score_${timestamp()}.pdf`;
   const blob = doc.output('blob');
+  return { filename, blob };
+}
+
+/**
+ * PDFを組み立ててダウンロードする（従来の `exportPdf` と外から見た挙動は
+ * 変えていない）。組み立て自体は `buildPdfBlob` に委ね、ここでは
+ * ダウンロードだけを行う。同じ jsPDF インスタンスを2回 `output()` しては
+ * いけないという制約（`openOrDownloadPdfBlob` 直上のコメント参照）のため、
+ * `buildPdfBlob` は `Blob` だけを返し、`doc` 自体は外に出さない。
+ *
+ * @param {*} score
+ * @param {*} options
+ * @param {(msg: string) => void} [onProgress]
+ * @returns {Promise<{ filename: string, opened: boolean }>}
+ */
+export async function exportPdf(score, options, onProgress = () => {}) {
+  const { filename, blob } = await buildPdfBlob(score, options, onProgress);
   return { filename, opened: openOrDownloadPdfBlob(blob, filename) };
 }

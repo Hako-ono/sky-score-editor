@@ -30,7 +30,7 @@ export default {
       "minimizeMenu": "Свернуть меню",
       "tabs": "Панель инструментов",
       "scoreTab": "Ноты",
-      "pdfTab": "Экспорт PDF",
+      "outputTab": "Экспорт",
       "score": {
         "info": "Данные песни",
         "title": "Название",
@@ -155,17 +155,24 @@ export default {
           "margin": "Поля",
           "gap": "Интервал сетки"
         },
+        "pngDpi": "Разрешение PNG",
+        "pngDpiOption": "{dpi}dpi",
         "actionNote": "Если новая вкладка не открывается, PDF будет скачан.",
         "exportSettings": "Экспортировать настройки",
         "importSettings": "Импортировать настройки",
         "processing": "Обработка…",
         "generate": "Создать PDF",
+        "generatePng": "Создать PNG",
+        "selectFormat": "Выбрать формат экспорта",
         "autoColumns": "{label} ({n} столбцов)"
       }
     },
     "progress": {
       "fontLoading": "Загрузка {font}...",
-      "pageGenerating": "Создание страницы PDF {page} / {total}..."
+      "pageGenerating": "Создание страницы PDF {page} / {total}...",
+      "pngBuilding": "Создание PNG (1/2): сборка страницы {page} / {total}...",
+      "pngRendering": "Создание PNG (2/2): запись страницы {page} / {total}...",
+      "pngZipping": "Сборка ZIP..."
     },
     "pdfExport": {
       "error": {
@@ -304,6 +311,7 @@ export default {
         "audio": "Звук: Salamander Grand Piano V3 by Alexander Holm (CC BY 3.0).",
         "screenFont": "Шрифт интерфейса: Noto Sans JP (SIL Open Font License 1.1).",
         "pdfFont": "Шрифты, встраиваемые в PDF: Zen Kaku Gothic New, Shippori Mincho, Zen Maru Gothic, DM Sans, Sarasa Gothic SC, Taipei Sans TC, Chiron Hei HK, Wanted Sans, IBM Plex Sans Thai Looped, Be Vietnam Pro и Golos Text (все по SIL Open Font License 1.1).",
+        "pdfjs": "Для экспорта в PNG используется Mozilla PDF.js (Apache License 2.0).",
         "localAssets": "Звуки и шрифты размещены на этом сайте и не загружаются с внешних серверов. В экспортируемый PDF встраиваются данные выбранного шрифта (SIL Open Font License 1.1 разрешает встраивание в документы).",
         "rights": "Иконки и символы интерфейса и PDF созданы для этого инструмента либо взяты из общедоступного SVG Wikimedia Commons для смены языка. Из игры не извлекались изображения, звуки и шрифты. Права на «Sky: Children of the Light» принадлежат thatgamecompany, inc.",
         "qrTrademark": "«QR Code» — зарегистрированный товарный знак DENSO WAVE INCORPORATED.",
@@ -335,6 +343,9 @@ export default {
       "pdfOpened": "PDF открыт в новой вкладке ({filename})",
       "pdfDownloaded": "PDF скачан ({filename})",
       "pdfFailed": "Не удалось создать PDF ({message})",
+      "pngDownloaded": "PNG скачан ({filename})",
+      "pngFailed": "Не удалось создать PNG ({message})",
+      "pngTooLarge": "Общий размер PNG превысил допустимый предел. Уменьшите разрешение или число страниц.",
       "editFinish": "Завершить редактирование"
     },
     "gridCard": {

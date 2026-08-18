@@ -18,6 +18,8 @@ import {
   DEFAULT_GRID_GAP_ID,
   DEFAULT_KEY_NOTATION_ID,
   DEFAULT_KEY_MODE_NOTATION_ID,
+  DEFAULT_PNG_DPI,
+  PNG_DPI_OPTIONS,
   CUSTOM_PRESET_ID,
   pdfConfig,
   complementHex,
@@ -39,7 +41,7 @@ import {
  *                      sheetLayoutId, columnsPerPageId, rowShadingId,
  *                      pageMarginId, gridGapId, gridStyleId,
  *                      scoreInfoDesignId, mastheadDirectionId,
- *                      gridStyleCustom, custom }
+ *                      gridStyleCustom, custom, pngDpi }
  *   - 未保存・壊れたJSON・null・配列は既定値
  *     { print, gothic, 20, 9, 6, single, PDF_PRESETS.print.seed } に落ちる。
  *   - PDF_PRESETS / PDF_FONTS / PDF_SHEET_LAYOUTS に存在しないid・型が違う値は、
@@ -102,6 +104,7 @@ const DEFAULTS = {
   gridGapId: DEFAULT_GRID_GAP_ID,
   keyNotationId: DEFAULT_KEY_NOTATION_ID,
   keyModeNotationId: DEFAULT_KEY_MODE_NOTATION_ID,
+  pngDpi: DEFAULT_PNG_DPI,
   pageNumberFormatId: 'currentTotal',
   pageNumberPositionId: 'bottomCenter',
   runningHeaderId: 'none',
@@ -146,6 +149,7 @@ describe('loadPdfPrefs', () => {
         gridGapId: 'loose',
         keyNotationId: 'flat',
         keyModeNotationId: 'traditional',
+        pngDpi: 96,
         pageNumberFormatId: 'current',
         pageNumberPositionId: 'bottomOuter',
         runningHeaderId: 'title',
@@ -177,6 +181,7 @@ describe('loadPdfPrefs', () => {
       gridGapId: 'loose',
       keyNotationId: 'flat',
       keyModeNotationId: 'traditional',
+      pngDpi: 96,
       pageNumberFormatId: 'current',
       pageNumberPositionId: 'bottomOuter',
       runningHeaderId: 'title',
@@ -258,6 +263,16 @@ describe('loadPdfPrefs', () => {
       columnsPerPageId: DEFAULT_COLUMNS_PER_PAGE_ID,
       rowShadingId: DEFAULT_ROW_SHADING_ID,
     });
+  });
+
+  it('pngDpiはPNG_DPI_OPTIONS以外のときだけ既定値に落ちる', () => {
+    localStorage.setItem(PDF_PREFS_STORAGE_KEY, JSON.stringify({ pngDpi: 300 }));
+    expect(loadPdfPrefs()).toEqual({ ...DEFAULTS, pngDpi: DEFAULT_PNG_DPI });
+
+    for (const dpi of PNG_DPI_OPTIONS) {
+      localStorage.setItem(PDF_PREFS_STORAGE_KEY, JSON.stringify({ pngDpi: dpi }));
+      expect(loadPdfPrefs()).toEqual({ ...DEFAULTS, pngDpi: dpi });
+    }
   });
 
   it('壊れたJSONは既定値に落ちる', () => {
@@ -605,6 +620,7 @@ describe('savePdfPrefs', () => {
       gridGapId: 'loose',
       keyNotationId: 'sharp',
       keyModeNotationId: 'english',
+      pngDpi: 200,
       pageNumberFormatId: 'current',
       pageNumberPositionId: 'bottomOuter',
       runningHeaderId: 'title',
@@ -639,6 +655,7 @@ describe('savePdfPrefs', () => {
       gridGapId: 'loose',
       keyNotationId: 'sharp',
       keyModeNotationId: 'english',
+      pngDpi: 200,
       pageNumberFormatId: 'current',
       pageNumberPositionId: 'bottomOuter',
       runningHeaderId: 'title',

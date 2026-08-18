@@ -30,7 +30,7 @@ export default {
       "minimizeMenu": "ย่อเมนู",
       "tabs": "แถบเครื่องมือ",
       "scoreTab": "โน้ตเพลง",
-      "pdfTab": "ส่งออก PDF",
+      "outputTab": "ส่งออก",
       "score": {
         "info": "ข้อมูลเพลง",
         "title": "ชื่อเพลง",
@@ -155,17 +155,24 @@ export default {
           "margin": "ระยะขอบ",
           "gap": "ระยะห่างกริด"
         },
+        "pngDpi": "ความละเอียด PNG",
+        "pngDpiOption": "{dpi}dpi",
         "actionNote": "หากเปิดแท็บใหม่ไม่ได้ จะดาวน์โหลด PDF แทน",
         "exportSettings": "ส่งออกการตั้งค่า",
         "importSettings": "นำเข้าการตั้งค่า",
         "processing": "กำลังประมวลผล…",
         "generate": "สร้าง PDF",
+        "generatePng": "สร้าง PNG",
+        "selectFormat": "เลือกรูปแบบการส่งออก",
         "autoColumns": "{label} ({n} คอลัมน์)"
       }
     },
     "progress": {
       "fontLoading": "กำลังโหลด {font}...",
-      "pageGenerating": "กำลังสร้างหน้า PDF {page} / {total}..."
+      "pageGenerating": "กำลังสร้างหน้า PDF {page} / {total}...",
+      "pngBuilding": "สร้าง PNG (1/2): กำลังประกอบหน้า {page} / {total}...",
+      "pngRendering": "สร้าง PNG (2/2): กำลังเขียนหน้า {page} / {total}...",
+      "pngZipping": "กำลังรวมเป็น ZIP..."
     },
     "pdfExport": {
       "error": {
@@ -304,6 +311,7 @@ export default {
         "audio": "เสียง: Salamander Grand Piano V3 โดย Alexander Holm (CC BY 3.0)",
         "screenFont": "ฟอนต์หน้าจอ: Noto Sans JP (SIL Open Font License 1.1)",
         "pdfFont": "ฟอนต์ฝังใน PDF: Zen Kaku Gothic New, Shippori Mincho, Zen Maru Gothic, DM Sans, Sarasa Gothic SC, Taipei Sans TC, Chiron Hei HK, Wanted Sans, IBM Plex Sans Thai Looped, Be Vietnam Pro และ Golos Text (ทั้งหมดใช้ SIL Open Font License 1.1)",
+        "pdfjs": "การส่งออก PNG ใช้ Mozilla PDF.js (Apache License 2.0)",
         "localAssets": "เสียงและฟอนต์ทั้งหมดอยู่บนเว็บไซต์นี้ ไม่โหลดจากเซิร์ฟเวอร์ภายนอก PDF ที่ส่งออกจะฝังข้อมูลฟอนต์ที่เลือกไว้ (SIL Open Font License 1.1 อนุญาตให้ฝังในเอกสาร)",
         "rights": "ไอคอนและสัญลักษณ์ในหน้าจอ/PDF สร้างขึ้นสำหรับเครื่องมือนี้ หรือเป็น SVG สาธารณสมบัติจาก Wikimedia Commons ที่ใช้เปลี่ยนภาษา เราไม่ได้ใช้ภาพ เสียง หรือฟอนต์ที่ดึงจากเกม สิทธิ์ของ “Sky: Children of the Light” เป็นของ thatgamecompany, inc.",
         "qrTrademark": "“QR Code” เป็นเครื่องหมายการค้าจดทะเบียนของ DENSO WAVE INCORPORATED",
@@ -335,6 +343,9 @@ export default {
       "pdfOpened": "เปิด PDF ในแท็บใหม่แล้ว ({filename})",
       "pdfDownloaded": "ดาวน์โหลด PDF แล้ว ({filename})",
       "pdfFailed": "สร้าง PDF ไม่สำเร็จ ({message})",
+      "pngDownloaded": "ดาวน์โหลด PNG แล้ว ({filename})",
+      "pngFailed": "สร้าง PNG ไม่สำเร็จ ({message})",
+      "pngTooLarge": "ขนาดรวมของ PNG เกินขีดจำกัด กรุณาลดความละเอียดหรือจำนวนหน้า",
       "editFinish": "จบการแก้ไขกริด"
     },
     "gridCard": {

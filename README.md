@@ -17,7 +17,8 @@ npm run build    # 本番ビルド (dist/)
 npm run preview  # ビルド結果をプレビュー
 ```
 
-Node 20.19+ / 22.12+ を推奨（Vite 8 の要件）。
+Node 20.19+ / 22.12+ を推奨（Vite 8 の要件）。`.nvmrc` で Node.js 24 系を指定しているため、
+nvm 等を使う場合は `nvm use` で揃えられる。
 
 ## テスト
 
@@ -100,6 +101,9 @@ src/
 │  ├─ parseScore.js        JSON 解析(2形式) / 直列化 / 和音→グリッド変換
 │  ├─ layout.js            列数・強制改行に沿った行分割 / ページ割り
 │  ├─ pdfExport.js         jsPDF + svg2pdf。フォント遅延読込・ページ SVG 生成
+│  ├─ pdfRaster.js         pdf.js。PDFのBlobを受け取りcanvasへ描く薄いラッパー
+│  ├─ pngExport.js         PDFをラスタライズしてPNG/ZIPに出力
+│  ├─ zipStore.js          store（無圧縮）専用の自前ZIPライタ
 │  └─ draftStorage.js      localStorage 下書き保存
 ├─ state/scoreReducer.js   楽譜状態の純粋リデューサ
 ├─ hooks/
@@ -165,7 +169,7 @@ src/
   (いずれも Licensed under [SIL Open Font License 1.1](https://scripts.sil.org/OFL))。
   それぞれの配布元から取得し、`public/fonts/` に
   自前ホスト。
-* **主要ライブラリ**: React, Vite, Tone.js, jsPDF, svg2pdf.js, qr
+* **主要ライブラリ**: React, Vite, Tone.js, jsPDF, svg2pdf.js, qr, pdf.js
 
 アプリのアイコンや画面・PDFの記号には本ツール用に作成したものと、言語切替に使用するWikimedia Commons由来のパブリックドメインSVGが含まれます。ゲームから抽出した画像・音声・フォントは使用していません。「Sky: 星を紡ぐ子どもたち」に関する権利は
 thatgamecompany, inc. に帰属します。「QRコード」は株式会社デンソーウェーブの登録商標です。
@@ -187,6 +191,7 @@ Copyright (c) 2026 Hako.
 | PDF埋め込みフォント（`public/fonts/` の11書体） | [SIL Open Font License 1.1](https://scripts.sil.org/OFL) |
 | 画面表示フォント（`@fontsource/noto-sans-jp`） | [SIL Open Font License 1.1](https://scripts.sil.org/OFL) |
 | 音源データ（`public/audio/salamander/`） | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
+| PNG出力に使用する PDF.js（`pdfjs-dist`） | [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) |
 
 また「Sky: 星を紡ぐ子どもたち」に関する権利は thatgamecompany, inc. に帰属します。
 本リポジトリのライセンスは、同作品の名称・世界観・ゲーム内資産に対する権利を

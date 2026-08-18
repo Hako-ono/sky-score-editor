@@ -152,6 +152,7 @@ function SiteFooter({ hasDraft, onClearDraft }) {
             <li>{t('ui.siteFooter.license.audio')}</li>
             <li>{t('ui.siteFooter.license.screenFont')}</li>
             <li>{t('ui.siteFooter.license.pdfFont')}</li>
+            <li>{t('ui.siteFooter.license.pdfjs')}</li>
             <li>{t('ui.siteFooter.license.localAssets')}</li>
             <li>{t('ui.siteFooter.license.rights')}</li>
             <li>{t('ui.siteFooter.license.qrTrademark')}</li>

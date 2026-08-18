@@ -22,6 +22,7 @@ import {
   sanitizeCustomTempoValue,
   PDF_PAGE_MARGINS,
   PDF_GRID_GAPS,
+  PNG_DPI_OPTIONS,
   PDF_PAGE_NUMBER_FORMATS,
   PDF_PAGE_NUMBER_POSITIONS,
   PDF_RUNNING_HEADERS,
@@ -182,6 +183,7 @@ export default function Toolbar({
   usesTwoLayers,
   onSaveJson,
   onExportPdf,
+  onExportPng,
   onOpenPdfPreset,
   onSetTheme,
 }) {
@@ -267,7 +269,10 @@ export default function Toolbar({
   };
 
   const selectTab = (tab, shouldFocus = false) => {
-    if (activeTab === 'pdf' && tab !== 'pdf') setImageMenuOpen(false);
+    if (activeTab === 'pdf' && tab !== 'pdf') {
+      setImageMenuOpen(false);
+      setExportMenuOpen(false);
+    }
     setActiveTab(tab);
     if (shouldFocus) tabRefs.current[tab]?.focus();
   };
@@ -369,6 +374,32 @@ export default function Toolbar({
       document.removeEventListener('keydown', handleEscape);
     };
   }, [imageMenuOpen]);
+
+  // 出力形式の切り替えはスプリットボタン1つに畳んである。ボタンを2つ並べると
+  // モバイルで縦に積まれ、表示領域を余計に食うため。
+  // 選択はページ内stateだけで持ち、pdfPrefsへは保存しない。
+  const exportMenuRef = useRef(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState('pdf');
+  const exportPanelRef = useMenuPosition(exportMenuOpen);
+
+  useEffect(() => {
+    if (!exportMenuOpen) return undefined;
+    const handleOutsideClick = (e) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+        setExportMenuOpen(false);
+      }
+    };
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') setExportMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [exportMenuOpen]);
 
   const [localBpm, setLocalBpm] = useState(bpm.toString());
 
@@ -667,7 +698,7 @@ export default function Toolbar({
               onClick={() => selectTab('pdf')}
               onKeyDown={handleTabKeyDown}
             >
-              {t('ui.toolbar.pdfTab')}
+              {t('ui.toolbar.outputTab')}
             </button>
           </div>
 
@@ -1710,6 +1741,22 @@ export default function Toolbar({
                   ))}
                 </select>
               </div>
+
+              <div className="toolbar__group field field--stack field--compact toolbar__layout-png-dpi">
+                <label htmlFor="pdf-png-dpi">{t('ui.toolbar.pdf.pngDpi')}</label>
+                <select
+                  id="pdf-png-dpi"
+                  className="text-input"
+                  value={pdfPrefs.pngDpi}
+                  onChange={(e) => onSetPdfPrefs({ ...pdfPrefs, pngDpi: Number(e.target.value) })}
+                >
+                  {PNG_DPI_OPTIONS.map((dpi) => (
+                    <option key={dpi} value={dpi}>
+                      {t('ui.toolbar.pdf.pngDpiOption', { dpi })}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             </div>
           </section>
@@ -1735,14 +1782,55 @@ export default function Toolbar({
               </button>
             </div>
             <div className="toolbar__action-cluster toolbar__action-cluster--pdf-export">
-              <button
-                type="button"
-                className="btn btn--lg btn--primary"
-                onClick={onExportPdf}
-                disabled={isProcessing || !hasData}
-              >
-                {t(isProcessing ? 'ui.toolbar.pdf.processing' : 'ui.toolbar.pdf.generate')}
-              </button>
+              <div className="export-split" ref={exportMenuRef}>
+                <button
+                  type="button"
+                  className="btn btn--lg btn--primary export-split__main"
+                  onClick={exportFormat === 'png' ? onExportPng : onExportPdf}
+                  disabled={isProcessing || !hasData}
+                >
+                  {t(isProcessing
+                    ? 'ui.toolbar.pdf.processing'
+                    : (exportFormat === 'png' ? 'ui.toolbar.pdf.generatePng' : 'ui.toolbar.pdf.generate'))}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--lg btn--primary export-split__toggle"
+                  onClick={() => setExportMenuOpen((v) => !v)}
+                  aria-haspopup="true"
+                  aria-expanded={exportMenuOpen}
+                  aria-label={t('ui.toolbar.pdf.selectFormat')}
+                  disabled={isProcessing || !hasData}
+                >
+                  <ChevronIcon direction={exportMenuOpen ? 'up' : 'down'} size={14} />
+                </button>
+                {exportMenuOpen && (
+                  <div
+                    className="export-split__panel"
+                    role="menu"
+                    ref={exportPanelRef}
+                    aria-label={t('ui.toolbar.pdf.selectFormat')}
+                  >
+                    {[['pdf', 'ui.toolbar.pdf.generate'], ['png', 'ui.toolbar.pdf.generatePng']].map(
+                      ([format, labelKey]) => (
+                        <button
+                          key={format}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={exportFormat === format}
+                          className="export-split__item"
+                          onClick={() => {
+                            setExportFormat(format);
+                            setExportMenuOpen(false);
+                          }}
+                        >
+                          {t(labelKey)}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           </div>

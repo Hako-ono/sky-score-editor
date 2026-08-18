@@ -627,6 +627,29 @@ export default function App() {
     }
   }, [hasData, isProcessing, editMode, score, pdfPrefs, language, backgroundImage, selectedLayer, showStatus, t]);
 
+  const handleExportPng = useCallback(async () => {
+    if (!hasData || isProcessing) return;
+    setIsProcessing(true);
+    const prevEdit = editMode;
+    setEditMode(false);
+    try {
+      // PDF出力と同じ理由（jsPDF/svg2pdf・pdf.js・zipStoreはいずれも重い）で
+      // 必要になった時点で動的読み込みする。
+      const { exportPng } = await import('./lib/pngExport.js');
+      const result = await exportPng(
+        score,
+        { ...pdfPrefs, language, backgroundImage, selectedLayer },
+        (msg) => showStatus(msg, 'loading', false),
+      );
+      showStatus(t('ui.app.pngDownloaded', { filename: result.filename }), 'success');
+    } catch (err) {
+      showStatus(t('ui.app.pngFailed', { message: err.message }), 'error', false);
+    } finally {
+      setIsProcessing(false);
+      setEditMode(prevEdit);
+    }
+  }, [hasData, isProcessing, editMode, score, pdfPrefs, language, backgroundImage, selectedLayer, showStatus, t]);
+
   const handleOpenPdfPreset = useCallback((nextMode) => {
     pdfPresetReturnFocusRef.current = document.activeElement;
     setPdfPresetDialog({ mode: nextMode, initialImportText: '', initialError: '' });
@@ -698,6 +721,7 @@ export default function App() {
             usesTwoLayers={usesTwoLayers}
             onSaveJson={saveJson}
             onExportPdf={handleExportPdf}
+            onExportPng={handleExportPng}
             onOpenPdfPreset={handleOpenPdfPreset}
             onSetTheme={(preference) => setThemePreference(preference)}
         />

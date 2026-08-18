@@ -652,6 +652,19 @@ export const PDF_LAYOUT_RANGES = {
 };
 
 /**
+ * PNG出力の解像度。scale = dpi / 72（PDFの1ptが1/72inchであるため）。
+ * 300dpiはA4で2480x3508px≒35MB/枚(RGBA)になり、iOSのcanvas面積上限に
+ * 触れるため用意しない。pngExport.js とToolbar.jsxの両方がここを参照する。
+ */
+export const PNG_DPI_OPTIONS = [96, 150, 200];
+export const DEFAULT_PNG_DPI = 150;
+
+export function normalizePngDpi(value) {
+  const numeric = Number(value);
+  return PNG_DPI_OPTIONS.includes(numeric) ? numeric : DEFAULT_PNG_DPI;
+}
+
+/**
  * 歌詞の既定サイズ割合を言語ごとに変える必要があるのは、タイ文字だけが
  * 上下に記号を積み重ねるためである。グリッド内で歌詞に使える高さは
  * 鍵盤セル下端(205)からグリッド枠下端(gridBaseHeight=275)までの70単位しかなく、

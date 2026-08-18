@@ -30,7 +30,7 @@ export default {
       "minimizeMenu": "Thu gọn menu",
       "tabs": "Thanh công cụ",
       "scoreTab": "Bản nhạc",
-      "pdfTab": "Xuất PDF",
+      "outputTab": "Xuất",
       "score": {
         "info": "Thông tin bài hát",
         "title": "Tên bài hát",
@@ -155,17 +155,24 @@ export default {
           "margin": "Lề",
           "gap": "Khoảng cách ô"
         },
+        "pngDpi": "Độ phân giải PNG",
+        "pngDpiOption": "{dpi}dpi",
         "actionNote": "Nếu không mở được tab mới, PDF sẽ được tải xuống.",
         "exportSettings": "Xuất cài đặt",
         "importSettings": "Nhập cài đặt",
         "processing": "Đang xử lý…",
         "generate": "Tạo PDF",
+        "generatePng": "Tạo PNG",
+        "selectFormat": "Chọn định dạng xuất",
         "autoColumns": "{label} ({n} cột)"
       }
     },
     "progress": {
       "fontLoading": "Đang tải {font}...",
-      "pageGenerating": "Đang tạo trang PDF {page} / {total}..."
+      "pageGenerating": "Đang tạo trang PDF {page} / {total}...",
+      "pngBuilding": "Tạo PNG (1/2): đang dựng trang {page} / {total}...",
+      "pngRendering": "Tạo PNG (2/2): đang ghi trang {page} / {total}...",
+      "pngZipping": "Đang đóng gói ZIP..."
     },
     "pdfExport": {
       "error": {
@@ -304,6 +311,7 @@ export default {
         "audio": "Âm thanh: Salamander Grand Piano V3 của Alexander Holm (CC BY 3.0).",
         "screenFont": "Phông chữ giao diện: Noto Sans JP (SIL Open Font License 1.1).",
         "pdfFont": "Phông chữ nhúng PDF: Zen Kaku Gothic New, Shippori Mincho, Zen Maru Gothic, DM Sans, Sarasa Gothic SC, Taipei Sans TC, Chiron Hei HK, Wanted Sans, IBM Plex Sans Thai Looped, Be Vietnam Pro và Golos Text (đều theo SIL Open Font License 1.1).",
+        "pdfjs": "Xuất PNG sử dụng PDF.js của Mozilla (Apache License 2.0).",
         "localAssets": "Âm thanh và phông chữ đều được lưu trên trang này, không tải từ máy chủ bên ngoài. PDF xuất ra sẽ nhúng dữ liệu phông chữ đã chọn (SIL Open Font License 1.1 cho phép nhúng vào tài liệu).",
         "rights": "Biểu tượng và ký hiệu trong giao diện/PDF gồm các tài nguyên tạo cho công cụ này và SVG thuộc phạm vi công cộng từ Wikimedia Commons dùng để đổi ngôn ngữ. Không có hình ảnh, âm thanh hay phông chữ trích xuất từ trò chơi. Quyền đối với “Sky: Children of the Light” thuộc về thatgamecompany, inc.",
         "qrTrademark": "“QR Code” là nhãn hiệu đã đăng ký của DENSO WAVE INCORPORATED.",
@@ -335,6 +343,9 @@ export default {
       "pdfOpened": "Đã mở PDF trong tab mới ({filename})",
       "pdfDownloaded": "Đã tải PDF xuống ({filename})",
       "pdfFailed": "Tạo PDF không thành công ({message})",
+      "pngDownloaded": "Đã tải PNG xuống ({filename})",
+      "pngFailed": "Tạo PNG không thành công ({message})",
+      "pngTooLarge": "Tổng dung lượng PNG đã vượt quá giới hạn. Hãy giảm độ phân giải hoặc số trang.",
       "editFinish": "Kết thúc sửa ô"
     },
     "gridCard": {
