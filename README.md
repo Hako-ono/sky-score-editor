@@ -54,7 +54,7 @@ npm run lint     # ESLint
 - 3000 グリッドまでを想定し、グリッド一覧は可視範囲だけを描画する（仮想化）。
 - URL に `?debug=1` を付けたときだけ、内部状態を表示する診断オーバレイが出る。
 - 言語切替（日本語、English、简体中文、繁體中文（台灣）、繁體中文（香港）、
-  한국어、ไทย、Tiếng Việt、Русский）。フッターから切り替えでき、自動判定にも対応します。
+  한국어、ไทย、Tiếng Việt、Русский、Português、Español、Bahasa Indonesia）。フッターから切り替えでき、自動判定にも対応します。
 
 ## 入力フォーマット
 
@@ -105,7 +105,7 @@ src/
 ├─ hooks/
 │  ├─ useUndoableScore.js  undo/redo 履歴 + 連続入力の集約
 │  └─ useKeyboardShortcuts.js
-├─ i18n/                   9 言語の辞書・言語判定・言語切替コンテキスト
+├─ i18n/                   12 言語の辞書・言語判定・言語切替コンテキスト
 ├─ components/             Toolbar / ScoreCanvas / GridCard / NoteGridSvg / …
 ├─ App.jsx                 状態統合・ファイル IO・自動保存・PDF
 └─ styles/index.css        テーマトークン(light/dark)・レスポンシブ

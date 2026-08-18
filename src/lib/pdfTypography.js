@@ -25,6 +25,9 @@ export const PDF_FONT_IDS_BY_LANGUAGE = {
   th: ['plexThaiLooped'],
   vi: ['beVietnamPro'],
   ru: ['golosText'],
+  pt: ['dmSans'],
+  es: ['dmSans'],
+  id: ['dmSans'],
 };
 
 export const DEFAULT_PDF_FONT_ID_BY_LANGUAGE = {
@@ -37,6 +40,9 @@ export const DEFAULT_PDF_FONT_ID_BY_LANGUAGE = {
   th: 'plexThaiLooped',
   vi: 'beVietnamPro',
   ru: 'golosText',
+  pt: 'dmSans',
+  es: 'dmSans',
+  id: 'dmSans',
 };
 
 function normalizePdfFontLanguage(language) {

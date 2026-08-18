@@ -7,6 +7,9 @@ import ko from './dict/ko.js';
 import th from './dict/th.js';
 import vi from './dict/vi.js';
 import ru from './dict/ru.js';
+import pt from './dict/pt.js';
+import es from './dict/es.js';
+import id from './dict/id.js';
 
 const DEFAULT_LANGUAGE = 'ja';
 export const LANGUAGE_STORAGE_KEY = 'sky-score-editor:lang:v1';
@@ -20,6 +23,9 @@ export const SUPPORTED_LANGUAGES = [
   'th',
   'vi',
   'ru',
+  'pt',
+  'es',
+  'id',
 ];
 export const LANGUAGE_AUTO = 'auto';
 export const LANGUAGE_OPTIONS = [
@@ -33,6 +39,9 @@ export const LANGUAGE_OPTIONS = [
   { value: 'th', label: 'ไทย' },
   { value: 'vi', label: 'Tiếng Việt' },
   { value: 'ru', label: 'Русский' },
+  { value: 'pt', label: 'Português' },
+  { value: 'es', label: 'Español' },
+  { value: 'id', label: 'Bahasa Indonesia' },
 ];
 const dictionaries = {
   ja,
@@ -44,6 +53,9 @@ const dictionaries = {
   th,
   vi,
   ru,
+  pt,
+  es,
+  id,
 };
 const fallbackLanguagesByLanguage = {
   ja: ['ja'],
@@ -55,6 +67,9 @@ const fallbackLanguagesByLanguage = {
   th: ['th', 'ja'],
   vi: ['vi', 'ja'],
   ru: ['ru', 'ja'],
+  pt: ['pt', 'ja'],
+  es: ['es', 'ja'],
+  id: ['id', 'ja'],
 };
 let currentLanguage = DEFAULT_LANGUAGE;
 const ZH_TAIWAN_REGIONS = new Set(['tw']);
@@ -189,6 +204,9 @@ export function detectLanguage(candidates = getDefaultLanguageCandidates()) {
     if (parsed.primary === 'th') return 'th';
     if (parsed.primary === 'vi') return 'vi';
     if (parsed.primary === 'ru') return 'ru';
+    if (parsed.primary === 'pt') return 'pt';
+    if (parsed.primary === 'es') return 'es';
+    if (parsed.primary === 'id') return 'id';
     if (parsed.primary === 'zh') return resolveChineseLanguage(parsed.tag);
   }
   return DEFAULT_LANGUAGE;

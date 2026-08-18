@@ -32,6 +32,9 @@ describe('言語別PDF書体レジストリ', () => {
       th: ['plexThaiLooped'],
       vi: ['beVietnamPro'],
       ru: ['golosText'],
+      pt: ['dmSans'],
+      es: ['dmSans'],
+      id: ['dmSans'],
     });
     for (const [language, fontIds] of Object.entries(PDF_FONT_IDS_BY_LANGUAGE)) {
       expect(fontIds).toContain(DEFAULT_PDF_FONT_ID_BY_LANGUAGE[language]);
@@ -62,6 +65,10 @@ describe('言語別PDF書体レジストリ', () => {
     expect(resolvePdfFont('gothic', 'bold', 'ru')).toMatchObject({
       fontId: 'golosText',
       file: 'GolosText-Bold.ttf',
+    });
+    expect(resolvePdfFont('gothic', 'bold', 'pt')).toMatchObject({
+      fontId: 'dmSans',
+      file: 'DMSans-Bold.ttf',
     });
     expect(resolvePdfFont('golosText', 'regular', 'ru')).toMatchObject({
       fontId: 'golosText',
@@ -96,7 +103,9 @@ describe('言語別の歌詞サイズ既定値', () => {
 
   it('タイ語だけ既定値を下げ、他言語は100%のままにする', () => {
     expect(getDefaultLyricSizePercent('th')).toBe(71);
-    for (const language of ['ja', 'en', 'zh-Hans', 'zh-Hant-TW', 'zh-Hant-HK', 'ko', 'vi', 'ru']) {
+    for (const language of [
+      'ja', 'en', 'zh-Hans', 'zh-Hant-TW', 'zh-Hant-HK', 'ko', 'vi', 'ru', 'pt', 'es', 'id',
+    ]) {
       expect(getDefaultLyricSizePercent(language)).toBe(100);
     }
   });
