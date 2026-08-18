@@ -2842,6 +2842,7 @@ select.text-input {
 }
 
 .changelog__kind {
+  justify-self: start;
   padding: 0.1em 0.5em;
   border-radius: 999px;
   font-size: 0.85em;
