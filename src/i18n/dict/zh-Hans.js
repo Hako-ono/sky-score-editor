@@ -292,6 +292,15 @@ export default {
         autosave: '编辑内容会自动保存在浏览器中，但可能因清除浏览器数据、隐私浏览或存储空间不足而丢失。需要保留的乐谱请用“保存 JSON”另存为设备上的文件。',
         disclaimer: '本工具由个人免费提供。不保证持续提供、正常运行或导出结果的准确性。除法律要求外，不对使用本工具造成的损失承担责任。',
       },
+      changelogSummary: '更新记录',
+      changelog: {
+        olderSummary: '更早的更新（{n} 条）',
+        kind: {
+          feature: '新功能',
+          improve: '改进',
+          fix: '修复',
+        },
+      },
       privacySummary: '隐私与本地存储',
       privacy: {
         processing: '读取的乐谱 JSON、PDF 背景图片以及用于读取设置的 QR 图片，都只在浏览器中处理，不会上传到服务器。',

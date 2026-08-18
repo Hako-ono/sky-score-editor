@@ -292,6 +292,15 @@ export default {
         autosave: 'Perubahan disimpan otomatis di browser, tetapi dapat hilang saat data browser dihapus, mode privat digunakan, atau penyimpanan penuh. Simpan partitur yang ingin dipertahankan sebagai file di perangkat dengan "Simpan JSON".',
         disclaimer: 'Alat ini disediakan gratis oleh perorangan. Ketersediaan, pengoperasian, dan keakuratan hasil ekspor secara terus-menerus tidak dijamin. Kecuali diwajibkan oleh hukum, kami tidak bertanggung jawab atas kerugian akibat penggunaan alat ini.',
       },
+      changelogSummary: 'Riwayat pembaruan',
+      changelog: {
+        olderSummary: 'Pembaruan sebelumnya ({n})',
+        kind: {
+          feature: 'Fitur baru',
+          improve: 'Peningkatan',
+          fix: 'Perbaikan',
+        },
+      },
       privacySummary: 'Privasi dan penyimpanan lokal',
       privacy: {
         processing: 'JSON partitur, gambar latar belakang PDF, dan gambar QR yang digunakan untuk memuat pengaturan diproses hanya di browser Anda. Data tersebut tidak diunggah ke server.',

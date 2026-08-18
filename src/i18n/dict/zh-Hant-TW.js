@@ -292,6 +292,15 @@ export default {
         autosave: '編輯內容會自動儲存在瀏覽器中，但可能因清除瀏覽器資料、私密瀏覽或儲存空間不足而遺失。需要保留的樂譜請用「儲存 JSON」另存為裝置上的檔案。',
         disclaimer: '本工具由個人免費提供。不保證持續提供、正常運作或匯出結果的準確性。除法律要求外，不對使用本工具造成的損失承擔責任。',
       },
+      changelogSummary: '更新紀錄',
+      changelog: {
+        olderSummary: '更早的更新（{n} 則）',
+        kind: {
+          feature: '新功能',
+          improve: '改善',
+          fix: '修正',
+        },
+      },
       privacySummary: '隱私與本機儲存',
       privacy: {
         processing: '讀取的樂譜 JSON、PDF 背景圖片以及用於讀取設定的 QR 圖片，都只在瀏覽器中處理，不會上傳到伺服器。',

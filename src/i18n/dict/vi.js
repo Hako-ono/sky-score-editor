@@ -293,6 +293,15 @@ export default {
         "autosave": "Nội dung chỉnh sửa được tự động lưu trong trình duyệt nhưng có thể mất do xóa dữ liệu, chế độ riêng tư hoặc thiếu dung lượng. Với bản nhạc cần giữ, hãy dùng “Lưu JSON” và lưu thêm tệp trên thiết bị.",
         "disclaimer": "Công cụ này do cá nhân cung cấp miễn phí. Không đảm bảo hoạt động liên tục hay độ chính xác của kết quả, và không chịu trách nhiệm cho thiệt hại phát sinh từ việc sử dụng, trừ khi pháp luật yêu cầu."
       },
+      "changelogSummary": "Nhật ký cập nhật",
+      "changelog": {
+        "olderSummary": "Cập nhật trước đó ({n})",
+        "kind": {
+          "feature": "Tính năng mới",
+          "improve": "Cải tiến",
+          "fix": "Sửa lỗi"
+        }
+      },
       "privacySummary": "Quyền riêng tư · lưu trên thiết bị",
       "privacy": {
         "processing": "JSON bản nhạc, ảnh nền PDF và ảnh QR để tải cài đặt đều chỉ được xử lý trong trình duyệt, không tải lên máy chủ.",

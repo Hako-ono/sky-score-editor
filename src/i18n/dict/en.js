@@ -292,6 +292,15 @@ export default {
         autosave: 'Edits are saved automatically in your browser, but can be lost when browser data is cleared, private browsing is used, or storage is full. Save scores you want to keep as a file on your device with “Save JSON”.',
         disclaimer: 'This tool is provided free of charge by an individual. Continuous availability, operation, and the accuracy of exported results are not guaranteed. Except where required by law, no liability is assumed for damage caused by using this tool.',
       },
+      changelogSummary: 'Changelog',
+      changelog: {
+        olderSummary: 'Earlier updates ({n})',
+        kind: {
+          feature: 'New',
+          improve: 'Improved',
+          fix: 'Fixed',
+        },
+      },
       privacySummary: 'Privacy and local storage',
       privacy: {
         processing: 'Loaded score JSON, PDF background images, and QR images used to load settings are processed only in your browser. They are not uploaded to a server.',

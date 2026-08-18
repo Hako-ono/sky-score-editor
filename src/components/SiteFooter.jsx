@@ -7,6 +7,11 @@ import {
 import { useLanguage, useT } from '../i18n/LanguageContext.jsx';
 import { replacePlaceholders } from '../i18n/replacePlaceholders.js';
 import { useMenuPosition } from '../hooks/useMenuPosition.js';
+import {
+  CHANGELOG,
+  CHANGELOG_VISIBLE_COUNT,
+  getChangelogText,
+} from '../constants/changelog.js';
 import globeIcon from '../assets/Globe_icon.svg';
 
 const LICENSE_URL = `${import.meta.env.BASE_URL}legal/THIRD_PARTY_NOTICES.txt`;
@@ -75,6 +80,22 @@ function SiteFooter({ hasDraft, onClearDraft }) {
     languageItemRefs.current[languages[nextIndex]]?.focus();
   };
 
+  const recentChangelog = CHANGELOG.slice(0, CHANGELOG_VISIBLE_COUNT);
+  const olderChangelog = CHANGELOG.slice(CHANGELOG_VISIBLE_COUNT);
+  const renderChangelogList = (entries) => (
+    <ul className="changelog">
+      {entries.map((entry) => (
+        <li key={entry.id} className="changelog__entry">
+          <time className="changelog__date" dateTime={entry.date}>{entry.date}</time>
+          <span className={`changelog__kind changelog__kind--${entry.kind}`}>
+            {t(`ui.siteFooter.changelog.kind.${entry.kind}`)}
+          </span>
+          <span className="changelog__text">{getChangelogText(entry, language)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+
   const selectedLanguageOption = LANGUAGE_OPTIONS.find(
     ({ value }) => value === languageSelection,
   ) ?? LANGUAGE_OPTIONS[0];
@@ -107,6 +128,23 @@ function SiteFooter({ hasDraft, onClearDraft }) {
             <li>{t('ui.siteFooter.usage.autosave')}</li>
             <li>{t('ui.siteFooter.usage.disclaimer')}</li>
           </ul>
+        </div>
+      </details>
+
+      <details className="site-footer__details">
+        <summary className="site-footer__summary">{t('ui.siteFooter.changelogSummary')}</summary>
+        <div className="site-footer__content">
+          {renderChangelogList(recentChangelog)}
+          {olderChangelog.length > 0 && (
+            <details className="site-footer__details site-footer__details--nested">
+              <summary className="site-footer__summary">
+                {t('ui.siteFooter.changelog.olderSummary', { n: olderChangelog.length })}
+              </summary>
+              <div className="site-footer__content">
+                {renderChangelogList(olderChangelog)}
+              </div>
+            </details>
+          )}
         </div>
       </details>
 

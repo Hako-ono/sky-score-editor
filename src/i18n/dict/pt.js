@@ -292,6 +292,15 @@ export default {
         autosave: 'As edições são salvas automaticamente no navegador, mas podem ser perdidas ao limpar os dados, usar navegação privada ou ficar sem espaço. Salve as partituras que deseja manter como arquivo no dispositivo usando "Salvar JSON".',
         disclaimer: 'Esta ferramenta é oferecida gratuitamente por uma pessoa física. Não há garantia de disponibilidade contínua, funcionamento ou precisão dos resultados exportados. Exceto quando exigido por lei, não assumimos responsabilidade por danos causados pelo uso desta ferramenta.',
       },
+      changelogSummary: 'Histórico de atualizações',
+      changelog: {
+        olderSummary: 'Atualizações anteriores ({n})',
+        kind: {
+          feature: 'Novidade',
+          improve: 'Melhoria',
+          fix: 'Correção',
+        },
+      },
       privacySummary: 'Privacidade e armazenamento local',
       privacy: {
         processing: 'O JSON da partitura carregada, as imagens de fundo do PDF e as imagens QR usadas para carregar configurações são processados somente no navegador. Eles não são enviados a um servidor.',

@@ -2807,6 +2807,76 @@ select.text-input {
   color: var(--text-muted);
 }
 
+/* 入れ子のdetailsは、外側と同じ枠が二重に見えないよう背景側へ寄せる */
+.site-footer__details--nested {
+  margin-top: 0.85rem;
+  background: var(--surface);
+}
+
+.site-footer__details--nested > .site-footer__summary {
+  font-weight: 500;
+}
+
+.changelog {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.changelog__entry {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 0.2rem 0.55rem;
+  margin-bottom: 0.6rem;
+}
+
+.changelog__entry:last-child {
+  margin-bottom: 0;
+}
+
+.changelog__date {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.changelog__kind {
+  padding: 0.1em 0.5em;
+  border-radius: 999px;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.changelog__kind--feature {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
+}
+
+.changelog__kind--improve {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success);
+}
+
+.changelog__kind--fix {
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--warning-active);
+}
+
+.changelog__text {
+  color: var(--text);
+}
+
+@media (max-width: 480px) {
+  .changelog__entry {
+    grid-template-columns: auto 1fr;
+  }
+
+  .changelog__text {
+    grid-column: 1 / -1;
+  }
+}
+
 .site-footer__note {
   margin-top: 0.85rem;
   overflow-wrap: anywhere;
