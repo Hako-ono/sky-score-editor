@@ -15,7 +15,9 @@ import {
   deriveScoreInfoMinWidthPt,
   expandBoundsToMinWidth,
   resolvePdfTempoValue,
+  selectPreviewPhysicalPageIndex,
 } from '../pdfExport.js';
+import { buildPdfPagePlan } from '../pdfFirstPage.js';
 import {
   PDF_PRESETS,
   PDF_SCORE_INFO_DESIGNS,
@@ -625,6 +627,50 @@ describe('buildSheetGeometry', () => {
     expect(right).toEqual({ x: geo.slotWidthPt, y: 0 });
     expect(geo.slotWidthPt).toBeCloseTo(geo.sheetWidthPt / 2, 6);
     expect(geo.slotHeightPt).toBe(geo.sheetHeightPt);
+  });
+});
+
+describe('selectPreviewPhysicalPageIndex', () => {
+  const single = buildSheetGeometry('single');
+  const double = buildSheetGeometry('double');
+
+  it('表紙なしは物理0（本文0を含む唯一のページ）', () => {
+    const plan = buildPdfPagePlan({
+      firstPageLayoutId: 'classic',
+      sheetGeometry: single,
+      coverGeometry: single,
+      logicalPageCount: 3,
+    });
+    expect(selectPreviewPhysicalPageIndex(plan)).toBe(0);
+  });
+
+  it('表紙あり＋1面付けは物理1（表紙の次の「2ページ目」）', () => {
+    const plan = buildPdfPagePlan({
+      firstPageLayoutId: 'cover',
+      sheetGeometry: single,
+      coverGeometry: single,
+      logicalPageCount: 2,
+    });
+    expect(plan[0].kind).toBe('cover');
+    expect(plan[0].bodySlots).toEqual([]);
+    expect(selectPreviewPhysicalPageIndex(plan)).toBe(1);
+  });
+
+  it('表紙あり＋2面付けは物理0（表紙と本文1ページ目が同居した1枚）', () => {
+    const plan = buildPdfPagePlan({
+      firstPageLayoutId: 'cover',
+      sheetGeometry: double,
+      coverGeometry: double,
+      logicalPageCount: 2,
+      coverIncludesFirstBodyPage: true,
+    });
+    expect(plan[0].kind).toBe('cover');
+    expect(plan[0].bodySlots).toEqual([{ slotIndex: 1, pageIndex: 0 }]);
+    expect(selectPreviewPhysicalPageIndex(plan)).toBe(0);
+  });
+
+  it('該当ページが1枚も無い場合は物理0へフォールバックする', () => {
+    expect(selectPreviewPhysicalPageIndex([{ kind: 'cover', bodySlots: [] }])).toBe(0);
   });
 });
 

@@ -665,6 +665,23 @@ export function normalizePngDpi(value) {
 }
 
 /**
+ * サイト内PDFプレビュー（`pdfPreview.js`）の自動更新オン/オフ。
+ * `pdfPrefs.js` の `defaults()`/`normalizePdfPrefs()`/`serializePdfPrefs()`
+ * が参照する。`EXTERNAL_GROUPS`（共有URL/QR）には含めない
+ * （`pngDpi` と同じ扱い）。
+ */
+export const DEFAULT_PREVIEW_AUTO_UPDATE = true;
+
+/**
+ * 明示的な `false` だけを `false` として扱う（それ以外はすべて既定値
+ * `true` へ寄せる）。こうすることで、このキーが無い旧保存値・旧下書きを
+ * 読んでも既定の `true` になる。
+ */
+export function normalizePreviewAutoUpdate(value) {
+  return value === false ? false : DEFAULT_PREVIEW_AUTO_UPDATE;
+}
+
+/**
  * 歌詞の既定サイズ割合を言語ごとに変える必要があるのは、タイ文字だけが
  * 上下に記号を積み重ねるためである。グリッド内で歌詞に使える高さは
  * 鍵盤セル下端(205)からグリッド枠下端(gridBaseHeight=275)までの70単位しかなく、

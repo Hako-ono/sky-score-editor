@@ -160,3 +160,14 @@ export function UndoIcon({ size = 18 }) {
 export function RedoIcon({ size = 18 }) {
   return <HistoryArrow size={size} flip />;
 }
+
+/** プレビューが最新であることを示すチェックマーク。直線2本のみで
+    構成し、曲線・円弧を使わない。 */
+export function CheckIcon({ size = 18 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+      <path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor"
+            strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

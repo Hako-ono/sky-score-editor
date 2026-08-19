@@ -598,6 +598,16 @@ export default function App() {
   }, []);
 
   // --- PDF 出力 ---
+  // backgroundImageはpdfPrefsと違いlocalStorageに保存しない値なので、
+  // ここでoptionsへ合流させるだけにして pdfPrefs 自体には混ぜない。
+  // PDF出力・PNG出力・サイト内プレビュー（PdfPreview.jsx）の3箇所が必ず
+  // 同一の式（同一の参照）を使うよう、ここへ一本化する。ここがずれると
+  // 「プレビューと出力が違う」不具合になる。
+  const pdfExportOptions = useMemo(
+    () => ({ ...pdfPrefs, language, backgroundImage, selectedLayer }),
+    [pdfPrefs, language, backgroundImage, selectedLayer],
+  );
+
   const handleExportPdf = useCallback(async () => {
     if (!hasData || isProcessing) return;
     setIsProcessing(true);
@@ -606,11 +616,9 @@ export default function App() {
     try {
       // PDF ライブラリ(jsPDF/svg2pdf)は重いので、必要になった時点で動的読み込みする
       const { exportPdf } = await import('./lib/pdfExport.js');
-      // backgroundImageはpdfPrefsと違いlocalStorageに保存しない値なので、
-      // ここでoptionsへ合流させるだけにして pdfPrefs 自体には混ぜない
       const result = await exportPdf(
         score,
-        { ...pdfPrefs, language, backgroundImage, selectedLayer },
+        pdfExportOptions,
         (msg) => showStatus(msg, 'loading', false),
       );
       showStatus(
@@ -625,7 +633,7 @@ export default function App() {
       setIsProcessing(false);
       setEditMode(prevEdit);
     }
-  }, [hasData, isProcessing, editMode, score, pdfPrefs, language, backgroundImage, selectedLayer, showStatus, t]);
+  }, [hasData, isProcessing, editMode, score, pdfExportOptions, showStatus, t]);
 
   const handleExportPng = useCallback(async () => {
     if (!hasData || isProcessing) return;
@@ -638,7 +646,7 @@ export default function App() {
       const { exportPng } = await import('./lib/pngExport.js');
       const result = await exportPng(
         score,
-        { ...pdfPrefs, language, backgroundImage, selectedLayer },
+        pdfExportOptions,
         (msg) => showStatus(msg, 'loading', false),
       );
       showStatus(t('ui.app.pngDownloaded', { filename: result.filename }), 'success');
@@ -648,7 +656,7 @@ export default function App() {
       setIsProcessing(false);
       setEditMode(prevEdit);
     }
-  }, [hasData, isProcessing, editMode, score, pdfPrefs, language, backgroundImage, selectedLayer, showStatus, t]);
+  }, [hasData, isProcessing, editMode, score, pdfExportOptions, showStatus, t]);
 
   const handleOpenPdfPreset = useCallback((nextMode) => {
     pdfPresetReturnFocusRef.current = document.activeElement;
@@ -682,6 +690,9 @@ export default function App() {
         <Toolbar
             hasData={hasData}
             isProcessing={isProcessing}
+            isPlaying={playbackState === 'playing'}
+            score={score}
+            pdfExportOptions={pdfExportOptions}
             editMode={editMode}
             canUndo={canUndo}
             canRedo={canRedo}

@@ -93,7 +93,9 @@ export default {
           accentLineLayer2: '按鍵邊框 2',
         },
         background: {
+          label: '背景圖片',
           select: '選擇背景圖片',
+          selectFile: '選擇檔案',
           changeOrRemove: '更換或移除背景圖片',
           previewAlt: '背景圖片預覽',
           change: '更換',
@@ -105,6 +107,17 @@ export default {
           contrast: '背景和文字色彩可能過於接近，難以閱讀。',
           mincho: '首次產生 PDF 時會載入約 8 MB。',
           lyricOverflow: '調大後，帶有上下疊加母音符號與聲調符號（สระ、วรรณยุกต์）的字元可能超出網格。預設值為 {percent}%。',
+        },
+        preview: {
+          open: '開啟放大檢視',
+          sync: '同步',
+          synced: '已是最新',
+          update: '更新',
+          updating: '更新中…',
+          stale: '設定已變更。點擊「更新」以重新整理。',
+          empty: '載入樂譜後將顯示預覽。',
+          failed: '預覽產生失敗。({message})',
+          qualityNote: '預覽的畫質低於實際的PDF。',
         },
         grid: {
           title: '網格',

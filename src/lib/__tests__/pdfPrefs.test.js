@@ -20,6 +20,7 @@ import {
   DEFAULT_KEY_MODE_NOTATION_ID,
   DEFAULT_PNG_DPI,
   PNG_DPI_OPTIONS,
+  DEFAULT_PREVIEW_AUTO_UPDATE,
   CUSTOM_PRESET_ID,
   pdfConfig,
   complementHex,
@@ -105,6 +106,7 @@ const DEFAULTS = {
   keyNotationId: DEFAULT_KEY_NOTATION_ID,
   keyModeNotationId: DEFAULT_KEY_MODE_NOTATION_ID,
   pngDpi: DEFAULT_PNG_DPI,
+  previewAutoUpdate: DEFAULT_PREVIEW_AUTO_UPDATE,
   pageNumberFormatId: 'currentTotal',
   pageNumberPositionId: 'bottomCenter',
   runningHeaderId: 'none',
@@ -150,6 +152,7 @@ describe('loadPdfPrefs', () => {
         keyNotationId: 'flat',
         keyModeNotationId: 'traditional',
         pngDpi: 96,
+        previewAutoUpdate: false,
         pageNumberFormatId: 'current',
         pageNumberPositionId: 'bottomOuter',
         runningHeaderId: 'title',
@@ -182,6 +185,7 @@ describe('loadPdfPrefs', () => {
       keyNotationId: 'flat',
       keyModeNotationId: 'traditional',
       pngDpi: 96,
+      previewAutoUpdate: false,
       pageNumberFormatId: 'current',
       pageNumberPositionId: 'bottomOuter',
       runningHeaderId: 'title',
@@ -272,6 +276,23 @@ describe('loadPdfPrefs', () => {
     for (const dpi of PNG_DPI_OPTIONS) {
       localStorage.setItem(PDF_PREFS_STORAGE_KEY, JSON.stringify({ pngDpi: dpi }));
       expect(loadPdfPrefs()).toEqual({ ...DEFAULTS, pngDpi: dpi });
+    }
+  });
+
+  it('previewAutoUpdateが無い旧データはtrueになる', () => {
+    localStorage.setItem(PDF_PREFS_STORAGE_KEY, JSON.stringify({ presetId: 'print' }));
+    expect(loadPdfPrefs().previewAutoUpdate).toBe(true);
+  });
+
+  it('previewAutoUpdate: falseは保たれる', () => {
+    localStorage.setItem(PDF_PREFS_STORAGE_KEY, JSON.stringify({ previewAutoUpdate: false }));
+    expect(loadPdfPrefs().previewAutoUpdate).toBe(false);
+  });
+
+  it('previewAutoUpdateの不正値は既定値（true）へ落ちる', () => {
+    for (const invalid of ['false', 0, null, {}, []]) {
+      localStorage.setItem(PDF_PREFS_STORAGE_KEY, JSON.stringify({ previewAutoUpdate: invalid }));
+      expect(loadPdfPrefs().previewAutoUpdate).toBe(true);
     }
   });
 
@@ -621,6 +642,7 @@ describe('savePdfPrefs', () => {
       keyNotationId: 'sharp',
       keyModeNotationId: 'english',
       pngDpi: 200,
+      previewAutoUpdate: false,
       pageNumberFormatId: 'current',
       pageNumberPositionId: 'bottomOuter',
       runningHeaderId: 'title',
@@ -656,6 +678,7 @@ describe('savePdfPrefs', () => {
       keyNotationId: 'sharp',
       keyModeNotationId: 'english',
       pngDpi: 200,
+      previewAutoUpdate: false,
       pageNumberFormatId: 'current',
       pageNumberPositionId: 'bottomOuter',
       runningHeaderId: 'title',

@@ -93,7 +93,9 @@ export default {
           accentLineLayer2: 'Borda da tecla pressionada 2',
         },
         background: {
+          label: 'Imagem de fundo',
           select: 'Escolher imagem de fundo',
+          selectFile: 'Escolher arquivo',
           changeOrRemove: 'Alterar ou remover imagem de fundo',
           previewAlt: 'Prévia da imagem de fundo',
           change: 'Alterar',
@@ -105,6 +107,17 @@ export default {
           contrast: 'As cores do fundo e do texto podem ficar parecidas demais para uma leitura fácil.',
           mincho: 'Cerca de 8 MB são carregados na primeira geração de PDF.',
           lyricOverflow: 'Valores maiores podem fazer caracteres com sinais diacríticos empilhados saírem da grade. O padrão é {percent}%.',
+        },
+        preview: {
+          open: 'Abrir visualização ampliada',
+          sync: 'Sincronização',
+          synced: 'Atualizado',
+          update: 'Atualizar',
+          updating: 'Atualizando…',
+          stale: 'As configurações mudaram. Toque em "Atualizar" para atualizar a pré-visualização.',
+          empty: 'A pré-visualização aparece após carregar uma partitura.',
+          failed: 'Falha ao gerar a pré-visualização. ({message})',
+          qualityNote: 'A pré-visualização tem qualidade inferior à do PDF real.',
         },
         grid: {
           title: 'Grade',

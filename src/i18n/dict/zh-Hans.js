@@ -93,7 +93,9 @@ export default {
           accentLineLayer2: '按键边框 2',
         },
         background: {
+          label: '背景图片',
           select: '选择背景图片',
+          selectFile: '选择文件',
           changeOrRemove: '更换或移除背景图片',
           previewAlt: '背景图片预览',
           change: '更换',
@@ -105,6 +107,17 @@ export default {
           contrast: '背景和文字颜色可能过于接近，难以阅读。',
           mincho: '首次生成 PDF 时会加载约 8 MB。',
           lyricOverflow: '调大后，带有上下叠加元音符号与声调符号（สระ、วรรณยุกต์）的字符可能超出网格。默认值为 {percent}%。',
+        },
+        preview: {
+          open: '打开放大视图',
+          sync: '同步',
+          synced: '已是最新',
+          update: '更新',
+          updating: '更新中…',
+          stale: '设置已更改。点击"更新"以刷新。',
+          empty: '加载乐谱后将显示预览。',
+          failed: '预览生成失败。({message})',
+          qualityNote: '预览的画质低于实际的PDF。',
         },
         grid: {
           title: '网格',

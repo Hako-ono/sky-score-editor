@@ -58,6 +58,7 @@ import { resolveColumnsPerPage } from '../lib/layout.js';
 import { getPdfFontIdsForLanguage, resolvePdfFont } from '../lib/pdfTypography.js';
 import { useMenuPosition } from '../hooks/useMenuPosition.js';
 import { ChevronIcon } from './icons.jsx';
+import PdfPreview from './PdfPreview.jsx';
 
 // カスタム配色の入力ラベルキー。簡易モードで見せる3つ（bg/ink/line）を先頭に置く
 // 順序にしてある。
@@ -144,6 +145,9 @@ function SegmentedRadioField({
 export default function Toolbar({
   hasData,
   isProcessing,
+  isPlaying,
+  score,
+  pdfExportOptions,
   editMode,
   canUndo,
   canRedo,
@@ -270,7 +274,6 @@ export default function Toolbar({
 
   const selectTab = (tab, shouldFocus = false) => {
     if (activeTab === 'pdf' && tab !== 'pdf') {
-      setImageMenuOpen(false);
       setExportMenuOpen(false);
     }
     setActiveTab(tab);
@@ -351,29 +354,9 @@ export default function Toolbar({
     themeItemRefs.current[preferences[nextIndex]]?.focus();
   };
 
-  // 背景画像プレビューの「変更」「外す」メニュー。プレビューアイコンを
-  // タップして開閉する（以前は常時ボタン2つを並べていた）
+  // 背景画像の「選ぶ」「変更」「外す」で使う隠しinput。サムネイルは
+  // プレビュー列（PdfPreview.jsx）へ移行したため、この列には平ボタンだけ置く。
   const bgFileInputRef = useRef(null);
-  const imageMenuRef = useRef(null);
-  const [imageMenuOpen, setImageMenuOpen] = useState(false);
-
-  useEffect(() => {
-    if (!imageMenuOpen) return undefined;
-    const handleOutsideClick = (e) => {
-      if (imageMenuRef.current && !imageMenuRef.current.contains(e.target)) {
-        setImageMenuOpen(false);
-      }
-    };
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') setImageMenuOpen(false);
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [imageMenuOpen]);
 
   // 出力形式の切り替えはスプリットボタン1つに畳んである。ボタンを2つ並べると
   // モバイルで縦に積まれ、表示領域を余計に食うため。
@@ -926,9 +909,99 @@ export default function Toolbar({
               hidden={!isPdfSectionOpen('design')}
             >
             <div className="toolbar__design-grid">
-            <div className="toolbar__design-column toolbar__design-column--colors">
+            <div className="toolbar__design-column toolbar__design-column--preview">
+              <PdfPreview
+                score={score}
+                options={pdfExportOptions}
+                active={activeTab === 'pdf' && isPdfSectionOpen('design')}
+                isPlaying={isPlaying}
+                isProcessing={isProcessing}
+                hasData={hasData}
+                onToggleAutoUpdate={(previewAutoUpdate) =>
+                  onSetPdfPrefs({ ...pdfPrefs, previewAutoUpdate })
+                }
+              />
+            </div>
+
+            <div className="toolbar__design-column toolbar__design-column--background">
             <h3 className="toolbar__subsection-title">{t('ui.toolbar.pdf.colorsAndBackground')}</h3>
           <div className="toolbar__appearance-basics">
+            {/* 背景画像は背景色の上に重ねて描かれ、見え方が配色と一体で
+                決まるため、書体や面付けではなく配色設定として扱う */}
+            <div
+              className={`toolbar__background-controls${backgroundImage ? '' : ' toolbar__background-controls--empty'}`}
+            >
+              <div className="toolbar__group field field--stack field--compact toolbar__background-field">
+                {/* htmlFor を付けない。付けると見出しの文字をクリックしただけで
+                    ファイル選択画面が開いてしまう（隠しinputが関連付けの相手に
+                    なるため）。実際の操作は下のボタンが受け持つ */}
+                <label>{t('ui.toolbar.pdf.background.label')}</label>
+                {/* 常に1つだけ存在する隠しinput。「選ぶ」ボタンと、画像がある
+                    ときの「変更」ボタンの両方からrefで開く */}
+                <input
+                  ref={bgFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onLoadBackgroundImage(file);
+                    e.target.value = '';
+                  }}
+                  hidden
+                />
+                {!backgroundImage && (
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm pdf-bg-control"
+                    onClick={() => bgFileInputRef.current?.click()}
+                    aria-label={t('ui.toolbar.pdf.background.select')}
+                  >
+                    {t('ui.toolbar.pdf.background.selectFile')}
+                  </button>
+                )}
+                {backgroundImage && (
+                  <div className="toolbar__background-buttons pdf-bg-control">
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      onClick={() => bgFileInputRef.current?.click()}
+                    >
+                      {t('ui.toolbar.pdf.background.change')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      onClick={onRemoveBackgroundImage}
+                    >
+                      {t('ui.toolbar.pdf.background.remove')}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {backgroundImage && (
+                <div className="toolbar__group field field--stack field--compact toolbar__background-opacity">
+                  <div className="pdf-range-label">
+                    <label htmlFor="pdf-bg-opacity">{t('ui.toolbar.pdf.background.opacity')}</label>
+                    <output id="pdf-bg-opacity-value" htmlFor="pdf-bg-opacity">
+                      {Math.round(backgroundImageOpacity * 100)}%
+                    </output>
+                  </div>
+                  <input
+                    id="pdf-bg-opacity"
+                    type="range"
+                    className="pdf-range-input pdf-range-input--fluid"
+                    min={BACKGROUND_IMAGE_OPACITY_MIN}
+                    max={BACKGROUND_IMAGE_OPACITY_MAX}
+                    step={BACKGROUND_IMAGE_OPACITY_STEP}
+                    value={backgroundImageOpacity}
+                    aria-describedby="pdf-bg-opacity-value"
+                    onChange={(e) => onSetBackgroundImageOpacity(Number(e.target.value))}
+                  />
+                </div>
+              )}
+            </div>
+
             <div className="toolbar__group field field--stack field--compact toolbar__palette-field">
                 <label htmlFor="pdf-preset">{t('ui.pdfPreset.diff.presetId')}</label>
               <select
@@ -958,10 +1031,13 @@ export default function Toolbar({
                 </optgroup>
               </select>
             </div>
+          </div>
+          </div>
 
+          <div className="toolbar__design-column toolbar__design-column--colors">
             <div className="toolbar__palette-panel">
               <div className="toolbar__palette-panel-header">
-                <h3>{t('ui.toolbar.pdf.colors')}</h3>
+                <h3 className="toolbar__subsection-title">{t('ui.toolbar.pdf.colors')}</h3>
                 {isCustomPreset && (
                   <div className="toolbar__palette-actions">
                     <button
@@ -1046,108 +1122,6 @@ export default function Toolbar({
                 ))}
               </div>
             </div>
-
-            {/* 背景画像は背景色の上に重ねて描かれ、見え方が配色と一体で
-                決まるため、書体や面付けではなく配色設定として扱う */}
-            <div
-              className={`toolbar__background-controls${backgroundImage ? '' : ' toolbar__background-controls--empty'}`}
-            >
-              <div className="toolbar__group field field--stack field--compact toolbar__background-field">
-                {/* htmlFor を付けない。付けると見出しの文字をクリックしただけで
-                    ファイル選択画面が開いてしまう（隠しinputが関連付けの相手に
-                    なるため）。実際の操作は下のボタンとメニューが受け持つ */}
-                {/* 常に1つだけ存在する隠しinput。「選ぶ」ボタンと、画像がある
-                    ときのメニュー内「変更」の両方からrefで開く */}
-                <input
-                  ref={bgFileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) onLoadBackgroundImage(file);
-                    e.target.value = '';
-                  }}
-                  hidden
-                />
-                {!backgroundImage && (
-                  <button
-                    type="button"
-                    className="btn btn--ghost btn--sm pdf-bg-control"
-                    onClick={() => bgFileInputRef.current?.click()}
-                    aria-label={t('ui.toolbar.pdf.background.select')}
-                  >
-                    {t('ui.toolbar.pdf.background.select')}
-                  </button>
-                )}
-                {backgroundImage && (
-                  <div
-                    className={`pdf-bg-menu pdf-bg-menu--${pdfPrefs.sheetLayoutId === 'double' ? 'double' : 'single'} pdf-bg-control`}
-                    ref={imageMenuRef}
-                  >
-                    <button
-                      type="button"
-                      className="pdf-bg-menu__trigger"
-                      onClick={() => setImageMenuOpen((v) => !v)}
-                      aria-haspopup="true"
-                      aria-expanded={imageMenuOpen}
-                      aria-label={t('ui.toolbar.pdf.background.changeOrRemove')}
-                    >
-                      <img src={backgroundImage.dataUrl} alt={t('ui.toolbar.pdf.background.previewAlt')} />
-                    </button>
-                    {imageMenuOpen && (
-                      <div className="pdf-bg-menu__panel" role="menu">
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className="pdf-bg-menu__item"
-                          onClick={() => {
-                            setImageMenuOpen(false);
-                            bgFileInputRef.current?.click();
-                          }}
-                        >
-                          {t('ui.toolbar.pdf.background.change')}
-                        </button>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className="pdf-bg-menu__item"
-                          onClick={() => {
-                            setImageMenuOpen(false);
-                            onRemoveBackgroundImage();
-                          }}
-                        >
-                          {t('ui.toolbar.pdf.background.remove')}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {backgroundImage && (
-                <div className="toolbar__group field field--stack field--compact toolbar__background-opacity">
-                  <div className="pdf-range-label">
-                    <label htmlFor="pdf-bg-opacity">{t('ui.toolbar.pdf.background.opacity')}</label>
-                    <output id="pdf-bg-opacity-value" htmlFor="pdf-bg-opacity">
-                      {Math.round(backgroundImageOpacity * 100)}%
-                    </output>
-                  </div>
-                  <input
-                    id="pdf-bg-opacity"
-                    type="range"
-                    className="pdf-range-input pdf-range-input--fluid"
-                    min={BACKGROUND_IMAGE_OPACITY_MIN}
-                    max={BACKGROUND_IMAGE_OPACITY_MAX}
-                    step={BACKGROUND_IMAGE_OPACITY_STEP}
-                    value={backgroundImageOpacity}
-                    aria-describedby="pdf-bg-opacity-value"
-                    onChange={(e) => onSetBackgroundImageOpacity(Number(e.target.value))}
-                  />
-                </div>
-              )}
-            </div>
-
-          </div>
 
           {/* トースト通知にすると自動で消えてしまう。配色・書体は選んだ後も
               効き続ける前提なので、選択が変わらない限り常時見えてよい */}

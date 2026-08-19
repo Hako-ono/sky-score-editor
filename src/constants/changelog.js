@@ -8,6 +8,15 @@
 // kind は 'feature' | 'improve' | 'fix' の3種。表示名は辞書側にある。
 export const CHANGELOG = [
   {
+    id: 'pdf-preview',
+    date: '2026-08-19',
+    kind: 'feature',
+    text: {
+      ja: '楽譜のサイト内プレビュー機能を追加しました。',
+      en: 'Added an in-site preview for the generated PDF.',
+    },
+  },
+  {
     id: 'png-export',
     date: '2026-08-18',
     kind: 'feature',
@@ -27,7 +36,7 @@ export const CHANGELOG = [
   },
   {
     id: 'lang-th-vi-ru',
-    date: '2026-08-18',
+    date: '2026-08-17',
     kind: 'feature',
     text: {
       ja: 'タイ語・ベトナム語・ロシア語に対応しました。',
@@ -36,7 +45,7 @@ export const CHANGELOG = [
   },
   {
     id: 'lang-en-ko-zh',
-    date: '2026-08-17',
+    date: '2026-08-16',
     kind: 'feature',
     text: {
       ja: '英語・韓国語・中国語（簡体字／繁体字）に対応しました。',

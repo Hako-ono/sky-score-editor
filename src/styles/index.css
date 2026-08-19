@@ -303,15 +303,361 @@ body {
   display: none;
 }
 
+/* 4分割レイアウト（プレビュー／背景／使用色／グリッド）。DOM順を表示順と
+   一致させ、order による並べ替えを使わない。そうすればモバイルの縦積みが
+   そのまま「プレビューが一番上」になる。 */
 .toolbar__design-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(12rem, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   min-width: 0;
 }
 
+@media (min-width: 641px) and (max-width: 959px) {
+  .toolbar__design-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .toolbar__design-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .toolbar__design-column {
   min-width: 0;
+}
+
+.pdf-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* 同期トグルは左、状態表示ボタンは右（プレビュー枠の右端に揃える）。
+   .pdf-preview__frameと同じ幅の.pdf-previewの直下にあるため、
+   justify-content: space-betweenだけでボタンの右端が枠の右端と揃う。 */
+.pdf-preview__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+/* 同期トグル（34x19pxのスイッチ）。ラベルはアイコンなしのテキストのみ。ネイティブの
+   checkboxをそのままトラックとして描き（appearance:noneでリセット）、
+   ::afterをつまみにする。role="switch"はネイティブcheckboxのchecked状態
+   から自動的にaria-checked相当を伝えるが、念のためaria-checkedも明示する
+   （PdfPreview.jsx）。 */
+.pdf-preview__sync-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding-block: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.pdf-preview__sync-toggle input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 19px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.pdf-preview__sync-toggle input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+
+.pdf-preview__sync-toggle input[type='checkbox']:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.pdf-preview__sync-toggle input[type='checkbox']:checked::after {
+  transform: translateX(15px);
+}
+
+.pdf-preview__sync-toggle input[type='checkbox']:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+/* ラベルの入れ替わり（最新／更新／更新中…）で幅が動かないよう固定する。 */
+.pdf-preview__status-button {
+  min-width: 88px;
+}
+
+@keyframes pdf-preview-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pdf-preview__spinner {
+  width: 0.8em;
+  height: 0.8em;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  opacity: 0.7;
+  animation: pdf-preview-spin 0.8s linear infinite;
+}
+
+.pdf-preview__quality-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+/* ?debug=1 のときだけ表示される、生成しない条件の切り分け用テキスト
+   （.debug-overlayと同じ等幅フォントの流儀）。 */
+.pdf-preview__debug-note {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.65rem;
+}
+
+/* 楽譜未読込でも読み込み後と同じ大きさの枠を出す。
+   枠（.pdf-preview__frame）は面付け（sheetLayoutId）を切り替えても
+   デザインセクションの高さが変わらないよう、常に横向き（2面付け）相当の
+   比率で固定する（縦向きにすると横向きの約2倍の高さになり、セクション
+   全体が伸びてしまっていた）。実際の紙面（.pdf-preview__content）は
+   真の比率のまま、この枠の中いっぱいまでletterboxで収める（面付けに
+   応じて枠の大きさそのものを変える案は、1面付けで紙面と背景の境界が
+   分からなくなるため撤回した）。
+   枠自体の大きさは常に2面付けの紙面と同じ大きさなので、破線でその外形も
+   重ねて示す（1面付けのときに「2面付けにするとどれだけ
+   紙面が大きくなるか」の目安をここで見せたい）。2面付けのときは
+   .pdf-preview__contentの実線の枠とちょうど重なる。
+   寸法の元になる数値は pdfConfig から JS側（PdfPreview.jsx）で求め、
+   ここで数値を先取りして書かない。クリック（タップ）で拡大表示
+   （PdfPreviewOverlay.jsx）を開くため <button> にしている。 */
+.pdf-preview__frame {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 6px;
+  /* 紙面（.pdf-preview__content、--surface＝ツールバー自体と同じ白）
+     ではない部分＝背景であることが1面付けのletterbox部分でも分かる
+     よう、地の色を敷く。--surface-2ではツールバー
+     （.toolbar、--surface）との差が薄すぎて分からなかったため、
+     ページ自体の背景色である--bgを使い、はっきり沈んだ色にする。 */
+  background: var(--bg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.pdf-preview__frame:disabled {
+  cursor: default;
+}
+
+/* 楽譜未読込時は紙面（.pdf-preview__content）も含めて枠全体を
+   グレーアウトする。文言（.pdf-preview__overlay）だけは
+   可読性のため対象から外す。 */
+.pdf-preview__frame--empty > *:not(.pdf-preview__overlay) {
+  opacity: 0.35;
+}
+
+.pdf-preview__frame:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+/* 紙面そのものの境界を示す箱。枠の中で実際の用紙比を保ったまま最大限に
+   収める（letterbox）。position:absolute + inset:0 + margin:autoで枠から
+   完全に浮かせたうえでmax-width/max-height:100%とaspect-ratioの組み合わせ
+   により両方向の制約を同時に満たす大きさへブラウザ側で解決させる
+   （imgのobject-fit: containと同じ仕組み）。
+   以前はflexアイテム（align-items:centerで中央寄せ）として実装していたが、
+   ・flexの中身のサイズ解決はcanvas（display:blockの子要素）の既定サイズ
+   （楽譜未読込でまだ一度も描画していないと300x150になる）に引きずられ、
+   楽譜未読込・1面付けのときだけ紙面の境界線が描画されない不具合があった
+   ・aspect-ratioの既定min-height:autoにより枠自体の高さが押し広げられる
+   不具合（1面付けで高さが伸びる）も繰り返し再発していた
+   flexから外し通常のフローに参加させないことで、中身（canvas）の
+   intrinsicサイズにも枠の高さにも一切影響されない、この箱単体で完結した
+   サイズ解決にした。 */
+.pdf-preview__content {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+/* 2面付け（横向き）はcontentの真の比率が.pdf-preview__frameの比率
+   （常に横向き固定、上のコメント参照）と厳密に一致する。この「入れ子の
+   aspect-ratioが親と完全一致する」組み合わせで、一部環境のcanvasが1x0
+   近くまで潰れる不具合が実機で発生したため、この場合はaspect-ratioに
+   頼らずwidth/height:100%で直接フレーム全体を埋める（PdfPreview.jsx）。 */
+.pdf-preview__content--fill {
+  width: 100%;
+  height: 100%;
+}
+
+.pdf-preview__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.15s ease;
+}
+
+/* 生成中は前のプレビューを表示したまま薄くする。真っ白にすると
+   スライダー操作のたびにちらつくため。 */
+.pdf-preview__canvas--loading {
+  opacity: 0.4;
+}
+
+/* 直近生成時と面付け（1面付け/2面付け）が変わったときは、canvasの中身
+   （古い向きのまま描かれた画像）を新しい向きの枠へ引き伸ばして見せない
+   よう完全に隠す。同じ向きのまま更新中の--loadingとは違い、薄く見せると
+   歪んだ画像がそれと分かる形で見えてしまうため。 */
+.pdf-preview__canvas--hidden {
+  opacity: 0;
+}
+
+.pdf-preview__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.pdf-preview__overlay--error {
+  color: var(--danger);
+}
+
+/* PDFプレビューの拡大表示（PdfPreviewOverlay.jsx）。.grid-overlay と同じ
+   2層構造（ルートは背景、内側の__viewportだけがvisualViewportに追従）・
+   同じ背景色・同じz-indexの段にする（GridOverlay.jsx参照）。 */
+.pdf-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100; /* .app__sticky-header が 20、.grid-overlay と同じ段 */
+  overflow: hidden;
+  background: color-mix(in srgb, #000 55%, transparent);
+  overscroll-behavior: contain;
+  --close-size: 2.75rem;
+  --close-inset: 0.75rem;
+}
+
+.pdf-preview-overlay__viewport {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  box-sizing: border-box;
+}
+
+/* stageは「使える領域いっぱいの、確定した大きさを持つ箱」にする
+   （面付けに応じて比率を固定しない）。width/heightを100%にせず
+   max-width/max-height:100%だけにすると、大きさの基準がcanvas側の
+   aspect-ratio頼みになって循環し（stageはcanvasに合わせて縮もうとし、
+   canvasはstageの100%を基準に大きさを決めようとする）、ブラウザにより
+   1面付けが画面をはみ出す・2面付けが小さくなりすぎる・枠が動かない等の
+   不具合になる。stageの大きさをここで確定させ、その中でcanvas側の
+   aspect-ratioがcontain-fitする（imgのobject-fit:containと同じ仕組み）
+   という順序にすることで、初期表示が常に「画像の高さか横幅のどちらかが
+   画面いっぱいになった状態」になる。 */
+.pdf-preview-overlay__stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  /* ピンチ・パンをブラウザ任せにしない（.grid-overlay と違い、この面は
+     縦方向の既定スクロールも持たない）。自前実装のtransformだけで動かす。 */
+  touch-action: none;
+}
+
+.pdf-preview-overlay__canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  will-change: transform;
+}
+
+/* 常時表示ではなく、画像へのシングルタップ／クリックでフェードイン・
+   フェードアウトするボタンにする（画面いっぱいに拡大した
+   画像の上に常時ボタンがあると邪魔になるため）。 */
+.pdf-preview-overlay__close {
+  position: absolute;
+  top: var(--close-inset);
+  right: var(--close-inset);
+  width: var(--close-size);
+  height: var(--close-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, #000 55%, transparent);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.pdf-preview-overlay__close--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pdf-preview-overlay__close svg path {
+  stroke-width: 3;
+}
+
+.pdf-preview-overlay__close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #fff 55%, transparent);
 }
 
 .toolbar__subsection-title {
@@ -407,10 +753,12 @@ body {
   background: var(--border);
 }
 
+/* 背景列（--background）の中身を縦に積むだけの薄いラッパー。列が分かれた
+   今は「配色プリセット＋背景画像」を横並びにする理由が無いため、
+   幅に応じて列数を変える旧来のgridではなく常に1列のstackにする。 */
 .toolbar__appearance-basics {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
+  display: flex;
+  flex-direction: column;
   gap: 0.7rem;
   min-width: 0;
 }
@@ -423,10 +771,10 @@ body {
   min-width: 0;
 }
 
-.toolbar__grid-style-select {
-  max-width: 14rem;
-}
-
+/* 以前は横並びの2カラムだった名残でmax-width: 14remの上限を持っていたが、
+   今は常に1列（.toolbar__grid-style-controls）なので他の列の
+   ドロップダウン（配色など）と同様、幅いっぱいに伸ばしてよい
+   （デスクトップ幅で不自然に狭かった）。 */
 .toolbar__grid-style-select .text-input {
   width: 100%;
   min-width: 0;
@@ -640,16 +988,11 @@ body {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
-.toolbar__palette-field {
-  order: 1;
-}
-
 .toolbar__pdf-font {
   order: 2;
 }
 
 .toolbar__background-controls {
-  order: 3;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -664,12 +1007,21 @@ body {
   width: 100%;
 }
 
+/* 「変更」「外す」の平ボタン2つ。以前はサムネイル1つがメニューの開閉
+   トリガーを兼ねていたが、サムネイルはプレビュー列（PdfPreview.jsx）へ
+   移行したため、単純な横並びボタンに置き換えた。 */
+.toolbar__background-buttons {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.toolbar__background-buttons .btn {
+  flex: 1 1 0;
+}
+
 .toolbar__palette-panel {
-  order: 4;
-  grid-column: 1 / -1;
   min-width: 0;
-  padding-top: 0.7rem;
-  border-top: 1px solid var(--border);
 }
 
 .toolbar__palette-panel-header {
@@ -685,7 +1037,16 @@ body {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.78rem;
+}
+
+.toolbar__palette-panel-header h3 {
   font-weight: 600;
+}
+
+/* 「基本色」「詳細色」は他のフィールドラベル（.field label）と太さを揃える
+   （h4の既定の太字のままだと他のラベルより目立ちすぎていた）。 */
+.toolbar__palette-group h4 {
+  font-weight: 500;
 }
 
 .toolbar__palette-actions {
@@ -696,9 +1057,12 @@ body {
   min-width: 0;
 }
 
+/* 基本色・詳細色は横並びではなく縦並び（モバイル表示と同じ形）。使用色列
+   （--colors）は他の列と同じ幅しかなく、横2列では8色のカスタム配色
+   （2レイヤー時）で色見本とラベルが潰れるため。 */
 .toolbar__palette-groups {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.7rem;
   margin-top: 0.55rem;
   min-width: 0;
@@ -950,10 +1314,6 @@ body {
     grid-column: 1 / -1;
   }
 
-  .toolbar__appearance-basics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .toolbar__layout-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -966,10 +1326,6 @@ body {
 @media (min-width: 641px) {
   .toolbar__background-controls--empty {
     justify-content: flex-end;
-  }
-
-  .toolbar__background-field .pdf-bg-menu {
-    align-self: center;
   }
 
   .toolbar__background-opacity.field--stack {
@@ -987,24 +1343,8 @@ body {
 }
 
 @media (min-width: 960px) {
-  .toolbar__appearance-basics {
-    grid-template-columns: minmax(12rem, 16rem) minmax(17rem, 1fr);
-  }
-
-  .toolbar__palette-field {
-    grid-column: auto;
-  }
-
   .toolbar__background-opacity.field--stack {
     flex-wrap: nowrap;
-  }
-
-  .toolbar__background-controls .pdf-bg-menu--single {
-    width: min(5.5rem, 100%);
-  }
-
-  .toolbar__background-controls .pdf-bg-menu--double {
-    width: min(11rem, 100%);
   }
 }
 
@@ -1100,7 +1440,7 @@ body {
 
 .pdf-note {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
 }
 
@@ -1110,10 +1450,10 @@ body {
   color: var(--warning);
 }
 
-/* 背景画像のプレビュー兼メニュー起点。「変更」「外す」を常時ボタンで
-   並べる代わりに、プレビューをタップして開くメニューにまとめている。
-   2面付けを親幅いっぱい、1面付けをその半幅にすると、A4横・A4縦の比率でも
-   高さが一致する。data:URLをそのまま<img>に渡し、現行CSPのdata:許可内に保つ。 */
+/* 背景画像が無いときの「選ぶ」ボタン。画像があるときの「変更」「外す」の
+   ボタン列（.toolbar__background-buttons）にも同じクラスを付け、
+   background-controls（中央寄せ）の中で列幅いっぱいに広げる。
+   サムネイル表示はプレビュー列（PdfPreview.jsx）へ移行した。 */
 .pdf-bg-control {
   align-self: stretch;
 }
@@ -1121,86 +1461,6 @@ body {
 .toolbar__background-field > .btn.pdf-bg-control {
   width: auto;
   align-self: center;
-}
-
-.pdf-bg-menu {
-  position: relative;
-  max-width: 100%;
-}
-
-.pdf-bg-menu--single {
-  width: 50%;
-}
-
-.pdf-bg-menu--double {
-  width: 100%;
-}
-
-.pdf-bg-menu__trigger {
-  display: block;
-  width: 100%;
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  cursor: pointer;
-}
-
-.pdf-bg-menu--single .pdf-bg-menu__trigger {
-  aspect-ratio: 210 / 297;
-}
-
-.pdf-bg-menu--double .pdf-bg-menu__trigger {
-  aspect-ratio: 297 / 210;
-}
-
-.pdf-bg-menu__trigger img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.pdf-bg-menu__panel {
-  position: absolute;
-  top: calc(100% + 0.25rem);
-  left: 0;
-  z-index: 5;
-  display: flex;
-  flex-direction: column;
-  min-width: 6rem;
-  padding: 0.25rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  max-width: calc(100vw - 1rem);
-  max-height: calc(100vh - 1rem);
-  max-height: calc(100dvh - 1rem);
-  overflow-y: auto;
-  transform: translate(var(--menu-shift, 0px), var(--menu-y-shift, 0px));
-}
-
-.pdf-bg-menu__item {
-  padding: 0.4rem 0.6rem;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: var(--text);
-  font-size: 0.85rem;
-  text-align: left;
-  cursor: pointer;
-}
-
-/* 「変更」「外す」とも同じ通常色で反応させる（以前は「外す」だけ赤く
-   していた）。パネルの地は --surface のため、--surface-2 では
-   明色テーマで見分けが付かない（#ffffff と #f8f9fc）。ボタンの hover と
-   同じく --primary を少し混ぜた色にして、どちらの項目でも変化が分かるようにする */
-.pdf-bg-menu__item:hover,
-.pdf-bg-menu__item:focus-visible {
-  background: color-mix(in srgb, var(--primary) 10%, var(--surface-2));
-  outline: none;
 }
 
 /* 出力形式のスプリットボタン。ボタンを2つ並べる案はモバイルで縦に積まれて
@@ -1244,13 +1504,10 @@ body {
 }
 
 .export-split__item:hover,
-.export-split__item:focus-visible {
+.export-split__item:focus-visible,
+.export-split__item[aria-checked='true'] {
   background: color-mix(in srgb, var(--primary) 10%, var(--surface-2));
   outline: none;
-}
-
-.export-split__item[aria-checked='true'] {
-  font-weight: 700;
 }
 
 .theme-menu,
@@ -2080,10 +2337,6 @@ select.text-input {
     width: 100%;
   }
 
-  .toolbar__design-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .toolbar__settings-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2121,16 +2374,11 @@ select.text-input {
   }
 
   .toolbar__appearance-basics {
-    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
   }
 
   .toolbar__grid-style-controls {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .toolbar__grid-style-select {
-    max-width: none;
   }
 
   .toolbar__grid-style-custom-groups {
@@ -2139,10 +2387,6 @@ select.text-input {
 
   .toolbar__background-field {
     align-self: stretch;
-  }
-
-  .toolbar__background-field .pdf-bg-menu {
-    align-self: center;
   }
 
   .toolbar__background-controls {
@@ -2181,10 +2425,6 @@ select.text-input {
 
   .toolbar__palette-actions .btn {
     flex: 1 1 auto;
-  }
-
-  .toolbar__palette-groups {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .toolbar__palette-strip {
@@ -2657,7 +2897,8 @@ select.text-input {
     transition: none !important;
   }
   .status-bar--toast,
-  .edit-exit-fab {
+  .edit-exit-fab,
+  .pdf-preview__spinner {
     animation: none;
   }
 }
@@ -2842,6 +3083,7 @@ select.text-input {
 }
 
 .changelog__kind {
+  /* Gridの既定のstretchだと、幅の広い列に入ったとき背景が列幅まで伸びる */
   justify-self: start;
   padding: 0.1em 0.5em;
   border-radius: 999px;

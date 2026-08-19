@@ -1598,6 +1598,22 @@ function openOrDownloadPdfBlob(blob, filename) {
 }
 
 /**
+ * previewOnly が描く物理ページを1枚選ぶ。「bodySlots に pageIndex === 0 を
+ * 含む最初の物理ページ」という1行の規則を、呼び出し側で `sheetLayoutId` /
+ * `firstPageLayoutId` を見て分岐する形にしない（規則が2箇所に散ると必ず
+ * 食い違うため）ための純関数。表紙なし／表紙＋1面付け／表紙＋2面付けの
+ * いずれでも、この規則1本で正しい物理ページが選べる。
+ * @param {Array<{ bodySlots?: Array<{ pageIndex: number }> }>} pagePlan
+ * @returns {number} 見つからない場合は0（`grids` が空のときは呼び出し元の
+ *          `buildPdfBlob` が先に拒否するため、通常は起こらない）。
+ */
+export function selectPreviewPhysicalPageIndex(pagePlan) {
+  const index = pagePlan.findIndex((physicalPage) =>
+    (physicalPage.bodySlots ?? []).some((slot) => slot.pageIndex === 0));
+  return index === -1 ? 0 : index;
+}
+
+/**
  * PDF を生成して新規タブでプレビュー / もしくはダウンロード。
  * @param {{ grids: Array, title: string, bpm: number, author: string,
  *          lyricist: string, transcribedBy: string, bitsPerPage: number,
@@ -1638,6 +1654,10 @@ function openOrDownloadPdfBlob(blob, filename) {
  *          この組み立てを「2段のうちの1段目」として見せるため差し替える
  *          （`pngExport.js`）。既定値は従来のPDF向け文言で、`exportPdf` から
  *          見た挙動は変わらない。
+ * @param {boolean} [previewOnly] true のとき、描画する物理ページを
+ *          `selectPreviewPhysicalPageIndex` が選ぶ1枚だけに絞る
+ *          （`pdfPreview.js` からのみ使う想定）。省略時は従来どおり全ページを
+ *          描き、挙動は一切変わらない。
  * @returns {Promise<{ filename: string, blob: Blob }>}
  */
 export async function buildPdfBlob(
@@ -1645,6 +1665,7 @@ export async function buildPdfBlob(
   options,
   onProgress = () => {},
   pageProgressKey = 'ui.progress.pageGenerating',
+  previewOnly = false,
 ) {
   const { grids, bitsPerPage } = score;
   if (!grids || grids.length === 0) {
@@ -1734,32 +1755,13 @@ export async function buildPdfBlob(
   const coverIncludesFirstBodyPage =
     firstPage.firstPageLayoutId === 'cover' && sheetLayoutId === 'double';
 
-  // 3000グリッドではSVG由来の反復描画命令がPDFの大半を占めるため、内容
-  // ストリームを圧縮する。描画順や座標には影響しない。
-  const doc = new jsPDF({
-    orientation: firstPage.firstPageLayoutId === 'cover'
-      ? coverGeometry.orientation
-      : sheetGeometry.orientation,
-    unit: 'pt',
-    format: 'a4',
-    compress: true,
-  });
-  try {
-    doc.addFileToVFS(font.file, fontBase64);
-    doc.addFont(font.file, font.name, 'normal');
-  } catch (err) {
-    // addFont の検証(TTFFont.open)が投げた場合、fontCache には検証前の
-    // base64 が残ったままになる。次回呼び出しでも同じ壊れた値を返し続けない
-    // よう、キャッシュを空に戻してから再スローする
-    fontCache = { file: null, base64: null };
-    throw err;
-  }
-  doc.setFont(font.name);
-
   // layout は「論理ページ（=スロット）1つぶん」の座標系。1面付けなら
   // スロット=用紙全体で従来と同一。2面付けなら用紙を左右に割った
   // スロット1つぶんの大きさになり、全スロット・全ページで共通の1つの
   // layoutを使い回す（不変条件2：見出し確保高を全ページで揃える）。
+  // pagePlan の構築に必要な値（safeOptions・layout・columns・pages・
+  // sheetGeometry・coverGeometry・firstPage）はいずれも doc を必要としない
+  // ため、previewOnly が対象ページを選べるよう doc の生成より先に求める。
   const layout = buildLayout(safeOptions, sheetGeometry.slotWidthPt, sheetGeometry.slotHeightPt);
 
   // 列数を増やしても紙面からはみ出さないのは、下で求める縮尺が幅と高さの
@@ -1778,6 +1780,30 @@ export async function buildPdfBlob(
   const coverLayout = firstPage.firstPageLayoutId === 'cover'
     ? buildLayout(safeOptions, coverGeometry.slotWidthPt, coverGeometry.slotHeightPt)
     : null;
+
+  // previewOnly のとき、実際に描く物理ページのindex（そうでなければ従来どおり
+  // pagePlan[0] から描き始める）。doc の向きもこのページの geometry から決める。
+  const targetPhysicalPageIndex = previewOnly ? selectPreviewPhysicalPageIndex(pagePlan) : 0;
+
+  // 3000グリッドではSVG由来の反復描画命令がPDFの大半を占めるため、内容
+  // ストリームを圧縮する。描画順や座標には影響しない。
+  const doc = new jsPDF({
+    orientation: pagePlan[targetPhysicalPageIndex].geometry.orientation,
+    unit: 'pt',
+    format: 'a4',
+    compress: true,
+  });
+  try {
+    doc.addFileToVFS(font.file, fontBase64);
+    doc.addFont(font.file, font.name, 'normal');
+  } catch (err) {
+    // addFont の検証(TTFFont.open)が投げた場合、fontCache には検証前の
+    // base64 が残ったままになる。次回呼び出しでも同じ壊れた値を返し続けない
+    // よう、キャッシュを空に戻してから再スローする
+    fontCache = { file: null, base64: null };
+    throw err;
+  }
+  doc.setFont(font.name);
 
   // オフスクリーン領域に一時的に配置して getBBox を安定させる
   const holder = document.createElement('div');
@@ -1818,10 +1844,17 @@ export async function buildPdfBlob(
 
   try {
     for (let physicalPageIndex = 0; physicalPageIndex < pagePlan.length; physicalPageIndex += 1) {
+      // previewOnly のときは対象の1枚以外を丸ごと飛ばす。addPage も
+      // drawPageBackground も drawBackgroundImage も呼ばない（空ページを
+      // 積むとBlobが太り、ページ番号の意味も崩れるため）。
+      if (previewOnly && physicalPageIndex !== targetPhysicalPageIndex) continue;
       const physicalPage = pagePlan[physicalPageIndex];
-      if (physicalPageIndex > 0) {
+      if (physicalPageIndex > 0 && !previewOnly) {
         // 不変条件3：埋め込み書体のmetricsをbuildGridGroupが読むため、
-        // 用紙を追加するたびに向きと書体を明示的に戻す。
+        // 用紙を追加するたびに向きと書体を明示的に戻す。previewOnly の
+        // 対象ページは doc 生成時の1枚目をそのまま使うため addPage しない
+        // （doc.setFont は doc 生成直後に既に呼んでいるので不変条件3は
+        // このパスでも成り立つ）。
         doc.addPage('a4', physicalPage.geometry.orientation);
         doc.setFont(font.name);
       }

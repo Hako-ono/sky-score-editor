@@ -93,7 +93,9 @@ export default {
           accentLineLayer2: 'Pressed key border 2',
         },
         background: {
+          label: 'Background image',
           select: 'Choose background image',
+          selectFile: 'Choose file',
           changeOrRemove: 'Change or remove background image',
           previewAlt: 'Background image preview',
           change: 'Change',
@@ -105,6 +107,17 @@ export default {
           contrast: 'The background and text colors may be too similar to read easily.',
           mincho: 'About 8 MB is loaded when generating a PDF for the first time.',
           lyricOverflow: 'Larger values may push characters with stacked vowel signs and tone marks (สระ, วรรณยุกต์) outside the grid. The default is {percent}%.',
+        },
+        preview: {
+          open: 'Open enlarged view',
+          sync: 'Sync',
+          synced: 'Up to date',
+          update: 'Update',
+          updating: 'Updating…',
+          stale: 'Settings changed. Press "Update" to refresh.',
+          empty: 'The preview appears once a score is loaded.',
+          failed: 'Failed to generate the preview. ({message})',
+          qualityNote: 'The preview is lower quality than the actual PDF.',
         },
         grid: {
           title: 'Grid',

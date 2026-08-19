@@ -94,7 +94,9 @@ export default {
           "accentLineLayer2": "Viền phím đang nhấn 2"
         },
         "background": {
+          "label": "Ảnh nền",
           "select": "Chọn ảnh nền",
+          "selectFile": "Chọn tệp",
           "changeOrRemove": "Đổi hoặc bỏ ảnh nền",
           "previewAlt": "Xem trước ảnh nền",
           "change": "Đổi",
@@ -106,6 +108,17 @@ export default {
           "contrast": "Màu nền và chữ gần nhau, có thể khó đọc",
           "mincho": "Lần đầu tạo PDF sẽ tải khoảng 8 MB",
           "lyricOverflow": "Giá trị lớn hơn có thể khiến các ký tự có dấu nguyên âm và dấu thanh xếp chồng (สระ, วรรณยุกต์) tràn ra ngoài ô lưới. Mặc định là {percent}%."
+        },
+        "preview": {
+          "open": "Mở chế độ xem phóng to",
+          "sync": "Đồng bộ",
+          "synced": "Đã cập nhật",
+          "update": "Cập nhật",
+          "updating": "Đang cập nhật…",
+          "stale": "Cài đặt đã thay đổi. Nhấn \"Cập nhật\" để làm mới.",
+          "empty": "Bản xem trước sẽ hiện ra khi tải bản nhạc.",
+          "failed": "Không tạo được bản xem trước. ({message})",
+          "qualityNote": "Bản xem trước có chất lượng thấp hơn PDF thực tế."
         },
         "grid": {
           "title": "Ô",

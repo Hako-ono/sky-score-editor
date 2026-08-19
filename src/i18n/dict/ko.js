@@ -93,7 +93,9 @@ export default {
           accentLineLayer2: '누른 건반 테두리 2',
         },
         background: {
+          label: '배경 이미지',
           select: '배경 이미지 선택',
+          selectFile: '파일 선택',
           changeOrRemove: '배경 이미지 변경 또는 제거',
           previewAlt: '배경 이미지 미리 보기',
           change: '변경',
@@ -105,6 +107,17 @@ export default {
           contrast: '배경과 글자 색이 비슷해 읽기 어려울 수 있습니다.',
           mincho: '처음 PDF를 생성할 때 약 8MB를 불러옵니다.',
           lyricOverflow: '이보다 크게 하면 위아래로 기호가 겹치는 글자(สระ, วรรณยุกต์)가 그리드를 벗어날 수 있습니다. 기본값은 {percent}%입니다.',
+        },
+        preview: {
+          open: '확대 보기 열기',
+          sync: '동기화',
+          synced: '최신 상태',
+          update: '업데이트',
+          updating: '업데이트 중…',
+          stale: '설정이 변경되었습니다. "업데이트"를 눌러 반영하세요.',
+          empty: '악보를 불러오면 미리보기가 표시됩니다.',
+          failed: '미리보기 생성에 실패했습니다. ({message})',
+          qualityNote: '미리보기는 실제 PDF보다 화질이 낮습니다.',
         },
         grid: {
           title: '그리드',

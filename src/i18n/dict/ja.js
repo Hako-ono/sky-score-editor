@@ -93,7 +93,9 @@ export default {
           accentLineLayer2: '押鍵枠2',
         },
         background: {
+          label: '背景画像',
           select: '背景画像を選択',
+          selectFile: 'ファイルを選択',
           changeOrRemove: '背景画像を変更または外す',
           previewAlt: '背景画像のプレビュー',
           change: '変更',
@@ -105,6 +107,17 @@ export default {
           contrast: '背景と文字の色が近く、読みにくい可能性があります。',
           mincho: '初回のPDF生成時に約8MBを読み込みます。',
           lyricOverflow: 'これより大きくすると、上下に記号が重なる文字（สระ・วรรณยุกต์）がグリッドからはみ出すことがあります。既定は{percent}%です。',
+        },
+        preview: {
+          open: '拡大表示を開く',
+          sync: '同期',
+          synced: '最新',
+          update: '更新',
+          updating: '更新中…',
+          stale: '設定が変わりました。「更新」で反映されます。',
+          empty: '楽譜を読み込むとプレビューが表示されます。',
+          failed: 'プレビューの生成に失敗しました。({message})',
+          qualityNote: 'プレビューは実際のPDFより低画質です。',
         },
         grid: {
           title: 'グリッド',

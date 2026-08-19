@@ -93,7 +93,9 @@ export default {
           accentLineLayer2: 'Batas tuts yang ditekan 2',
         },
         background: {
+          label: 'Gambar latar belakang',
           select: 'Pilih gambar latar belakang',
+          selectFile: 'Pilih berkas',
           changeOrRemove: 'Ganti atau hapus gambar latar belakang',
           previewAlt: 'Pratinjau gambar latar belakang',
           change: 'Ganti',
@@ -105,6 +107,17 @@ export default {
           contrast: 'Warna latar belakang dan teks mungkin terlalu mirip sehingga sulit dibaca.',
           mincho: 'Sekitar 8 MB dimuat saat membuat PDF untuk pertama kalinya.',
           lyricOverflow: 'Nilai yang lebih besar dapat membuat karakter dengan tanda diakritik bertumpuk keluar dari grid. Nilai bawaan adalah {percent}%.',
+        },
+        preview: {
+          open: 'Buka tampilan perbesar',
+          sync: 'Sinkronisasi',
+          synced: 'Terbaru',
+          update: 'Perbarui',
+          updating: 'Memperbarui…',
+          stale: 'Pengaturan berubah. Tekan "Perbarui" untuk menyegarkan.',
+          empty: 'Pratinjau akan muncul setelah skor dimuat.',
+          failed: 'Gagal membuat pratinjau. ({message})',
+          qualityNote: 'Pratinjau memiliki kualitas lebih rendah daripada PDF sebenarnya.',
         },
         grid: {
           title: 'Grid',

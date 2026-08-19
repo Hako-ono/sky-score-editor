@@ -93,7 +93,9 @@ export default {
           accentLineLayer2: 'Borde de la tecla presionada 2',
         },
         background: {
+          label: 'Imagen de fondo',
           select: 'Elegir imagen de fondo',
+          selectFile: 'Elegir archivo',
           changeOrRemove: 'Cambiar o quitar la imagen de fondo',
           previewAlt: 'Vista previa de la imagen de fondo',
           change: 'Cambiar',
@@ -105,6 +107,17 @@ export default {
           contrast: 'Los colores del fondo y del texto pueden ser demasiado parecidos para leerlos con facilidad.',
           mincho: 'Se cargan unos 8 MB al generar un PDF por primera vez.',
           lyricOverflow: 'Los valores más altos pueden sacar de la cuadrícula los caracteres con signos diacríticos apilados. El valor predeterminado es {percent}%.',
+        },
+        preview: {
+          open: 'Abrir vista ampliada',
+          sync: 'Sincronización',
+          synced: 'Actualizado',
+          update: 'Actualizar',
+          updating: 'Actualizando…',
+          stale: 'La configuración cambió. Pulsa "Actualizar" para refrescar la vista previa.',
+          empty: 'La vista previa aparece al cargar una partitura.',
+          failed: 'No se pudo generar la vista previa. ({message})',
+          qualityNote: 'La vista previa tiene menor calidad que el PDF real.',
         },
         grid: {
           title: 'Cuadrícula',
