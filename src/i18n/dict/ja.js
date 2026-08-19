@@ -91,6 +91,16 @@ export default {
           accentLineLayer1: '押鍵枠1',
           accentLayer2: '押鍵面2',
           accentLineLayer2: '押鍵枠2',
+          advanced: '詳細色2（上級者向け）',
+          token: {
+            title: '曲名',
+            outerFrame: 'グリッド外枠',
+            symbol: '記号',
+            number: 'グリッド番号',
+            symbolHighlight: '押鍵記号',
+            symbolHighlightLayer1: '押鍵記号1',
+            symbolHighlight2: '押鍵記号2'
+          },
         },
         background: {
           label: '背景画像',
@@ -464,6 +474,7 @@ export default {
         presetId: '配色',
         custom: 'カスタム配色',
         gridStyleId: 'グリッド形状',
+        customTokens: '詳細色2',
         gridStyleCustom: '形状の詳細',
         gridNumberDisplayId: 'グリッド番号',
         fontId: '書体',
@@ -493,6 +504,7 @@ export default {
       value: {
         custom: 'カスタム',
         customPalette: 'カスタム配色',
+        customAdvancedPalette: '詳細色2の指定',
         customShape: 'カスタム形状',
         preset: {
           print: '印刷用',

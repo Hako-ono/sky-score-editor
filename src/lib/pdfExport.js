@@ -42,6 +42,7 @@ import {
   PDF_PAGE_NUMBER_BOTTOM_OFFSET_PT,
   buildPdfPalette,
   resolvePaletteSeed,
+  sanitizeCustomTokens,
 } from '../constants/config.js';
 import { resolvePdfTypography } from './pdfTypography.js';
 import {
@@ -1719,9 +1720,11 @@ export async function buildPdfBlob(
   // は exportPdf を直接呼ぶ経路（pdfPrefs.js を経由しない呼び出し）への保険
   // として、ここでもキーごとに検証する（sheetLayoutId と同じ二重防御）。
   const seed = resolvePaletteSeed(safeOptions);
+  // 「詳細色2」の上書きはカスタム配色のときだけ効かせる。プリセットの色は
+  // コントラスト比を検証済みの確定値であり、上書きの受け皿を持たない。
   const preset =
     safeOptions.presetId === CUSTOM_PRESET_ID
-      ? { seed }
+      ? { seed, overrides: sanitizeCustomTokens(safeOptions.customTokens) }
       : { ...PDF_PRESETS[safeOptions.presetId], seed };
   const palette = buildPdfPalette(preset);
   // レイヤーの有無はscoreから再計算する。呼び出し側の表示状態をそのまま

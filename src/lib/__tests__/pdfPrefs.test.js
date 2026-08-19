@@ -114,6 +114,8 @@ const DEFAULTS = {
   gridStyleId: DEFAULT_PDF_GRID_STYLE_ID,
   gridStyleCustom: DEFAULT_PDF_GRID_STYLE_CUSTOM,
   custom: PDF_PRESETS.print.seed,
+  // 「詳細色2」は未指定が既定。キーの無いトークンは導出値のまま使う
+  customTokens: {},
 };
 
 describe('loadPdfPrefs', () => {
@@ -127,6 +129,7 @@ describe('loadPdfPrefs', () => {
       surface: '#303030', accent: '#e0a020', accentLine: '#c08010',
       accent2: '#2060E0', accentLine2: '#1050C0',
     };
+    const customTokens = { title: '#8811AA', number: '#227733' };
     localStorage.setItem(
       PDF_PREFS_STORAGE_KEY,
       JSON.stringify({
@@ -160,6 +163,7 @@ describe('loadPdfPrefs', () => {
         gridStyleId: 'soft',
         gridStyleCustom: { ...DEFAULT_PDF_GRID_STYLE_CUSTOM, outerRadius: 22 },
         custom,
+        customTokens,
       }),
     );
     expect(loadPdfPrefs()).toEqual({
@@ -193,6 +197,7 @@ describe('loadPdfPrefs', () => {
       gridStyleId: 'soft',
       gridStyleCustom: { ...DEFAULT_PDF_GRID_STYLE_CUSTOM, outerRadius: 22 },
       custom,
+      customTokens,
     });
   });
 
@@ -619,6 +624,7 @@ describe('savePdfPrefs', () => {
       surface: '#303030', accent: '#e0a020', accentLine: '#c08010',
       accent2: '#2060E0', accentLine2: '#1050C0',
     };
+    const customTokens = { title: '#8811AA', number: '#227733' };
     savePdfPrefs({
       presetId: 'autumnDark',
       fontId: 'mincho',
@@ -654,6 +660,7 @@ describe('savePdfPrefs', () => {
         symbolStrokeWidth: 5,
       },
       custom,
+      customTokens,
     });
     expect(JSON.parse(localStorage.getItem(PDF_PREFS_STORAGE_KEY))).toEqual({
       presetId: 'autumnDark',
@@ -690,6 +697,7 @@ describe('savePdfPrefs', () => {
         symbolStrokeWidth: 5,
       },
       custom,
+      customTokens,
     });
   });
 

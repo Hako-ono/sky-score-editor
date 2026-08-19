@@ -240,8 +240,11 @@ export function mixHex(a, b, t) {
   return '#' + [0, 1, 2].map((i) => v(i).toString(16).padStart(2, '0')).join('');
 }
 
-/** #RRGGBB の色相をHSL上で回転する。第2色の既定値を一か所で導出する。 */
-export function rotateHueHex(hex, degrees) {
+/**
+ * #RRGGBB を HSL へ分解する。hue は 0〜1（度ではない）。
+ * 色相回転と、簡易配色からの押鍵色の導出（deriveSeedFromSimple）が共有する。
+ */
+export function hexToHsl(hex) {
   const red = parseInt(hex.slice(1, 3), 16) / 255;
   const green = parseInt(hex.slice(3, 5), 16) / 255;
   const blue = parseInt(hex.slice(5, 7), 16) / 255;
@@ -261,8 +264,18 @@ export function rotateHueHex(hex, degrees) {
     else hue = ((red - green) / delta + 4) / 6;
   }
 
-  hue = (hue + degrees / 360) % 1;
+  return { h: hue, s: saturation, l: lightness };
+}
+
+/**
+ * HSL を #RRGGBB へ戻す。HSL からの変換は定義上つねに sRGB 内へ収まるため、
+ * 色域外へ出た色を戻す処理は要らない（OkLCh 等を使うなら別途必要になる）。
+ */
+export function hslToHex({ h, s, l }) {
+  let hue = h % 1;
   if (hue < 0) hue += 1;
+  const saturation = Math.min(1, Math.max(0, s));
+  const lightness = Math.min(1, Math.max(0, l));
 
   const hueToRgb = (p, q, t) => {
     let value = t;
@@ -284,6 +297,12 @@ export function rotateHueHex(hex, degrees) {
   return `#${channels
     .map((channel) => Math.round(channel * 255).toString(16).padStart(2, '0').toUpperCase())
     .join('')}`;
+}
+
+/** #RRGGBB の色相をHSL上で回転する。第2色の既定値を一か所で導出する。 */
+export function rotateHueHex(hex, degrees) {
+  const { h, s, l } = hexToHsl(hex);
+  return hslToHex({ h: h + degrees / 360, s, l });
 }
 
 export function complementHex(hex) {
@@ -314,7 +333,12 @@ export function isDarkSeedBg(bg) {
   return relativeLuminance(bg) < 0.5;
 }
 
-/** 種色から、PDF描画で使う14トークンを組み立てる。 */
+/**
+ * 種色から、PDF描画で使う14トークンを組み立てる。
+ *
+ * preset.overrides は最後に展開するので、`sanitizeCustomTokens` を通した
+ * 「詳細色2」の指定があるトークンだけが導出値を上書きする。
+ */
 export function buildPdfPalette(preset, mix = PRESET_MIX) {
   const s = preset.seed;
   const accent2 = s.accent2 ?? complementHex(s.accent);
@@ -526,7 +550,41 @@ export const DEFAULT_FONT_WEIGHT_ID = 'regular';
 export const CUSTOM_SEED_KEYS = [
   'bg', 'ink', 'line', 'surface', 'accent', 'accentLine', 'accent2', 'accentLine2',
 ];
+
+/**
+ * 種色（8色）では指定できない描画トークン。UIでは「詳細色2（上級者向け）」
+ * としてまとめる。
+ *
+ * `title` は種色 `ink` と同値、残り5つは `buildPdfPalette` が `PRESET_MIX` で
+ * 混色して作るため、いずれも8色のどれを動かしても単独では狙った色にできない。
+ * ここに値があるときだけ `buildPdfPalette` の `overrides` として上書きし、
+ * **キーが無いトークンは従来どおり導出値のまま**にする（既定値を持たせて
+ * しまうと、種色を変えても追従しなくなるため）。
+ *
+ * `symbolHighlight2` はレイヤー2を使う楽譜でしか描かれないので、UI側だけ
+ * 出し分ける（保存・共有は常に6キーぶんの枠を持つ）。
+ */
+export const CUSTOM_TOKEN_KEYS = [
+  'title', 'outerFrame', 'symbol', 'number', 'symbolHighlight', 'symbolHighlight2',
+];
+
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+/**
+ * 「詳細色2」の上書き指定を検証する。seed と違い**既定値へは落とさず、
+ * 不正なキーは取り除く**（無指定と同じ＝導出値を使う、という意味になる）。
+ * 未知のキーも落とすので、細工された保存値・共有URLから任意のトークンを
+ * 生やされることはない。
+ */
+export function sanitizeCustomTokens(tokens) {
+  if (!tokens || typeof tokens !== 'object' || Array.isArray(tokens)) return {};
+  const out = {};
+  for (const key of CUSTOM_TOKEN_KEYS) {
+    const value = tokens[key];
+    if (typeof value === 'string' && HEX_COLOR_RE.test(value)) out[key] = value;
+  }
+  return out;
+}
 
 /**
  * カスタム配色の既定値。print の種色（コントラスト比検証済み）をそのまま使う。
@@ -581,32 +639,114 @@ export function sanitizeCustomSeed(custom, fallback = DEFAULT_CUSTOM_SEED) {
 export const SIMPLE_SURFACE_MIX_RATIO = 0.23;
 
 /**
+ * 簡易配色の3色から押鍵の色（accent/accentLine）を作るための係数。
+ *
+ * 9プリセットをHSLで測ると、accentの色相は「lineと同系」5件（springDark /
+ * autumnLight / autumnDark / winterLight / winterDark、lineとの色相差 -21〜+8度）
+ * と「lineの反対側」4件（print / springLight / summerLight / summerDark、同 -82〜-172度）
+ * の2群に割れる。ここが混ざっていたために、かつては「accentは導出できない」と
+ * 結論していた。この係数は同系側5件から逆算したもので、
+ * 反対側の4件の色相は再現しない（補色側は選択肢として後から足す）。
+ *
+ * accentLineの色相はどのプリセットでもaccentと一致する（HSLで差4度以内）。
+ * 明度だけがbgと反対方向へ動いており、accentさえ決まれば構造的に導ける。
+ * 「accentをinkへ寄せた線形混色」で作ろうとして失敗したのは、RGB上で混ぜると
+ * 色相と彩度が同時に崩れるためであって、導出そのものが不可能なわけではない。
+ */
+export const SIMPLE_ACCENT_MIX = {
+  // lineがこれより低彩度なら色相に意味がない（無彩色の色相は0＝赤になってしまう）
+  // ので導出せず、呼び出し側が持つ現在の値を残す
+  minLineSaturation: 0.08,
+  // accentの彩度：lineの彩度を強める倍率と上下限（実測のline比は1.9〜7.5）
+  accentSaturationScale: 3.0,
+  accentSaturationMin: 0.50,
+  accentSaturationMax: 0.85,
+  // accentの明度：明色ではlineと同じ。暗色では紙面が暗いぶんink方向へ寄せる
+  accentLightnessToInkDark: 0.60,
+  // accentLineの明度：accentからink方向へ寄せる比率
+  accentLineLightnessToInk: { light: 0.55, dark: 0.85 },
+  // accentLineの彩度：accentの彩度に掛ける倍率
+  accentLineSaturationScale: { light: 0.80, dark: 1.25 },
+  // lineとinkの明度が近い配色でも押鍵の枠が面に埋もれないための最小の明度差
+  minLightnessGap: 0.10,
+};
+
+/**
+ * 簡易配色の3色からaccent/accentLineを導出する。lineが無彩色に近く色相を
+ * 決められない場合は null を返し、呼び出し側に現在の値を残させる。
+ */
+function deriveAccentFromSimple(simple) {
+  const line = hexToHsl(simple.line);
+  if (line.s < SIMPLE_ACCENT_MIX.minLineSaturation) return null;
+
+  const ink = hexToHsl(simple.ink);
+  const dark = isDarkSeedBg(simple.bg);
+  const tone = dark ? 'dark' : 'light';
+
+  const saturation = Math.min(
+    SIMPLE_ACCENT_MIX.accentSaturationMax,
+    Math.max(SIMPLE_ACCENT_MIX.accentSaturationMin, line.s * SIMPLE_ACCENT_MIX.accentSaturationScale),
+  );
+  const accentLightness = dark
+    ? line.l + SIMPLE_ACCENT_MIX.accentLightnessToInkDark * (ink.l - line.l)
+    : line.l;
+
+  // 枠は必ず紙面と反対方向へ離す。inkとaccentの明度が偶然近い配色でも、
+  // 押鍵の枠が面と同化して見えなくなることがないようにする
+  const gap = SIMPLE_ACCENT_MIX.minLightnessGap;
+  const toInk = accentLightness
+    + SIMPLE_ACCENT_MIX.accentLineLightnessToInk[tone] * (ink.l - accentLightness);
+  const accentLineLightness = dark
+    ? Math.max(toInk, accentLightness + gap)
+    : Math.min(toInk, accentLightness - gap);
+
+  return {
+    accent: hslToHex({ h: line.h, s: saturation, l: accentLightness }),
+    accentLine: hslToHex({
+      h: line.h,
+      s: saturation * SIMPLE_ACCENT_MIX.accentLineSaturationScale[tone],
+      l: accentLineLightness,
+    }),
+  };
+}
+
+/**
  * 簡易モードの3色（bg/ink/line）から、6種seedの残り3つ（surface/accent/
- * accentLine）を補って完全なseedにする。
+ * accentLine）と第2色を補って完全なseedにする。
  *
- * surfaceはbg/lineから導出できる（上のSIMPLE_SURFACE_MIX_RATIO参照）。
- * accent/accentLineと第2色は手で設計または補色導出された値で、単純な混色では再現できないこと
- * を確認済み（「accentをinkへ寄せたもの」という仮説で9プリセットから係数を
- * 逆算したところ-2.57〜2.43とばらつき一致しなかった。同じ仮説を再提案
- * しないこと）。そのため base（呼び出し側が持つ現在のcustom seed）から
- * そのまま引き継ぐ。
+ * surfaceはbg/lineから導出する（上のSIMPLE_SURFACE_MIX_RATIO参照）。
+ * accent/accentLineはlineと同系の色相で導出する（上のSIMPLE_ACCENT_MIX参照）。
+ * 第2色はaccent/accentLineのHSL補色で、PDF出力側 buildPdfPalette と同じ規則。
+ * lineが無彩色に近い場合だけ、accent以下4色は base（呼び出し側が持つ現在の
+ * custom seed）をそのまま引き継ぐ。
  *
- * 呼び出し側は bg か line が変わったときだけこの関数を呼ぶこと。ink だけの
- * 変更で呼ぶと、詳細モードで手で調整したsurfaceが無関係な変更のたびに
- * 上書きされる（bg/lineが変わらない限り再計算結果自体は変わらないが、
- * 「何が原因でsurfaceが変わったか」を呼び出し側のコードから追えるようにする
- * ため、いつ呼ぶかは呼び出し側の責務にしてある）。
+ * 呼び出し側は bg / ink / line のどれかが変わったときにこの関数を呼ぶこと。
+ * 簡易側を触れば詳細側（surface・accent・accentLine・第2色）が上書きされるのは
+ * 意図した挙動である（詳細モードで手で調整していても上書きされる）。
  */
 export function deriveSeedFromSimple(simple, base) {
+  const accents = deriveAccentFromSimple(simple);
+  if (!accents) {
+    return {
+      bg: simple.bg,
+      ink: simple.ink,
+      line: simple.line,
+      surface: mixHex(simple.bg, simple.line, SIMPLE_SURFACE_MIX_RATIO),
+      accent: base.accent,
+      accentLine: base.accentLine,
+      accent2: base.accent2,
+      accentLine2: base.accentLine2,
+    };
+  }
   return {
     bg: simple.bg,
     ink: simple.ink,
     line: simple.line,
     surface: mixHex(simple.bg, simple.line, SIMPLE_SURFACE_MIX_RATIO),
-    accent: base.accent,
-    accentLine: base.accentLine,
-    accent2: base.accent2,
-    accentLine2: base.accentLine2,
+    accent: accents.accent,
+    accentLine: accents.accentLine,
+    accent2: complementHex(accents.accent),
+    accentLine2: complementHex(accents.accentLine),
   };
 }
 

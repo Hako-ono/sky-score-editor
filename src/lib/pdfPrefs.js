@@ -33,6 +33,7 @@ import {
   normalizeTempoValueModeId,
   sanitizeCustomTempoValue,
   sanitizeCustomSeed,
+  sanitizeCustomTokens,
   normalizePngDpi,
   normalizePreviewAutoUpdate,
   pdfConfig,
@@ -82,6 +83,8 @@ function defaults() {
     gridStyleCustom: { ...DEFAULT_PDF_GRID_STYLE_CUSTOM },
     // 詳細モードを開く前でも既定値が要るため、printの種色を初期値とする。
     custom: sanitizeCustomSeed(undefined),
+    // 「詳細色2」は無指定が既定。キーが無いトークンは導出値のまま使う
+    customTokens: {},
   };
 }
 
@@ -139,6 +142,7 @@ export function normalizePdfPrefs(value) {
     gridStyleId: sanitizeGridStyleId(source.gridStyleId, fallback.gridStyleId),
     gridStyleCustom: sanitizePdfGridStyleCustom(source.gridStyleCustom),
     custom: sanitizeCustomSeed(source.custom),
+    customTokens: sanitizeCustomTokens(source.customTokens),
   };
 }
 
@@ -179,6 +183,7 @@ export function serializePdfPrefs(prefs) {
     gridStyleId: normalized.gridStyleId,
     gridStyleCustom: normalized.gridStyleCustom,
     custom: normalized.custom,
+    customTokens: normalized.customTokens,
   };
 }
 

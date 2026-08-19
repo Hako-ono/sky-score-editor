@@ -91,6 +91,16 @@ export default {
           accentLineLayer1: 'Pressed key border 1',
           accentLayer2: 'Pressed key surface 2',
           accentLineLayer2: 'Pressed key border 2',
+          advanced: 'Advanced colors',
+          token: {
+            title: 'Song title',
+            outerFrame: 'Grid border',
+            symbol: 'Symbol',
+            number: 'Grid number',
+            symbolHighlight: 'Pressed key symbol',
+            symbolHighlightLayer1: 'Pressed key symbol 1',
+            symbolHighlight2: 'Pressed key symbol 2'
+          },
         },
         background: {
           label: 'Background image',
@@ -464,6 +474,7 @@ export default {
         presetId: 'Color palette',
         custom: 'Custom palette',
         gridStyleId: 'Grid shape',
+        customTokens: 'Advanced colors',
         gridStyleCustom: 'Shape details',
         gridNumberDisplayId: 'Grid number',
         fontId: 'Typeface',
@@ -493,6 +504,7 @@ export default {
       value: {
         custom: 'Custom',
         customPalette: 'Custom palette',
+        customAdvancedPalette: 'Advanced color overrides',
         customShape: 'Custom shape',
         preset: {
           print: 'Print',

@@ -91,6 +91,16 @@ export default {
           accentLineLayer1: '按鍵邊框 1',
           accentLayer2: '按鍵面 2',
           accentLineLayer2: '按鍵邊框 2',
+          advanced: '進階色彩',
+          token: {
+            title: '曲名',
+            outerFrame: '格線外框',
+            symbol: '符號',
+            number: '格線編號',
+            symbolHighlight: '按鍵符號',
+            symbolHighlightLayer1: '按鍵符號 1',
+            symbolHighlight2: '按鍵符號 2'
+          },
         },
         background: {
           label: '背景圖片',
@@ -464,6 +474,7 @@ export default {
         presetId: '配色',
         custom: '自訂配色',
         gridStyleId: '網格形狀',
+        customTokens: '進階色彩',
         gridStyleCustom: '形狀詳細資料',
         gridNumberDisplayId: '網格編號',
         fontId: '字型',
@@ -493,6 +504,7 @@ export default {
       value: {
         custom: '自訂',
         customPalette: '自訂配色',
+        customAdvancedPalette: '進階色彩指定',
         customShape: '自訂形狀',
         preset: {
           print: '列印',

@@ -1167,6 +1167,108 @@ body {
   cursor: pointer;
 }
 
+/* 詳細色2（上級者向け）。1段目（曲名・グリッド外枠・グリッド番号）は3分割、
+   2段目（記号・押鍵記号）は2分割で、段ごとに別の帯とラベルを持つ。
+   基本色・詳細色が持つ span 指定を打ち消すため grid-column/row を auto へ戻す。 */
+.toolbar__palette-group--tokens .toolbar__palette-segment,
+.toolbar__palette-group--tokens .toolbar__palette-labels > * {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.toolbar__palette-group--tokens-3 .toolbar__palette-strip,
+.toolbar__palette-group--tokens-3 .toolbar__palette-labels {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* 2段目は1段目の3カラムのうち2カラム分の幅で左寄せにする。列の幅を
+   1段目と揃えたいので、固定値ではなく親幅に対する割合で持つ（列幅は
+   画面幅で変わるため）。 */
+.toolbar__palette-group--tokens-2 .toolbar__palette-strip,
+.toolbar__palette-group--tokens-2 .toolbar__palette-labels {
+  width: calc(200% / 3);
+  margin-right: auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.toolbar__palette-group--tokens + .toolbar__palette-group--tokens {
+  margin-top: 0.5rem;
+}
+
+/* 2レイヤーの楽譜では、押鍵記号1・2を帯の高さを変えずに縦へ積む
+   （詳細色の押鍵面1／押鍵面2と同じ形）。 */
+.toolbar__palette-group--tokens-stacked .toolbar__palette-strip,
+.toolbar__palette-group--tokens-stacked .toolbar__palette-labels {
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.toolbar__palette-group--tokens-stacked .toolbar__palette-segment:nth-child(1) {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+
+.toolbar__palette-group--tokens-stacked .toolbar__palette-segment:nth-child(2),
+.toolbar__palette-group--tokens-stacked .toolbar__palette-labels > :nth-child(2) {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.toolbar__palette-group--tokens-stacked .toolbar__palette-segment:nth-child(3),
+.toolbar__palette-group--tokens-stacked .toolbar__palette-labels > :nth-child(3) {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.toolbar__palette-advanced {
+  margin-top: 0.7rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
+}
+
+.toolbar__palette-advanced > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+/* Safari は list-style:none だけでは三角マーカーが消えない。 */
+.toolbar__palette-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.toolbar__palette-advanced > summary > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar__palette-advanced-chevron {
+  display: inline-flex;
+  flex: none;
+  transition: transform 0.15s ease;
+}
+
+.toolbar__palette-advanced[open] > summary .toolbar__palette-advanced-chevron {
+  transform: rotate(90deg);
+}
+
+.toolbar__palette-advanced-body {
+  margin-top: 0.45rem;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toolbar__palette-advanced-chevron {
+    transition: none;
+  }
+}
+
 .toolbar__palette-group--two-layer .toolbar__palette-strip,
 .toolbar__palette-group--two-layer .toolbar__palette-labels {
   grid-template-columns: repeat(3, minmax(0, 1fr));

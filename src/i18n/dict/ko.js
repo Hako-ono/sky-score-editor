@@ -91,6 +91,16 @@ export default {
           accentLineLayer1: '누른 건반 테두리 1',
           accentLayer2: '누른 건반 면 2',
           accentLineLayer2: '누른 건반 테두리 2',
+          advanced: '고급 색상',
+          token: {
+            title: '곡 제목',
+            outerFrame: '그리드 테두리',
+            symbol: '기호',
+            number: '그리드 번호',
+            symbolHighlight: '누른 건반 기호',
+            symbolHighlightLayer1: '누른 건반 기호 1',
+            symbolHighlight2: '누른 건반 기호 2'
+          },
         },
         background: {
           label: '배경 이미지',
@@ -464,6 +474,7 @@ export default {
         presetId: '색상 팔레트',
         custom: '사용자 지정 팔레트',
         gridStyleId: '그리드 모양',
+        customTokens: '고급 색상',
         gridStyleCustom: '모양 세부 설정',
         gridNumberDisplayId: '그리드 번호',
         fontId: '글꼴',
@@ -493,6 +504,7 @@ export default {
       value: {
         custom: '사용자 지정',
         customPalette: '사용자 지정 팔레트',
+        customAdvancedPalette: '고급 색상 지정',
         customShape: '사용자 지정 모양',
         preset: {
           print: '인쇄용',

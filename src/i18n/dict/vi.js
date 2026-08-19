@@ -91,7 +91,17 @@ export default {
           "accentLayer1": "Mặt phím đang nhấn 1",
           "accentLineLayer1": "Viền phím đang nhấn 1",
           "accentLayer2": "Mặt phím đang nhấn 2",
-          "accentLineLayer2": "Viền phím đang nhấn 2"
+          "accentLineLayer2": "Viền phím đang nhấn 2",
+          "advanced": "Mau nang cao",
+          "token": {
+            "title": "Ten bai hat",
+            "outerFrame": "Vien luoi",
+            "symbol": "Ky hieu",
+            "number": "So luoi",
+            "symbolHighlight": "Ky hieu phim dang nhan",
+            "symbolHighlightLayer1": "Ky hieu phim dang nhan 1",
+            "symbolHighlight2": "Ky hieu phim dang nhan 2"
+          }
         },
         "background": {
           "label": "Ảnh nền",
@@ -465,6 +475,7 @@ export default {
         "presetId": "Bảng màu",
         "custom": "Bảng màu tùy chỉnh",
         "gridStyleId": "Hình dạng ô",
+        "customTokens": "Mau nang cao",
         "gridStyleCustom": "Chi tiết hình dạng",
         "gridNumberDisplayId": "Số ô",
         "fontId": "Phông chữ",
@@ -494,6 +505,7 @@ export default {
       "value": {
         "custom": "Tùy chỉnh",
         "customPalette": "Bảng màu tùy chỉnh",
+        "customAdvancedPalette": "Chi dinh mau nang cao",
         "customShape": "Hình dạng tùy chỉnh",
         "preset": {
           "print": "In",

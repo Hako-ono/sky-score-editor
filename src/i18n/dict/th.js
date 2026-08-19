@@ -91,7 +91,17 @@ export default {
           "accentLayer1": "พื้นผิวปุ่มที่กด 1",
           "accentLineLayer1": "กรอบปุ่มที่กด 1",
           "accentLayer2": "พื้นผิวปุ่มที่กด 2",
-          "accentLineLayer2": "กรอบปุ่มที่กด 2"
+          "accentLineLayer2": "กรอบปุ่มที่กด 2",
+          "advanced": "สีขั้นสูง",
+          "token": {
+            "title": "ชื่อเพลง",
+            "outerFrame": "กรอบตาราง",
+            "symbol": "สัญลักษณ์",
+            "number": "หมายเลขตาราง",
+            "symbolHighlight": "สัญลักษณ์ปุ่มที่กด",
+            "symbolHighlightLayer1": "สัญลักษณ์ปุ่มที่กด 1",
+            "symbolHighlight2": "สัญลักษณ์ปุ่มที่กด 2"
+          }
         },
         "background": {
           "label": "ภาพพื้นหลัง",
@@ -465,6 +475,7 @@ export default {
         "presetId": "ชุดสี",
         "custom": "ชุดสีกำหนดเอง",
         "gridStyleId": "รูปร่างกริด",
+        "customTokens": "สีขั้นสูง",
         "gridStyleCustom": "รายละเอียดรูปร่าง",
         "gridNumberDisplayId": "หมายเลขกริด",
         "fontId": "ฟอนต์",
@@ -494,6 +505,7 @@ export default {
       "value": {
         "custom": "กำหนดเอง",
         "customPalette": "ชุดสีกำหนดเอง",
+        "customAdvancedPalette": "การกำหนดสีขั้นสูง",
         "customShape": "รูปร่างกำหนดเอง",
         "preset": {
           "print": "สำหรับพิมพ์",

@@ -473,3 +473,56 @@ describe('pdf preset defaults are stable', () => {
     expect(DEFAULT_PREFS.gridStyleCustom).toEqual(DEFAULT_PDF_GRID_STYLE_CUSTOM);
   });
 });
+
+/* ============================================================
+ * 詳細色2（customTokens）の運び方
+ *   - 1つも指定が無ければ配列ごと出さない（未使用の利用者のQRを太らせない）。
+ *   - 指定があるトークンだけを固定順の配列で運び、未指定はnullで埋める。
+ *   - コード 'o' を持たない旧URL/QRは、指定なし（＝導出値）として読める。
+ * ============================================================ */
+describe('詳細色2の共有', () => {
+  const readEnvelope = (code) => JSON.parse(
+    globalThis.atob(code.split('.')[2].replace(/-/g, '+').replace(/_/g, '/')),
+  );
+
+  it('1つも指定が無ければ design グループに o を出さない', async () => {
+    const code = await withoutCompressionStream(() => encodePdfPreset({
+      name: 'n', memo: '', prefs: FULL_PREFS,
+    }));
+    expect(readEnvelope(code).s.d).not.toHaveProperty('o');
+  });
+
+  it('指定したトークンだけを固定順で運び、未指定はnullで埋める', async () => {
+    const prefs = normalizePdfPrefs({
+      ...FULL_PREFS,
+      customTokens: { title: '#8811AA', symbolHighlight: '#227733' },
+    });
+    const code = await withoutCompressionStream(() => encodePdfPreset({
+      name: 'n', memo: '', prefs,
+    }));
+    // 順序は CUSTOM_TOKEN_KEYS（title/outerFrame/symbol/number/
+    // symbolHighlight/symbolHighlight2）。入れ替えると別の色として読まれる
+    expect(readEnvelope(code).s.d.o).toEqual([
+      '8811AA', null, null, null, '227733', null,
+    ]);
+  });
+
+  it('encode-decodeで指定が保持される', async () => {
+    const prefs = normalizePdfPrefs({
+      ...FULL_PREFS,
+      customTokens: { title: '#8811AA', symbolHighlight: '#227733' },
+    });
+    const code = await encodePdfPreset({ name: 'n', memo: '', prefs });
+    const decoded = await decodePdfPresetCode(code, { pitchLevel: 0, keyMode: 'major' });
+    expect(decoded.prefs.customTokens).toEqual({
+      title: '#8811AA',
+      symbolHighlight: '#227733',
+    });
+  });
+
+  it('o を持たない旧コードは指定なしとして読める', async () => {
+    const code = await encodePdfPreset({ name: 'n', memo: '', prefs: FULL_PREFS });
+    const decoded = await decodePdfPresetCode(code, { pitchLevel: 0, keyMode: 'major' });
+    expect(decoded.prefs.customTokens).toEqual({});
+  });
+});

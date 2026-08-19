@@ -91,6 +91,16 @@ export default {
           accentLineLayer1: 'Batas tuts yang ditekan 1',
           accentLayer2: 'Permukaan tuts yang ditekan 2',
           accentLineLayer2: 'Batas tuts yang ditekan 2',
+          advanced: 'Warna lanjutan',
+          token: {
+            title: 'Judul lagu',
+            outerFrame: 'Bingkai kisi',
+            symbol: 'Simbol',
+            number: 'Nomor kisi',
+            symbolHighlight: 'Simbol tuts yang ditekan',
+            symbolHighlightLayer1: 'Simbol tuts yang ditekan 1',
+            symbolHighlight2: 'Simbol tuts yang ditekan 2'
+          },
         },
         background: {
           label: 'Gambar latar belakang',
@@ -464,6 +474,7 @@ export default {
         presetId: 'Palet warna',
         custom: 'Palet kustom',
         gridStyleId: 'Bentuk grid',
+        customTokens: 'Warna lanjutan',
         gridStyleCustom: 'Detail bentuk',
         gridNumberDisplayId: 'Nomor grid',
         fontId: 'Jenis huruf',
@@ -493,6 +504,7 @@ export default {
       value: {
         custom: 'Kustom',
         customPalette: 'Palet kustom',
+        customAdvancedPalette: 'Pengaturan warna lanjutan',
         customShape: 'Bentuk kustom',
         preset: {
           print: 'Cetak',

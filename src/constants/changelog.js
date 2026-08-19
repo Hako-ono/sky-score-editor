@@ -8,6 +8,15 @@
 // kind は 'feature' | 'improve' | 'fix' の3種。表示名は辞書側にある。
 export const CHANGELOG = [
   {
+    id: 'pdf-custom-tokens',
+    date: '2026-08-20',
+    kind: 'feature',
+    text: {
+      ja: 'カスタム配色に「詳細色2（上級者向け）」の設定を追加しました。',
+      en: 'Added an "Advanced colors" section to the custom palette.',
+    },
+  },
+  {
     id: 'pdf-preview',
     date: '2026-08-19',
     kind: 'feature',

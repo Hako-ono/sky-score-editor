@@ -6,6 +6,7 @@ import {
   normalizeKeyModeNotationId,
   resolveKeyModeNotationIdForLanguage,
   keyTonicPitchClass,
+  CUSTOM_TOKEN_KEYS,
 } from '../constants/config.js';
 import { t } from '../i18n/index.js';
 import { normalizePdfPrefs } from './pdfPrefs.js';
@@ -52,6 +53,7 @@ const EXTERNAL_GROUPS = [
     keys: {
       presetId: 'p',
       custom: 'c',
+      customTokens: 'o',
       gridStyleId: 'g',
       gridStyleCustom: 'k',
       gridNumberDisplayId: 'n',
@@ -114,6 +116,13 @@ const EXTERNAL_GROUPS = [
 const CUSTOM_SEED_ORDER = [
   'bg', 'ink', 'line', 'surface', 'accent', 'accentLine', 'accent2', 'accentLine2',
 ];
+/**
+ * 「詳細色2」も固定順の配列で運ぶ。ただし seed と違い**未指定が既定**
+ * なので、1つも指定が無ければ配列ごと出さない（`undefined` はJSON化で消える）。
+ * 何も触っていない利用者の共有URL・QRを、この機能のぶんだけ太らせないため。
+ * 未指定のトークンは配列内では `null` で埋める。
+ */
+const CUSTOM_TOKEN_ORDER = CUSTOM_TOKEN_KEYS;
 const GRID_STYLE_CUSTOM_ORDER = [
   'outerRadius', 'cellRadius', 'symbolRadius',
   'outerStrokeWidth', 'cellStrokeWidth', 'symbolStrokeWidth',
@@ -314,6 +323,25 @@ function decodeCustomSeed(value) {
   ]));
 }
 
+function encodeCustomTokens(tokens) {
+  if (!isPlainObject(tokens)) return undefined;
+  const values = CUSTOM_TOKEN_ORDER.map((key) => (
+    HEX_COLOR_RE.test(tokens[key]) ? String(tokens[key]).slice(1) : null
+  ));
+  return values.some((value) => value !== null) ? values : undefined;
+}
+
+function decodeCustomTokens(value) {
+  if (!Array.isArray(value)) return value;
+  // 値の検証は sanitizeCustomTokens（config.js）に任せる。ここは固定順の
+  // 配列をキー名へ戻すだけ。未指定（null）はキーごと落とす
+  const out = {};
+  CUSTOM_TOKEN_ORDER.forEach((key, index) => {
+    if (typeof value[index] === 'string') out[key] = `#${value[index]}`;
+  });
+  return out;
+}
+
 function encodeGridStyleCustom(custom) {
   if (!isPlainObject(custom)) return undefined;
   return GRID_STYLE_CUSTOM_ORDER.map((key) => custom[key]);
@@ -334,9 +362,11 @@ function buildExternalSettings(prefs) {
     for (const [key, code] of Object.entries(group.keys)) {
       encoded[code] = key === 'custom'
         ? encodeCustomSeed(prefs[key])
-        : key === 'gridStyleCustom'
-          ? encodeGridStyleCustom(prefs[key])
-          : prefs[key];
+        : key === 'customTokens'
+          ? encodeCustomTokens(prefs[key])
+          : key === 'gridStyleCustom'
+            ? encodeGridStyleCustom(prefs[key])
+            : prefs[key];
     }
     settings[group.code] = encoded;
   }
@@ -359,9 +389,11 @@ function readExternalSettings(settings) {
       const value = source[code];
       flat[key] = key === 'custom'
         ? decodeCustomSeed(value)
-        : key === 'gridStyleCustom'
-          ? decodeGridStyleCustom(value)
-          : value;
+        : key === 'customTokens'
+          ? decodeCustomTokens(value)
+          : key === 'gridStyleCustom'
+            ? decodeGridStyleCustom(value)
+            : value;
     }
   }
   return flat;
@@ -562,6 +594,8 @@ function formatDiffValue(key, value, scoreContext) {
       return value === 'custom'
         ? t('ui.pdfPreset.value.custom')
         : diffValueLabel('gridStyle', value);
+    case 'customTokens':
+      return t('ui.pdfPreset.value.customAdvancedPalette');
     case 'gridStyleCustom':
       return t('ui.pdfPreset.value.customShape');
     case 'gridNumberDisplayId':

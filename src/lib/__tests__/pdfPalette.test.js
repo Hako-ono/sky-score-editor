@@ -14,6 +14,11 @@ import {
   deriveSeedFromSimple,
   resolvePaletteSeed,
   SIMPLE_SURFACE_MIX_RATIO,
+  SIMPLE_ACCENT_MIX,
+  sanitizeCustomTokens,
+  CUSTOM_TOKEN_KEYS,
+  CUSTOM_SEED_KEYS,
+  hexToHsl,
 } from '../../constants/config.js';
 
 /* ============================================================
@@ -231,19 +236,35 @@ describe('isDarkSeedBg', () => {
  * deriveSeedFromSimple({ bg, ink, line }, base) -> 8キーのseed
  *   - bg/ink/lineはそのまま。
  *   - surfaceは mixHex(bg, line, SIMPLE_SURFACE_MIX_RATIO) で導出する。
- *   - accent/accentLineはbaseからそのまま引き継ぐ（導出しない）。
+ *   - accent/accentLineはlineと同系の色相で導出し、第2色はそのHSL補色になる。
+ *   - lineが無彩色に近い（色相を決められない）ときだけ、accent以下4色は
+ *     baseからそのまま引き継ぐ。
  *   - 9プリセットのbg/ink/lineから逆算したsurfaceは、実際のsurfaceを
  *     チャンネルごとの最大誤差8以内で再現する（実測して固定した許容誤差）。
+ *   - 同系色系の5プリセットでは、逆算したaccent/accentLineが実際の値を
+ *     RGB距離32以内で再現する（実測して固定した許容誤差）。
  * ============================================================ */
 function maxChannelDistance(a, b) {
   const ch = (h, i) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
   return Math.max(...[0, 1, 2].map((i) => Math.abs(ch(a, i) - ch(b, i))));
 }
 
+function rgbDistance(a, b) {
+  const ch = (h, i) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
+  return Math.hypot(...[0, 1, 2].map((i) => ch(a, i) - ch(b, i)));
+}
+
+// accentの色相がlineとほぼ一致するプリセット。この規則が想定する対象で、
+// 残る4件（print/springLight/summerLight/summerDark）はlineの反対側に
+// accentを置いているため色相は再現しない
+const ANALOGOUS_PRESET_IDS = [
+  'springDark', 'autumnLight', 'autumnDark', 'winterLight', 'winterDark',
+];
+
 describe('deriveSeedFromSimple', () => {
   it('bg/ink/lineはそのまま、surfaceは指定の比率でmixHexした値になる', () => {
     const base = PDF_PRESETS.winterDark.seed;
-    const simple = { bg: '#111111', ink: '#eeeeee', line: '#333333' };
+    const simple = { bg: '#111111', ink: '#eeeeee', line: '#334455' };
     const result = deriveSeedFromSimple(simple, base);
     expect(result.bg).toBe(simple.bg);
     expect(result.ink).toBe(simple.ink);
@@ -251,7 +272,7 @@ describe('deriveSeedFromSimple', () => {
     expect(result.surface).toBe(mixHex(simple.bg, simple.line, SIMPLE_SURFACE_MIX_RATIO));
   });
 
-  it('accent/accentLineはbaseからそのまま引き継ぐ（導出しない）', () => {
+  it('lineが無彩色に近いときだけ、accent以下4色はbaseからそのまま引き継ぐ', () => {
     const base = PDF_PRESETS.autumnDark.seed;
     const simple = { bg: '#000000', ink: '#ffffff', line: '#808080' };
     const result = deriveSeedFromSimple(simple, base);
@@ -261,12 +282,62 @@ describe('deriveSeedFromSimple', () => {
     expect(result.accentLine2).toBe(base.accentLine2);
   });
 
+  it('accent/accentLineはlineと同じ色相で、第2色はそのHSL補色になる', () => {
+    const base = PDF_PRESETS.print.seed;
+    const simple = { bg: '#FFFFFF', ink: '#202020', line: '#7FA8C9' };
+    const result = deriveSeedFromSimple(simple, base);
+    const lineHue = hexToHsl(simple.line).h;
+    expect(hexToHsl(result.accent).h).toBeCloseTo(lineHue, 2);
+    expect(hexToHsl(result.accentLine).h).toBeCloseTo(lineHue, 2);
+    expect(result.accent2).toBe(complementHex(result.accent));
+    expect(result.accentLine2).toBe(complementHex(result.accentLine));
+  });
+
+  it('明色ではaccentLineがaccentより暗く、暗色では明るくなる', () => {
+    const lightSimple = { bg: '#FFFFFF', ink: '#202020', line: '#7FA8C9' };
+    const light = deriveSeedFromSimple(lightSimple, PDF_PRESETS.print.seed);
+    expect(hexToHsl(light.accentLine).l).toBeLessThan(hexToHsl(light.accent).l);
+
+    const darkSimple = { bg: '#1A1A22', ink: '#EFEFF5', line: '#5F7290' };
+    const dark = deriveSeedFromSimple(darkSimple, PDF_PRESETS.winterDark.seed);
+    expect(hexToHsl(dark.accentLine).l).toBeGreaterThan(hexToHsl(dark.accent).l);
+  });
+
+  it('lineとinkの明度が近くても、accentLineはaccentから最小の明度差だけ離れる', () => {
+    // 明色でinkとlineの明度がほぼ同じ配色。素の式では両者がほぼ同色になる
+    const simple = { bg: '#FFFFFF', ink: '#3A6E99', line: '#3D7096' };
+    const result = deriveSeedFromSimple(simple, PDF_PRESETS.print.seed);
+    const gap = hexToHsl(result.accent).l - hexToHsl(result.accentLine).l;
+    expect(gap).toBeGreaterThanOrEqual(SIMPLE_ACCENT_MIX.minLightnessGap - 1e-9);
+  });
+
   it.each(Object.entries(PDF_PRESETS))(
     '%s: プリセットのbg/ink/lineから逆算したsurfaceは、実際のsurfaceをチャンネル誤差8以内で再現する',
     (_id, preset) => {
       const { bg, ink, line, surface } = preset.seed;
       const result = deriveSeedFromSimple({ bg, ink, line }, preset.seed);
       expect(maxChannelDistance(result.surface, surface)).toBeLessThanOrEqual(8);
+    },
+  );
+
+  it.each(ANALOGOUS_PRESET_IDS)(
+    '%s: 同系色系のプリセットは、逆算したaccent/accentLineを実際の値からRGB距離32以内で再現する',
+    (id) => {
+      const preset = PDF_PRESETS[id];
+      const { bg, ink, line } = preset.seed;
+      const result = deriveSeedFromSimple({ bg, ink, line }, preset.seed);
+      expect(rgbDistance(result.accent, preset.seed.accent)).toBeLessThanOrEqual(32);
+      expect(rgbDistance(result.accentLine, preset.seed.accentLine)).toBeLessThanOrEqual(32);
+    },
+  );
+
+  it.each(Object.entries(PDF_PRESETS))(
+    '%s: 逆算した押鍵の面と枠は、どのプリセットの3色からでも #RRGGBB になる',
+    (_id, preset) => {
+      const { bg, ink, line } = preset.seed;
+      const result = deriveSeedFromSimple({ bg, ink, line }, preset.seed);
+      expect(result.accent).toMatch(/^#[0-9A-F]{6}$/);
+      expect(result.accentLine).toMatch(/^#[0-9A-F]{6}$/);
     },
   );
 });
@@ -344,5 +415,73 @@ describe('resolvePaletteSeed', () => {
     });
     expect(seed.bg).toBe(PDF_PRESETS.print.seed.bg);
     expect(seed.ink).toBe(PDF_PRESETS.print.seed.ink);
+  });
+});
+
+/* ============================================================
+ * sanitizeCustomTokens(tokens) -> { 指定されたトークンだけ }
+ *   - seed と違い既定値へは落とさず、不正な値・未知のキーは取り除く
+ *     （無指定＝導出値を使う、という意味になる）。
+ * buildPdfPalette({ seed, overrides })
+ *   - overrides にあるトークンだけが導出値を上書きする。
+ *   - 上書きしていないトークンは種色の変更に追従し続ける。
+ * ============================================================ */
+describe('sanitizeCustomTokens', () => {
+  it('#RRGGBB のトークンだけを残す', () => {
+    expect(sanitizeCustomTokens({
+      title: '#123456',
+      number: 'not-a-color',
+      symbol: 42,
+    })).toEqual({ title: '#123456' });
+  });
+
+  it('未知のキーは取り除く（細工された保存値からトークンを生やさせない）', () => {
+    expect(sanitizeCustomTokens({
+      title: '#123456',
+      pageBackground: '#FF0000',
+      cellFill: '#00FF00',
+    })).toEqual({ title: '#123456' });
+  });
+
+  it('オブジェクトでない入力は空になる', () => {
+    for (const value of [undefined, null, 'x', 42, ['#123456']]) {
+      expect(sanitizeCustomTokens(value)).toEqual({});
+    }
+  });
+
+  it('CUSTOM_TOKEN_KEYS のすべてを指定できる', () => {
+    const tokens = Object.fromEntries(CUSTOM_TOKEN_KEYS.map((key) => [key, '#0A0B0C']));
+    expect(sanitizeCustomTokens(tokens)).toEqual(tokens);
+  });
+
+  it('種色で指定できるキーは詳細色2の対象に含まれない', () => {
+    for (const key of CUSTOM_SEED_KEYS) {
+      expect(CUSTOM_TOKEN_KEYS).not.toContain(key);
+    }
+  });
+});
+
+describe('buildPdfPalette の overrides', () => {
+  const seed = PDF_PRESETS.print.seed;
+
+  it('指定したトークンだけが導出値を上書きする', () => {
+    const base = buildPdfPalette({ seed });
+    const palette = buildPdfPalette({ seed, overrides: { number: '#FF00FF' } });
+    expect(palette.number).toBe('#FF00FF');
+    // 同じ mix 比率から作られる symbol は巻き添えにならない
+    expect(palette.symbol).toBe(base.symbol);
+    expect(palette.outerFrame).toBe(base.outerFrame);
+  });
+
+  it('上書きしていないトークンは種色の変更に追従し続ける', () => {
+    const changed = { ...seed, line: '#7CB342' };
+    const withOverride = buildPdfPalette({ seed: changed, overrides: { title: '#101010' } });
+    expect(withOverride.title).toBe('#101010');
+    expect(withOverride.symbol).toBe(buildPdfPalette({ seed: changed }).symbol);
+    expect(withOverride.symbol).not.toBe(buildPdfPalette({ seed }).symbol);
+  });
+
+  it('overrides が無いときは従来どおり14トークンすべてが導出値になる', () => {
+    expect(buildPdfPalette({ seed, overrides: {} })).toEqual(buildPdfPalette({ seed }));
   });
 });

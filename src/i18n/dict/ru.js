@@ -91,7 +91,17 @@ export default {
           "accentLayer1": "Поверхность нажатых клавиш 1",
           "accentLineLayer1": "Рамка нажатых клавиш 1",
           "accentLayer2": "Поверхность нажатых клавиш 2",
-          "accentLineLayer2": "Рамка нажатых клавиш 2"
+          "accentLineLayer2": "Рамка нажатых клавиш 2",
+          "advanced": "Дополнительные цвета",
+          "token": {
+            "title": "Название песни",
+            "outerFrame": "Рамка сетки",
+            "symbol": "Символ",
+            "number": "Номер сетки",
+            "symbolHighlight": "Символ нажатых клавиш",
+            "symbolHighlightLayer1": "Символ нажатых клавиш 1",
+            "symbolHighlight2": "Символ нажатых клавиш 2"
+          }
         },
         "background": {
           "label": "Фоновое изображение",
@@ -465,6 +475,7 @@ export default {
         "presetId": "Цветовая схема",
         "custom": "Своя цветовая схема",
         "gridStyleId": "Форма сетки",
+        "customTokens": "Дополнительные цвета",
         "gridStyleCustom": "Параметры формы",
         "gridNumberDisplayId": "Номер сетки",
         "fontId": "Шрифт",
@@ -494,6 +505,7 @@ export default {
       "value": {
         "custom": "Свои",
         "customPalette": "Своя цветовая схема",
+        "customAdvancedPalette": "Настройка дополнительных цветов",
         "customShape": "Своя форма",
         "preset": {
           "print": "Для печати",

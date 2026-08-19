@@ -91,6 +91,16 @@ export default {
           accentLineLayer1: 'Borde de la tecla presionada 1',
           accentLayer2: 'Superficie de la tecla presionada 2',
           accentLineLayer2: 'Borde de la tecla presionada 2',
+          advanced: 'Colores avanzados',
+          token: {
+            title: 'Titulo de la cancion',
+            outerFrame: 'Borde de la cuadricula',
+            symbol: 'Simbolo',
+            number: 'Numero de cuadricula',
+            symbolHighlight: 'Simbolo de tecla presionada',
+            symbolHighlightLayer1: 'Simbolo de tecla presionada 1',
+            symbolHighlight2: 'Simbolo de tecla presionada 2'
+          },
         },
         background: {
           label: 'Imagen de fondo',
@@ -464,6 +474,7 @@ export default {
         presetId: 'Paleta de colores',
         custom: 'Paleta personalizada',
         gridStyleId: 'Forma de cuadrícula',
+        customTokens: 'Colores avanzados',
         gridStyleCustom: 'Detalles de la forma',
         gridNumberDisplayId: 'Número de cuadrícula',
         fontId: 'Tipografía',
@@ -493,6 +504,7 @@ export default {
       value: {
         custom: 'Personalizado',
         customPalette: 'Paleta personalizada',
+        customAdvancedPalette: 'Ajustes de colores avanzados',
         customShape: 'Forma personalizada',
         preset: {
           print: 'Impresión',

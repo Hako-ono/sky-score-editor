@@ -91,6 +91,16 @@ export default {
           accentLineLayer1: '按键边框 1',
           accentLayer2: '按键面 2',
           accentLineLayer2: '按键边框 2',
+          advanced: '高级颜色',
+          token: {
+            title: '曲名',
+            outerFrame: '网格外框',
+            symbol: '符号',
+            number: '网格编号',
+            symbolHighlight: '按键符号',
+            symbolHighlightLayer1: '按键符号 1',
+            symbolHighlight2: '按键符号 2'
+          },
         },
         background: {
           label: '背景图片',
@@ -464,6 +474,7 @@ export default {
         presetId: '配色',
         custom: '自定义配色',
         gridStyleId: '网格形状',
+        customTokens: '高级颜色',
         gridStyleCustom: '形状详情',
         gridNumberDisplayId: '网格编号',
         fontId: '字体',
@@ -493,6 +504,7 @@ export default {
       value: {
         custom: '自定义',
         customPalette: '自定义配色',
+        customAdvancedPalette: '高级颜色指定',
         customShape: '自定义形状',
         preset: {
           print: '打印',

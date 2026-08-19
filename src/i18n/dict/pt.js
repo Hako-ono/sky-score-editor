@@ -91,6 +91,16 @@ export default {
           accentLineLayer1: 'Borda da tecla pressionada 1',
           accentLayer2: 'Superfície da tecla pressionada 2',
           accentLineLayer2: 'Borda da tecla pressionada 2',
+          advanced: 'Cores avancadas',
+          token: {
+            title: 'Titulo da musica',
+            outerFrame: 'Borda da grade',
+            symbol: 'Simbolo',
+            number: 'Numero da grade',
+            symbolHighlight: 'Simbolo da tecla pressionada',
+            symbolHighlightLayer1: 'Simbolo da tecla pressionada 1',
+            symbolHighlight2: 'Simbolo da tecla pressionada 2'
+          },
         },
         background: {
           label: 'Imagem de fundo',
@@ -464,6 +474,7 @@ export default {
         presetId: 'Paleta de cores',
         custom: 'Paleta personalizada',
         gridStyleId: 'Forma da grade',
+        customTokens: 'Cores avancadas',
         gridStyleCustom: 'Detalhes da forma',
         gridNumberDisplayId: 'Número da grade',
         fontId: 'Fonte',
@@ -493,6 +504,7 @@ export default {
       value: {
         custom: 'Personalizado',
         customPalette: 'Paleta personalizada',
+        customAdvancedPalette: 'Ajustes de cores avancadas',
         customShape: 'Forma personalizada',
         preset: {
           print: 'Impressão',

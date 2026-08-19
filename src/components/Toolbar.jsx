@@ -34,6 +34,8 @@ import {
   contrastRatio,
   deriveSeedFromSimple,
   resolvePaletteSeed,
+  sanitizeCustomTokens,
+  buildPdfPalette,
   MOBILE_MEDIA_QUERY,
   getDefaultLyricSizePercent,
 } from '../constants/config.js';
@@ -78,6 +80,30 @@ const CUSTOM_SEED_DETAIL_KEYS_TWO = [
 
 export function getCustomSeedDetailKeys(usesTwoLayers) {
   return usesTwoLayers ? CUSTOM_SEED_DETAIL_KEYS_TWO : CUSTOM_SEED_DETAIL_KEYS_SINGLE;
+}
+
+// 「詳細色2（上級者向け）」の色帯は2段に分ける。1段目は紙面まわりの3色、
+// 2段目は記号の2色。段ごとに分割数が違う（3分割／2分割）ため、1本の帯に
+// まとめず段ごとに strip + ラベルを持たせる。
+// 押鍵記号のレイヤー2は2レイヤーの楽譜でしか描かれないので、詳細色の第2色と
+// 同じ条件で出し分け、同じく帯の高さを変えずに縦へ積む。
+export function getCustomTokenRows(usesTwoLayers) {
+  return [
+    ['title', 'outerFrame', 'number'],
+    usesTwoLayers
+      ? ['symbol', 'symbolHighlight', 'symbolHighlight2']
+      : ['symbol', 'symbolHighlight'],
+  ];
+}
+
+export function getCustomTokenLabel(key, usesTwoLayers) {
+  if (!usesTwoLayers && key === 'symbolHighlight') {
+    return t('ui.toolbar.pdf.palette.token.symbolHighlight');
+  }
+  if (usesTwoLayers && key === 'symbolHighlight') {
+    return t('ui.toolbar.pdf.palette.token.symbolHighlightLayer1');
+  }
+  return t(`ui.toolbar.pdf.palette.token.${key}`);
 }
 
 export function getCustomSeedLabel(key, usesTwoLayers) {
@@ -482,6 +508,24 @@ export default function Toolbar({
       }),
     [pdfPrefs.presetId, pdfPrefs.custom],
   );
+  const customTokens = useMemo(
+    () => sanitizeCustomTokens(pdfPrefs.customTokens),
+    [pdfPrefs.customTokens],
+  );
+  // 「詳細色2」の入力欄には、上書きが無いトークンの導出値も出す必要がある。
+  // 出力側（pdfExport.js）と同じ組み立てをここでも行うことで、スウォッチと
+  // 実際のPDFが食い違わないようにする（同じ派生ルールを呼び出し元ごとに
+  // 再実装しない）。buildPdfPalette は config.js に
+  // あるため、Toolbar から pdfExport.js を import せずに済む
+  const effectiveTokens = useMemo(
+    () =>
+      buildPdfPalette(
+        isCustomPreset
+          ? { seed: effectiveSeed, overrides: customTokens }
+          : { seed: effectiveSeed },
+      ),
+    [isCustomPreset, effectiveSeed, customTokens],
+  );
   const resolvedGridStyle = useMemo(
     () =>
       resolvePdfGridStyle({
@@ -514,10 +558,10 @@ export default function Toolbar({
     isCustomPreset && contrastRatio(effectiveSeed.bg, effectiveSeed.ink) < 4.5;
 
   const setCustomSeedColor = (key, value) => {
-    if (key === 'bg' || key === 'line') {
-      // 簡易モードのbg/lineを変えたらsurfaceも追従させる。inkの
-      // 変更では呼ばない（詳細モードで手で調整したsurfaceを、無関係な
-      // ink変更のたびに上書きしないため）
+    if (key === 'bg' || key === 'ink' || key === 'line') {
+      // 簡易モードの3色を変えたら、詳細側（surface・押鍵の面と枠・第2色）を
+      // 追従させる。inkもここに含めるのは、押鍵の明度をink方向へ寄せて決めて
+      // いるため。surfaceはbg/lineだけで決まるのでink変更では変わらない
       const nextSimple = { bg: customSeed.bg, ink: customSeed.ink, line: customSeed.line, [key]: value };
       const derived = deriveSeedFromSimple(nextSimple, customSeed);
       onSetPdfPrefs({ ...pdfPrefs, custom: { ...customSeed, ...derived } });
@@ -526,7 +570,15 @@ export default function Toolbar({
     onSetPdfPrefs({ ...pdfPrefs, custom: { ...customSeed, [key]: value } });
   };
 
+  // 「詳細色2」は指定したトークンだけを持つ。触っていないトークンは
+  // キーごと持たないままにして、種色から導出され続けるようにする
+  const setCustomTokenColor = (key, value) => {
+    onSetPdfPrefs({ ...pdfPrefs, customTokens: { ...customTokens, [key]: value } });
+  };
+
   const customSeedDetailKeys = getCustomSeedDetailKeys(usesTwoLayers);
+  const customTokenRows = getCustomTokenRows(usesTwoLayers);
+  const isCustomTokenEditable = isCustomPreset && isCustomDetailEditing;
 
   const setGridStyleCustomValue = (key, value) => {
     onSetPdfPrefs({
@@ -1052,7 +1104,13 @@ export default function Toolbar({
                       type="button"
                       className="btn btn--ghost btn--sm"
                       onClick={() =>
-                        onSetPdfPrefs({ ...pdfPrefs, custom: { ...DEFAULT_CUSTOM_SEED } })
+                        onSetPdfPrefs({
+                          ...pdfPrefs,
+                          custom: { ...DEFAULT_CUSTOM_SEED },
+                          // 「詳細色2」も同時に空へ戻す。種色だけ戻して上書きが
+                          // 残ると、既定へ戻したはずの配色が戻りきらない
+                          customTokens: {},
+                        })
                       }
                     >
                       {t('ui.toolbar.pdf.resetColors')}
@@ -1121,6 +1179,67 @@ export default function Toolbar({
                   </div>
                 ))}
               </div>
+
+              {/* 種色（8色）では単独指定できない残りの描画トークン。既定では
+                  導出値のまま使うので、普段は畳んでおく */}
+              <details className="toolbar__palette-advanced">
+                <summary>
+                  <span className="toolbar__palette-advanced-chevron" aria-hidden="true">
+                    <ChevronIcon size={14} />
+                  </span>
+                  <span>{t('ui.toolbar.pdf.palette.advanced')}</span>
+                </summary>
+                <div className="toolbar__palette-advanced-body">
+                  {customTokenRows.map((keys, row) => (
+                    <div
+                      className={[
+                        'toolbar__palette-group toolbar__palette-group--tokens',
+                        // 1段目は3分割、2段目は2分割。2段目の押鍵記号だけ縦に積む
+                        row === 0
+                          ? 'toolbar__palette-group--tokens-3'
+                          : 'toolbar__palette-group--tokens-2',
+                        keys.includes('symbolHighlight2')
+                          ? 'toolbar__palette-group--tokens-stacked'
+                          : '',
+                      ].filter(Boolean).join(' ')}
+                      key={keys[0]}
+                    >
+                      <div className="toolbar__palette-strip">
+                        {keys.map((key) => (
+                          <div
+                            className={`toolbar__palette-segment${isCustomTokenEditable ? ' is-editable' : ''}`}
+                            key={key}
+                            style={{ background: effectiveTokens[key] }}
+                          >
+                            {isCustomTokenEditable && (
+                              <input
+                                id={`pdf-token-${key}`}
+                                type="color"
+                                className="toolbar__palette-color-input"
+                                value={effectiveTokens[key]}
+                                onChange={(e) => setCustomTokenColor(key, e.target.value)}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="toolbar__palette-labels">
+                        {keys.map((key) => {
+                          const Label = isCustomTokenEditable ? 'label' : 'span';
+                          return (
+                            <Label
+                              {...(isCustomTokenEditable ? { htmlFor: `pdf-token-${key}` } : {})}
+                              key={key}
+                            >
+                              {getCustomTokenLabel(key, usesTwoLayers)}
+                            </Label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
             </div>
 
           {/* トースト通知にすると自動で消えてしまう。配色・書体は選んだ後も
