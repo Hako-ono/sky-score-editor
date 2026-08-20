@@ -364,6 +364,7 @@ export default {
       loaded: '读取完成（共 {n} 个网格）— {warning}',
       loadFailed: '读取失败。（{message}）',
       confirmNew: '有未保存的更改。要新建乐谱吗？',
+      confirmOpen: '有未保存的更改。要打开其他乐谱吗？',
       confirmClearDirty: '有未保存的更改。要全部清除吗？',
       confirmClear: '将清除当前乐谱。要继续吗？',
       cleared: '已清除乐谱。',

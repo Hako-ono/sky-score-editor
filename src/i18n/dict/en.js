@@ -364,6 +364,7 @@ export default {
       loaded: 'Load complete ({n} grids) — {warning}',
       loadFailed: 'Could not load the file. ({message})',
       confirmNew: 'You have unsaved changes. Create a new score?',
+      confirmOpen: 'You have unsaved changes. Open a different score?',
       confirmClearDirty: 'You have unsaved changes. Clear everything?',
       confirmClear: 'Clear the current score. Continue?',
       cleared: 'Score cleared.',

@@ -364,6 +364,7 @@ export default {
       loaded: 'Carga completa ({n} cuadrículas) - {warning}',
       loadFailed: 'No se pudo cargar el archivo. ({message})',
       confirmNew: 'Tienes cambios sin guardar. ¿Crear una nueva partitura?',
+      confirmOpen: 'Tienes cambios sin guardar. ¿Abrir otra partitura?',
       confirmClearDirty: 'Tienes cambios sin guardar. ¿Borrar todo?',
       confirmClear: 'Borrar la partitura actual. ¿Continuar?',
       cleared: 'Partitura borrada.',

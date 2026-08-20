@@ -189,6 +189,13 @@ body {
   flex-direction: column;
   gap: 0.7rem;
   backdrop-filter: saturate(1.2);
+  /* backdrop-filter がスタッキングコンテキストを作るため、内部の
+     テーマ/言語メニュー（z-index: 21）がどれだけ高くても、.toolbar自体が
+     positionを持たない（非配置要素）限り、後ろの.app__sticky-header
+     （position: sticky; z-index: 20）より必ず下に描画される。.toolbarを
+     positionありのz-index要素にして初めて内部のz-indexが効くようになる */
+  position: relative;
+  z-index: 21;
 }
 
 .toolbar__row {
@@ -229,9 +236,26 @@ body {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+  /* 選択状態は aria-selected の色・下線で示しており、タップ時の既定の
+     ハイライトには意味がない */
+  -webkit-tap-highlight-color: transparent;
 }
 
-.toolbar__tab:hover {
+/* iOS Safariはタップした要素の:hoverを、別の場所をタップして解除する
+   まで適用したままにする（ホバーできない端末でもタップを「ホバー中」
+   として扱う既知の挙動）。実際にホバーできる端末（マウス操作）に限定し、
+   タッチのみの端末では:hoverの見た目そのものを出さない */
+@media (hover: hover) {
+  .toolbar__tab:hover {
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    color: var(--text);
+  }
+}
+
+/* :hoverと違って:activeは押している間だけ効き、指を離せば自動的に消える
+   （固着しない）。タップした瞬間の反応がホバー端末限定になってしまわない
+   よう、hover機能の有無にかかわらず常に効かせる */
+.toolbar__tab:active {
   background: color-mix(in srgb, var(--primary) 8%, transparent);
   color: var(--text);
 }
@@ -241,10 +265,21 @@ body {
   color: var(--primary);
 }
 
+/* outlineの除去は常に効かせる。WebKitの既知の不具合で、タップ操作でも
+   :focus-visible が真になることがあるため、既定のアウトラインが
+   タップ後に残る余地を先に断つ */
 .toolbar__tab:focus-visible {
   outline: none;
   border-radius: 4px 4px 0 0;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+/* 装飾のフォーカスリング自体は、上のタップ起因の:focus-visibleでは
+   出さない。ホバー可能な端末（＝実質キーボード操作の到達性がある端末）
+   だけに限定する */
+@media (hover: hover) {
+  .toolbar__tab:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+  }
 }
 
 .toolbar__tabpanel,
@@ -1622,7 +1657,9 @@ body {
   position: absolute;
   top: calc(100% + 0.25rem);
   right: 0;
-  z-index: 5;
+  z-index: 21; /* .app__sticky-header が 20。フッターの言語メニューは
+    ツールバーと違いsticky-headerと重ならないが、同じ選択肢セットのため
+    2クラスをまとめて上げても副作用はない */
   display: flex;
   flex-direction: column;
   min-width: 7rem;

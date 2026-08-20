@@ -14,6 +14,7 @@ import { buildPdfBlob } from './pdfExport.js';
 import { openPdfForRaster } from './pdfRaster.js';
 import { createStoreZipBlob } from './zipStore.js';
 import { normalizePngDpi } from '../constants/config.js';
+import { tryShareFile } from './webShare.js';
 
 // 生成したPNGの合計バイト数の上限。超えたら中止してエラーを返す。実測値では
 // なく、実機での確認を経て見直す前提の仮の値。
@@ -53,7 +54,12 @@ function canvasToPngBlob(canvas) {
 // `openOrDownloadPdfBlob`（pdfExport.js）は先に window.open を試すが、PNG/ZIPで
 // 同じことをするとタブの挙動がブラウザ依存になるため使い回さない。
 // <a download> をクリックするだけの、より単純な手順にする。
-function downloadBlob(blob, filename) {
+//
+// iOSのスタンドアロンPWAでは <a download> が別ページへ遷移したように見える
+// （詳細は webShare.js）ため、その文脈でだけ共有シートを先に試す。
+// @returns {Promise<boolean>} 共有シートに渡せた場合 true
+async function downloadBlob(blob, filename, mimeType) {
+  if (await tryShareFile(blob, filename, mimeType)) return true;
   const blobUrl = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = blobUrl;
@@ -62,6 +68,7 @@ function downloadBlob(blob, filename) {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+  return false;
 }
 
 function pageFileName(pageIndex, pageCount) {
@@ -74,7 +81,7 @@ function pageFileName(pageIndex, pageCount) {
  * @param {*} options exportPdf/buildPdfBlob と同じ形に加え、`pngDpi`
  *   （96|150|200、既定150）を持つ。
  * @param {(msg: string) => void} [onProgress]
- * @returns {Promise<{ filename: string, pageCount: number }>}
+ * @returns {Promise<{ filename: string, pageCount: number, shared: boolean }>}
  */
 export async function exportPng(score, options, onProgress = () => {}) {
   const dpi = normalizePngDpi(options?.pngDpi);
@@ -117,8 +124,8 @@ export async function exportPng(score, options, onProgress = () => {}) {
     const stamp = timestamp();
     if (pageCount === 1) {
       const filename = `sky_score_${stamp}.png`;
-      downloadBlob(pngBlobs[0], filename);
-      return { filename, pageCount };
+      const shared = await downloadBlob(pngBlobs[0], filename, 'image/png');
+      return { filename, pageCount, shared };
     }
 
     onProgress(t('ui.progress.pngZipping'));
@@ -128,8 +135,8 @@ export async function exportPng(score, options, onProgress = () => {}) {
     }));
     const zipBlob = await createStoreZipBlob(entries);
     const filename = `sky_score_${stamp}.zip`;
-    downloadBlob(zipBlob, filename);
-    return { filename, pageCount };
+    const shared = await downloadBlob(zipBlob, filename, 'application/zip');
+    return { filename, pageCount, shared };
   } finally {
     if (raster) {
       await raster.destroy();

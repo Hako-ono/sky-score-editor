@@ -7,6 +7,7 @@ import {
   MAX_PDF_PRESET_NAME_CODE_POINTS,
   MAX_PDF_PRESET_MEMO_CODE_POINTS,
 } from './pdfPresetCodec.js';
+import { tryShareFile } from './webShare.js';
 
 export const PDF_QR_DISPLAY_SIZE = 512;
 export const PDF_QR_MAX_DPR = 2;
@@ -420,7 +421,11 @@ export async function savePdfPresetQrCard(canvas, name, date = new Date()) {
     throwPdfQrError('save-failed', 'QRカードをPNGとして保存できませんでした。');
   }
   const filename = buildPdfPresetQrFilename(name, date);
-  if (globalThis.document && typeof globalThis.document.createElement === 'function'
+  // iOSのスタンドアロンPWAでは下の<a download>が別ページへ遷移したように
+  // 見える（詳細はwebShare.js）ため、その文脈でだけ共有シートを先に試す。
+  const shared = await tryShareFile(blob, filename, 'image/png');
+  if (!shared
+    && globalThis.document && typeof globalThis.document.createElement === 'function'
     && globalThis.URL && typeof globalThis.URL.createObjectURL === 'function') {
     const link = globalThis.document.createElement('a');
     const objectUrl = globalThis.URL.createObjectURL(blob);

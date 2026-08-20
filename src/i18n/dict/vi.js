@@ -365,6 +365,7 @@ export default {
       "loaded": "Đã tải ({n} ô) — {warning}",
       "loadFailed": "Tải không thành công ({message})",
       "confirmNew": "Có thay đổi chưa lưu. Bạn có muốn tạo mới không?",
+      "confirmOpen": "Có thay đổi chưa lưu. Bạn có muốn mở bản nhạc khác không?",
       "confirmClearDirty": "Có thay đổi chưa lưu. Bạn có muốn xóa tất cả không?",
       "confirmClear": "Toàn bộ bản nhạc hiện tại sẽ bị xóa. Bạn có chắc không?",
       "cleared": "Đã xóa bản nhạc.",

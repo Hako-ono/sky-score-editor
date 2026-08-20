@@ -39,6 +39,7 @@ import {
   DEFAULT_BACKGROUND_IMAGE_OPACITY,
 } from './lib/backgroundImage.js';
 import { audioEngine } from './lib/audioEngine.js';
+import { tryShareFile } from './lib/webShare.js';
 import {
   DEFAULT_BPM,
   MAX_GRIDS,
@@ -71,8 +72,9 @@ function loadThemePreference() {
   }
 }
 
-function downloadText(text, filename, mime) {
+async function downloadText(text, filename, mime) {
   const blob = new Blob([text], { type: mime });
+  if (await tryShareFile(blob, filename, mime)) return;
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -413,6 +415,11 @@ export default function App() {
         showStatus(t('ui.app.fileType'), 'error', false);
         return;
       }
+      // newScore と同じ理由：reset() は履歴を消すため、読み込み後は
+      // 「元に戻す」で直前の楽譜へ戻せない。読み込み前に必ず確認する
+      if (isDirty && !window.confirm(t('ui.app.confirmOpen'))) {
+        return;
+      }
       setFileName(file.name);
       showStatus(t('ui.app.loadingFile'), 'loading', false);
       try {
@@ -449,7 +456,7 @@ export default function App() {
         showStatus(msg, 'error', false);
       }
     },
-    [reset, markSaved, showStatus, dismissStatus, t],
+    [isDirty, reset, markSaved, showStatus, dismissStatus, t],
   );
 
   // --- 新規作成 ---
@@ -528,11 +535,11 @@ export default function App() {
   }, [t]);
 
   // --- JSON 保存 ---
-  const saveJson = useCallback(() => {
+  const saveJson = useCallback(async () => {
     if (!hasData) return;
     try {
       const text = serializeScore(score); // フォーマットバージョンを含めて出力する
-      downloadText(text, jsonFilename(), 'application/json');
+      await downloadText(text, jsonFilename(), 'application/json');
       markSaved(serializeScoreForCompare(score));
     } catch (err) {
       showStatus(t('ui.app.saveFailed', { message: err.message }), 'error', false);
@@ -621,8 +628,10 @@ export default function App() {
         pdfExportOptions,
         (msg) => showStatus(msg, 'loading', false),
       );
+      // 共有シート経由（outcome: 'shared'）でも、利用者からは画面を見れば
+      // わかることなので、通常のダウンロードと同じ文言にまとめる。
       showStatus(
-        result.opened
+        result.outcome === 'opened'
           ? t('ui.app.pdfOpened', { filename: result.filename })
           : t('ui.app.pdfDownloaded', { filename: result.filename }),
         'success',
@@ -649,6 +658,7 @@ export default function App() {
         pdfExportOptions,
         (msg) => showStatus(msg, 'loading', false),
       );
+      // PDFと同様、共有シート経由かどうかはメッセージで区別しない。
       showStatus(t('ui.app.pngDownloaded', { filename: result.filename }), 'success');
     } catch (err) {
       showStatus(t('ui.app.pngFailed', { message: err.message }), 'error', false);

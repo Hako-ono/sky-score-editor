@@ -306,6 +306,18 @@ export default function Toolbar({
     if (shouldFocus) tabRefs.current[tab]?.focus();
   };
 
+  // タップ/クリックでの選択後にフォーカスを残さない。iOS Safariは
+  // タップした要素のフォーカスを、他の場所をタップして外れるまで保持し、
+  // それに紐づく見た目（アウトライン等）も一緒に残ってしまうため。
+  // キーボード操作（Enter/Space）由来のclickはdetailが0になるので、その
+  // ときだけフォーカスを残し、Tabキーでの操作性は変えない。
+  const handleTabClick = (tab, event) => {
+    if (event.detail !== 0) {
+      event.currentTarget.blur();
+    }
+    selectTab(tab);
+  };
+
   const handleTabKeyDown = (e) => {
     const currentIndex = tabOrder.indexOf(activeTab);
     let nextIndex;
@@ -714,7 +726,7 @@ export default function Toolbar({
               aria-selected={activeTab === 'score'}
               aria-controls="toolbar-panel-score"
               tabIndex={activeTab === 'score' ? 0 : -1}
-              onClick={() => selectTab('score')}
+              onClick={(e) => handleTabClick('score', e)}
               onKeyDown={handleTabKeyDown}
             >
               {t('ui.toolbar.scoreTab')}
@@ -730,7 +742,7 @@ export default function Toolbar({
               aria-selected={activeTab === 'pdf'}
               aria-controls="toolbar-panel-pdf"
               tabIndex={activeTab === 'pdf' ? 0 : -1}
-              onClick={() => selectTab('pdf')}
+              onClick={(e) => handleTabClick('pdf', e)}
               onKeyDown={handleTabKeyDown}
             >
               {t('ui.toolbar.outputTab')}

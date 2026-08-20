@@ -364,6 +364,7 @@ export default {
       loaded: '読み込み完了 (全 {n} グリッド) — {warning}',
       loadFailed: '読み込みに失敗しました。({message})',
       confirmNew: '未保存の変更があります。新規作成しますか?',
+      confirmOpen: '未保存の変更があります。別の楽譜を開きますか?',
       confirmClearDirty: '未保存の変更があります。すべて消去しますか？',
       confirmClear: '現在の楽譜をすべて消去します。よろしいですか？',
       cleared: '楽譜を消去しました。',

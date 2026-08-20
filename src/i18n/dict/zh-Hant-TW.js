@@ -364,6 +364,7 @@ export default {
       loaded: '讀取完成（共 {n} 個網格）— {warning}',
       loadFailed: '讀取失敗。（{message}）',
       confirmNew: '有未儲存的變更。要新增樂譜嗎？',
+      confirmOpen: '有未儲存的變更。要開啟其他樂譜嗎？',
       confirmClearDirty: '有未儲存的變更。要全部清除嗎？',
       confirmClear: '將清除目前樂譜。要繼續嗎？',
       cleared: '已清除樂譜。',

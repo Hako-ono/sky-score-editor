@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useT } from '../i18n/LanguageContext.jsx';
@@ -26,6 +26,10 @@ const LANDSCAPE_RESOLUTION_BOOST = 2;
 // 余地がある値だが、一般的なホイール1ノッチ(±100)で1.1〜1.2倍程度になる
 // よう選んだ。
 const WHEEL_ZOOM_SENSITIVITY = 0.0015;
+// ズーム操作が止まってからこの時間だけ待って、必要なら解像度を底上げする
+// 再ラスタライズを走らせる（ピンチ・ホイールの連続フレームごとに再描画
+// しないため）。
+const ZOOM_SETTLE_MS = 200;
 
 /**
  * PDFプレビューの拡大表示。`GridOverlay.jsx` と同じ流儀
@@ -99,6 +103,49 @@ export default function PdfPreviewOverlay({ isOpen, blob, aspectRatio, onClose }
   const movedRef = useRef(false);
   const lastTapRef = useRef({ time: 0, x: 0, y: 0 });
 
+  // 今canvasに焼き込まれている解像度（renderPdfPreviewFromBlobに渡した
+  // targetLongSidePx）。開くたびにベースの解像度用useEffectがリセットする。
+  const renderedLongSidePxRef = useRef(0);
+  const upgradeTimerRef = useRef(null);
+  // 解像度の底上げ専用の、画面に出さないcanvas。表示用canvasへ直接描くと
+  // リサイズ直後の空白が一瞬見えてしまうため、ここへ描き切ってから
+  // drawImageで表示用canvasへ焼き直す（詳細は下のuseEffect内コメント）。
+  // `pdfPreview.js`の`getProbeCanvas`と同じく、開くたびに作り直さず
+  // 使い回す。
+  const scratchCanvasRef = useRef(null);
+  const getUpgradeScratchCanvas = () => {
+    if (!scratchCanvasRef.current) scratchCanvasRef.current = document.createElement('canvas');
+    return scratchCanvasRef.current;
+  };
+  // ベースの解像度用useEffect（下）が開いている間だけ実体を持つ。cancelled
+  // クロージャを共有させるため、実体はそのuseEffectの中で差し替える。
+  const upgradeIfNeededRef = useRef(() => {});
+
+  // 「fit時の表示サイズ × scale × devicePixelRatio(上限2) × 面付け補正」で
+  // 目標解像度を求める共通式。開いた直後のベース描画（scale=2固定）と、
+  // ズーム後の底上げ（scale=実際の表示倍率）の両方がこれを使う。下のuseEffect
+  // が依存配列へ安全に含められるよう、aspectRatioが変わらない限り同一の
+  // 関数参照を保つ（useCallback）。
+  const computeTargetLongSidePx = useCallback(
+    (canvas, scale) => {
+      const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      const fitLongSidePx = Math.max(canvas.offsetWidth, canvas.offsetHeight);
+      const resolutionBoost = aspectRatio > 1 ? LANDSCAPE_RESOLUTION_BOOST : 1;
+      return Math.min(fitLongSidePx * scale * devicePixelRatio * resolutionBoost, OVERLAY_LONG_SIDE_CAP_PX);
+    },
+    [aspectRatio],
+  );
+
+  // ズーム操作のたびに呼ぶ。連続操作中は何度も呼ばれるが、実際の再描画は
+  // ZOOM_SETTLE_MSだけ操作が止まってから1回だけ走る。
+  const scheduleUpgrade = () => {
+    if (upgradeTimerRef.current) clearTimeout(upgradeTimerRef.current);
+    upgradeTimerRef.current = setTimeout(() => {
+      upgradeTimerRef.current = null;
+      upgradeIfNeededRef.current();
+    }, ZOOM_SETTLE_MS);
+  };
+
   const applyTransform = (animate) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -151,6 +198,7 @@ export default function PdfPreviewOverlay({ isOpen, blob, aspectRatio, onClose }
       ty: dy - clampedScale * localY,
     });
     applyTransform(animate);
+    scheduleUpgrade();
   };
 
   // 開くたびにfit（等倍）・チロム非表示へ戻す。
@@ -220,13 +268,18 @@ export default function PdfPreviewOverlay({ isOpen, blob, aspectRatio, onClose }
   }, [isOpen]);
 
   // 開いたときに1回だけ、指定解像度で描き直す。buildPdfBlobからは
-  // やり直さず、渡されたBlobをそのまま使う。
+  // やり直さず、渡されたBlobをそのまま使う。あわせて、この効果が持つ
+  // `cancelled`クロージャを共有させるため、ズーム後の解像度底上げ
+  // （upgradeIfNeededRef経由でscheduleUpgradeから呼ばれる）の実体もここで作る。
   useEffect(() => {
     if (!isOpen || !blob) return undefined;
     let cancelled = false;
+    const stage = stageRef.current;
+    const canvas = canvasRef.current;
+
+    renderedLongSidePxRef.current = 0;
+
     (async () => {
-      const stage = stageRef.current;
-      const canvas = canvasRef.current;
       if (!stage || !canvas) return;
       setPhase('loading');
       try {
@@ -234,22 +287,15 @@ export default function PdfPreviewOverlay({ isOpen, blob, aspectRatio, onClose }
         // fit時の表示寸法にする。letterboxで生じる余白ぶんstageの方が
         // 大きいことがあり、stage基準だと実際の表示より過大／過小に
         // 見積もる（実機確認で2面付けの粗さとして発覚）。
-        const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-        const fitLongSidePx = Math.max(canvas.offsetWidth, canvas.offsetHeight);
-        // 「fit時の表示サイズ × devicePixelRatio(上限2) × 2」でラスタライズし、
-        // CSSでfitサイズへ縮めて表示する。等倍〜2倍の範囲は再ラスタライズ
-        // なしで鮮明に保てる。2面付け（横向き）はLANDSCAPE_RESOLUTION_BOOST
-        // でさらに引き上げる（1枚の紙面に2ページぶんの内容が収まっており、
-        // 同じ解像度では1ページあたりの精細さが1面付けの約半分になるため）。
-        const resolutionBoost = aspectRatio > 1 ? LANDSCAPE_RESOLUTION_BOOST : 1;
-        const targetLongSidePx = Math.min(
-          fitLongSidePx * devicePixelRatio * 2 * resolutionBoost,
-          OVERLAY_LONG_SIDE_CAP_PX,
-        );
+        // scale=2固定でラスタライズし、CSSでfitサイズへ縮めて表示する。
+        // 等倍〜2倍の範囲は再ラスタライズなしで鮮明に保てる。2倍を超える
+        // ズームは下のupgradeIfNeededRefが操作の合間に解像度を底上げする。
+        const targetLongSidePx = computeTargetLongSidePx(canvas, 2);
         const { renderPdfPreviewFromBlob } = await import('../lib/pdfPreview.js');
         const result = await renderPdfPreviewFromBlob(blob, canvas, { targetLongSidePx });
         if (cancelled) return;
         if (result === null) return; // 世代遅れ
+        renderedLongSidePxRef.current = targetLongSidePx;
         setPhase('ready');
         setErrorMessage('');
       } catch (err) {
@@ -258,18 +304,67 @@ export default function PdfPreviewOverlay({ isOpen, blob, aspectRatio, onClose }
         setPhase('error');
       }
     })();
+
+    // ズームが落ち着いたときにscheduleUpgrade経由で呼ばれる。今の表示倍率に
+    // 対して解像度が足りていなければ、同じcanvasへ高い解像度で描き直す。
+    // renderPdfPreviewFromBlob自身の世代カウンタ（latestBlobCallId）が
+    // 「この呼び出しより後にもっと新しい呼び出しが来ていたら結果を捨てる」
+    // ことを保証するため、ここでの世代管理はcancelledフラグだけでよい。
+    upgradeIfNeededRef.current = async () => {
+      if (cancelled || !stage || !canvas) return;
+      const neededLongSidePx = computeTargetLongSidePx(canvas, transformRef.current.scale);
+      // 誤差で無限に呼び直さないよう、既に足りていれば何もしない。
+      if (neededLongSidePx <= renderedLongSidePxRef.current + 1) return;
+      try {
+        const { renderPdfPreviewFromBlob } = await import('../lib/pdfPreview.js');
+        // 表示中のcanvasへ直接描かせない。pdf.jsのrenderPage内部は
+        // canvas.width/heightを新しい解像度へリサイズしており、これは
+        // 実行した瞬間に今見えている絵を消す（H TMLの仕様）。描画自体は
+        // 非同期なので、リサイズ直後〜描画完了までの間、今まで見えていた
+        // 画像が一瞬消える。見えないscratch canvasへ先に描き切ってから、
+        // 完成した絵だけを表示用canvasへ1回のdrawImageで焼き直すことで、
+        // 空白を挟まず切り替える。
+        const scratchCanvas = getUpgradeScratchCanvas();
+        const result = await renderPdfPreviewFromBlob(blob, scratchCanvas, { targetLongSidePx: neededLongSidePx });
+        if (cancelled) return;
+        if (result === null) return; // 世代遅れ
+        // 以下2行はリサイズ→描画を同じ同期処理内で行う。間にawaitを挟むと
+        // ブラウザがリサイズ直後の空白フレームを描画しうるため挟まない。
+        canvas.width = scratchCanvas.width;
+        canvas.height = scratchCanvas.height;
+        canvas.getContext('2d').drawImage(scratchCanvas, 0, 0);
+        renderedLongSidePxRef.current = neededLongSidePx;
+      } catch {
+        // 解像度の底上げに失敗しても、今表示できている画像はそのまま残す。
+        // ズーム操作の途中でエラー表示を出すと操作を妨げるため出さない
+        // （ベース描画の失敗時のみ`phase = 'error'`で表示する）。
+      }
+    };
+
     return () => {
       cancelled = true;
+      upgradeIfNeededRef.current = () => {};
+      if (upgradeTimerRef.current) {
+        clearTimeout(upgradeTimerRef.current);
+        upgradeTimerRef.current = null;
+      }
     };
-  }, [isOpen, blob, aspectRatio]);
+  }, [isOpen, blob, aspectRatio, computeTargetLongSidePx]);
 
   // アンマウント時・非表示化時にcanvasを縮めてメモリを解放する（PNG出力と同じiOSの対策）。
+  // scratch canvasも同様（解像度の底上げ専用で、次に開いたときに
+  // getUpgradeScratchCanvasが必要なら作り直す）。
   useEffect(() => {
     if (isOpen) return undefined;
     const canvas = canvasRef.current;
     if (canvas) {
       canvas.width = 0;
       canvas.height = 0;
+    }
+    const scratchCanvas = scratchCanvasRef.current;
+    if (scratchCanvas) {
+      scratchCanvas.width = 0;
+      scratchCanvas.height = 0;
     }
     return undefined;
   }, [isOpen]);
@@ -401,6 +496,7 @@ export default function PdfPreviewOverlay({ isOpen, blob, aspectRatio, onClose }
         ty: dy - clampedScale * gesture.anchorLocalY,
       });
       applyTransform(false);
+      scheduleUpgrade();
     }
   };
 

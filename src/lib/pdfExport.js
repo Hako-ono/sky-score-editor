@@ -71,6 +71,7 @@ import {
 import { derivePdfGridEdgePadding, resolvePdfGridStyle } from './pdfGridStyle.js';
 import { computeGridBlockSize, resolvePdfDensity } from './pdfDensity.js';
 import { shapeThai } from './thaiShaping.js';
+import { tryShareFile } from './webShare.js';
 import {
   analyzeScoreLayers,
   getAudibleKeys,
@@ -1580,12 +1581,21 @@ function yieldToBrowser() {
 // jsPDF は画像リソースの出力時に内部の圧縮フィルターを変更するため、同じ
 // インスタンスを再出力してはいけない。プレビュー不能時も最初に作ったBlobを
 // そのままダウンロードし、2回目のPDF組み立てを避ける。
-function openOrDownloadPdfBlob(blob, filename) {
+//
+// iOSのスタンドアロンPWAでは、この関数が使う `window.open` も `<a download>`
+// も「別ページへ遷移した」ように見える（詳細は webShare.js）ため、その文脈
+// でだけ共有シートを先に試す。共有シートが使えない/失敗したときは、この関数
+// が元々持っていた window.open → <a download> の優先順位をそのまま使う。
+async function openOrDownloadPdfBlob(blob, filename) {
+  if (await tryShareFile(blob, filename, 'application/pdf')) {
+    return 'shared';
+  }
+
   const blobUrl = URL.createObjectURL(blob);
   const win = window.open(blobUrl, '_blank');
   if (win) {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-    return true;
+    return 'opened';
   }
 
   const link = document.createElement('a');
@@ -1595,7 +1605,7 @@ function openOrDownloadPdfBlob(blob, filename) {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-  return false;
+  return 'downloaded';
 }
 
 /**
@@ -2009,9 +2019,9 @@ export async function buildPdfBlob(
  * @param {*} score
  * @param {*} options
  * @param {(msg: string) => void} [onProgress]
- * @returns {Promise<{ filename: string, opened: boolean }>}
+ * @returns {Promise<{ filename: string, outcome: 'opened' | 'downloaded' | 'shared' }>}
  */
 export async function exportPdf(score, options, onProgress = () => {}) {
   const { filename, blob } = await buildPdfBlob(score, options, onProgress);
-  return { filename, opened: openOrDownloadPdfBlob(blob, filename) };
+  return { filename, outcome: await openOrDownloadPdfBlob(blob, filename) };
 }

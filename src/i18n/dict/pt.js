@@ -364,6 +364,7 @@ export default {
       loaded: 'Carregamento concluído ({n} grades) - {warning}',
       loadFailed: 'Não foi possível carregar o arquivo. ({message})',
       confirmNew: 'Você tem alterações não salvas. Criar uma nova partitura?',
+      confirmOpen: 'Você tem alterações não salvas. Abrir outra partitura?',
       confirmClearDirty: 'Você tem alterações não salvas. Limpar tudo?',
       confirmClear: 'Limpar a partitura atual. Continuar?',
       cleared: 'Partitura limpa.',

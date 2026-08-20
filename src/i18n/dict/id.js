@@ -364,6 +364,7 @@ export default {
       loaded: 'Pemuatan selesai ({n} grid) - {warning}',
       loadFailed: 'Tidak dapat memuat file. ({message})',
       confirmNew: 'Ada perubahan yang belum disimpan. Buat partitur baru?',
+      confirmOpen: 'Ada perubahan yang belum disimpan. Buka partitur lain?',
       confirmClearDirty: 'Ada perubahan yang belum disimpan. Hapus semuanya?',
       confirmClear: 'Hapus partitur saat ini. Lanjutkan?',
       cleared: 'Partitur dihapus.',

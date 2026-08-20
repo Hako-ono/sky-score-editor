@@ -364,6 +364,7 @@ export default {
       loaded: '불러오기 완료 (총 {n}개 그리드) — {warning}',
       loadFailed: '불러오지 못했습니다. ({message})',
       confirmNew: '저장하지 않은 변경 사항이 있습니다. 새 악보를 만들까요?',
+      confirmOpen: '저장하지 않은 변경 사항이 있습니다. 다른 악보를 열까요?',
       confirmClearDirty: '저장하지 않은 변경 사항이 있습니다. 모두 지울까요?',
       confirmClear: '현재 악보를 모두 지웁니다. 계속할까요?',
       cleared: '악보를 지웠습니다.',
