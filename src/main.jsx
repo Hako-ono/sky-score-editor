@@ -11,6 +11,7 @@ import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { ActiveGridProvider } from './contexts/ActiveGridContext.jsx';
 import { ExpandedGridProvider } from './contexts/ExpandedGridContext.jsx';
 import { ScoreGridsProvider } from './contexts/ScoreGridsContext.jsx';
+import { RangeSelectionProvider } from './contexts/RangeSelectionContext.jsx';
 import { LanguageProvider } from './i18n/LanguageContext.jsx';
 import { initializeLanguage } from './i18n/index.js';
 
@@ -22,7 +23,9 @@ createRoot(document.getElementById('root')).render(
         <ActiveGridProvider>
           <ExpandedGridProvider>
             <ScoreGridsProvider>
-              <App />
+              <RangeSelectionProvider>
+                <App />
+              </RangeSelectionProvider>
             </ScoreGridsProvider>
           </ExpandedGridProvider>
         </ActiveGridProvider>

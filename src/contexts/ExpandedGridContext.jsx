@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, useSyncExternalStore } from 'react';
+import { createContext, useCallback, useContext, useRef, useSyncExternalStore } from 'react';
 
 // 拡大表示中のグリッド番号を App の useState に置くと、スワイプ・Enter で
 // 番号が変わるたびに ScoreCanvas 配下の全 GridCard の props 比較が発生する
@@ -52,4 +52,11 @@ export function useExpandedGridStore() {
 export function useExpandedGridIndex() {
   const store = useExpandedGridStore();
   return useSyncExternalStore(store.subscribe, store.getExpandedIndex);
+}
+
+/** Appは開閉だけを購読し、カルーセル移動では再レンダーしない。 */
+export function useIsExpandedGridOpen() {
+  const store = useExpandedGridStore();
+  const getSnapshot = useCallback(() => store.getExpandedIndex() >= 0, [store]);
+  return useSyncExternalStore(store.subscribe, getSnapshot);
 }

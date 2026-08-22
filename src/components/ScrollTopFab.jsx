@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronIcon } from './icons.jsx';
 import { useT } from '../i18n/LanguageContext.jsx';
+import { useFadePresence } from '../hooks/useFadePresence.js';
 
 /**
  * 「一番上へ戻る」浮遊ボタン。1画面ぶんスクロールしたら出す。
  * 再生中の自動追尾（AutoScrollWatcher, ScoreCanvas.jsx）は止めないため、
  * 押下は window.scrollTo だけで、再生や追尾の state には一切触れない。
  */
-export default function ScrollTopFab({ editMode }) {
+export default function ScrollTopFab({ enabled }) {
   const t = useT();
   const [visible, setVisible] = useState(false);
   const rafRef = useRef(0);
+  const { shouldRender, fadeClassName } = useFadePresence(enabled && visible);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -33,12 +35,12 @@ export default function ScrollTopFab({ editMode }) {
     };
   }, []);
 
-  if (!visible) return null;
+  if (!shouldRender) return null;
 
   return (
     <button
       type="button"
-      className={editMode ? 'scroll-top-fab scroll-top-fab--raised' : 'scroll-top-fab'}
+      className={`scroll-top-fab ${fadeClassName}`}
       onClick={() => window.scrollTo({ top: 0, behavior: 'auto' })}
       aria-label={t('ui.scrollTopFab.backToTop')}
       title={t('ui.scrollTopFab.backToTop')}

@@ -7,6 +7,36 @@ export function classifyPlaybackFollowTransition(previousRowIndex, nextRowIndex)
   return 'row-change';
 }
 
+export function isPlaybackRangeFullyVisible({
+  firstRowTop,
+  lastRowTop,
+  lastRowPitch,
+  scrollY,
+  viewportHeight,
+  currentHeaderBottom,
+} = {}) {
+  if (
+    !Number.isFinite(firstRowTop)
+    || !Number.isFinite(lastRowTop)
+    || lastRowTop < firstRowTop
+    || !Number.isFinite(lastRowPitch)
+    || lastRowPitch <= 0
+    || !Number.isFinite(scrollY)
+    || !Number.isFinite(viewportHeight)
+    || viewportHeight <= 0
+    || !Number.isFinite(currentHeaderBottom)
+  ) return false;
+
+  const clampedHeaderBottom = Math.min(
+    viewportHeight,
+    Math.max(0, currentHeaderBottom),
+  );
+  const rangeViewportTop = firstRowTop - scrollY;
+  const rangeViewportBottom = lastRowTop + lastRowPitch - scrollY;
+  return rangeViewportTop >= clampedHeaderBottom
+    && rangeViewportBottom <= viewportHeight;
+}
+
 export function computePlaybackFollowTarget({
   rowTop,
   rowPitch,

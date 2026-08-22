@@ -7,6 +7,7 @@ import {
   useExpandedGridIndex,
 } from '../contexts/ExpandedGridContext.jsx';
 import { useScoreGridsStore } from '../contexts/ScoreGridsContext.jsx';
+import { useRangeSelectionStore } from '../contexts/RangeSelectionContext.jsx';
 import {
   clampExpandedIndex,
   stepExpandedIndex,
@@ -60,9 +61,7 @@ function OverlaySlide({
   index,
   total,
   isCenter,
-  editMode,
   onFocus,
-  onPlayFrom,
   onPlaySingle,
   onPlayPreview,
   selectedLayer,
@@ -71,7 +70,6 @@ function OverlaySlide({
   onToggleLayer,
   onToggleKey,
   onSetText,
-  onDelete,
   onToggleBreak,
   onRequestNext,
 }) {
@@ -82,8 +80,6 @@ function OverlaySlide({
       <div className="grid-overlay__sheet" onFocus={isCenter ? onFocus : undefined}>
         <GridCard
           index={index}
-          editMode={editMode}
-          onPlayFrom={onPlayFrom}
           onPlaySingle={onPlaySingle}
           onPlayPreview={onPlayPreview}
           selectedLayer={selectedLayer}
@@ -92,7 +88,6 @@ function OverlaySlide({
           onToggleLayer={onToggleLayer}
           onToggleKey={onToggleKey}
           onSetText={onSetText}
-          onDelete={onDelete}
           onToggleBreak={onToggleBreak}
           onRequestNext={onRequestNext}
         />
@@ -112,12 +107,9 @@ function OverlaySlide({
  */
 export default function GridOverlay({
   grids,
-  editMode,
   onToggleKey,
   onSetText,
-  onDelete,
   onToggleBreak,
-  onPlayFrom,
   onPlaySingle,
   onPlayPreview,
   selectedLayer,
@@ -128,11 +120,22 @@ export default function GridOverlay({
   const t = useT();
   const store = useExpandedGridStore();
   const scoreGridsStore = useScoreGridsStore();
+  const rangeStore = useRangeSelectionStore();
   const rawIndex = useExpandedGridIndex();
   // 読み込み・全消去・Undo・削除で grids が縮んだ直後は、ストアに残っている
   // 番号が範囲外になりうる。書き込み側ではなく読み出す直前にクランプする。
   const index = clampExpandedIndex(rawIndex, grids.length);
   const isOpen = index >= 0;
+
+  // 拡大中の1件選択は通常のキャレット境界を上書きしない一時表示にする。
+  // これにより閉じるだけなら、開く前の選択とキャレットがそのまま戻る。
+  useLayoutEffect(() => {
+    if (index >= 0) rangeStore.setTransientSelection(index);
+    else rangeStore.clearTransientSelection();
+  }, [index, rangeStore]);
+
+  // モバイル幅をまたいでコンポーネント自体が外れた場合も一時選択を残さない。
+  useEffect(() => () => rangeStore.clearTransientSelection(), [rangeStore]);
 
   // テキスト入力の1文字ごとに effect が再実行されて音が鳴ることのないよう、
   // 内容は ref から読み、effect の依存は index だけにする。
@@ -340,6 +343,10 @@ export default function GridOverlay({
     const overlayEl = overlayRef.current;
     const viewportEl = viewportRef.current;
     if (!overlayEl || !viewportEl) return undefined;
+    // 操作バーはルート直下の .bottom-layer にあり、拡大表示の外にいる。
+    // ソフトキーボードの有無はここでしか分からないので、ルートへ印を付けて
+    // 伝える（visualViewport の購読をアプリ全体へもう1つ増やさない）
+    const appEl = overlayEl.closest('.app');
 
     const apply = () => {
       viewportEl.style.height = `${vv.height}px`;
@@ -349,6 +356,12 @@ export default function GridOverlay({
       overlayEl.style.setProperty('--overlay-h', `${vv.height}px`);
       // 高さが減ったときに余白を優先すると、カードが入りきらない
       overlayEl.classList.toggle('is-compact', vv.height < 520);
+      // ソフトキーボードが出ているか。URLバーの出入り（数十px）では立たない
+      // 閾値にする。iOS は fixed 要素をキーボードの上へ持ち上げるため、
+      // 画面下端に居座るものは出したままにできない
+      const keyboardOpen = window.innerHeight - vv.height > 150;
+      overlayEl.classList.toggle('is-keyboard', keyboardOpen);
+      appEl?.classList.toggle('app--soft-keyboard', keyboardOpen);
 
       // キーボードが既に開いている状態で別の入力欄へ移ると resize が
       // 発火しないため、フォーカス側でも補う（handleSheetFocus 参照）
@@ -367,6 +380,8 @@ export default function GridOverlay({
       viewportEl.style.height = '';
       viewportEl.style.transform = '';
       overlayEl.classList.remove('is-compact');
+      overlayEl.classList.remove('is-keyboard');
+      appEl?.classList.remove('app--soft-keyboard');
     };
   }, [isOpen]);
 
@@ -536,30 +551,12 @@ export default function GridOverlay({
     }
   }, []);
 
-  const handlePlayFrom = useCallback(
-    (i) => {
-      close();
-      onPlayFrom(i);
-    },
-    [close, onPlayFrom],
-  );
-
-  const handleDelete = useCallback(
-    (i) => {
-      onDelete(i);
-      close();
-    },
-    [onDelete, close],
-  );
-
   if (index < 0) return null;
 
   const total = grids.length;
   const slideProps = {
     total,
-    editMode,
     onFocus: handleSheetFocus,
-    onPlayFrom: handlePlayFrom,
     onPlaySingle,
     onPlayPreview,
     selectedLayer,
@@ -568,7 +565,6 @@ export default function GridOverlay({
     onToggleLayer,
     onToggleKey,
     onSetText,
-    onDelete: handleDelete,
     onToggleBreak,
     onRequestNext: goNext,
   };

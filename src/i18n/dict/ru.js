@@ -52,8 +52,6 @@ export default {
         "redo": "Повторить",
         "redoTitle": "Повторить (Ctrl+Shift+Z)",
         "toggleLayer": "Сменить слой",
-        "finishGridEdit": "Завершить редактирование",
-        "toggleGridEdit": "Добавить или удалить сетки",
         "clear": "Очистить всё",
         "unsaved": "Есть несохранённые изменения",
         "saveJson": "Сохранить JSON"
@@ -378,20 +376,15 @@ export default {
       "pdfFailed": "Не удалось создать PDF ({message})",
       "pngDownloaded": "PNG скачан ({filename})",
       "pngFailed": "Не удалось создать PNG ({message})",
-      "pngTooLarge": "Общий размер PNG превысил допустимый предел. Уменьшите разрешение или число страниц.",
-      "editFinish": "Завершить редактирование"
+      "pngTooLarge": "Общий размер PNG превысил допустимый предел. Уменьшите разрешение или число страниц."
     },
     "gridCard": {
-      "playFromTitle": "Воспроизвести отсюда",
-      "playFrom": "Воспроизвести с сетки {n}",
       "playSingleTitle": "Воспроизвести только эту сетку",
       "playSingle": "Воспроизвести только сетку {n}",
       "layerSwitch": "Сменить слой",
       "breakOn": "Перенести строку после сетки {n}",
       "breakOff": "Убрать перенос после сетки {n}",
       "breakTitle": "Перенести строку после этой сетки",
-      "delete": "Удалить сетку {n}",
-      "deleteTitle": "Удалить эту сетку",
       "expand": "Развернуть сетку {n}",
       "text": "Текст сетки {n}"
     },
@@ -406,8 +399,33 @@ export default {
       "resume": "Продолжить",
       "restart": "Воспроизвести с начала",
       "stop": "Стоп",
+      "toStart": "К началу",
+      "playFromCaret": "Воспроизвести от курсора",
+      "playSelection": "Воспроизвести выделение",
       "autoScroll": "Следить",
-      "autoScrollTitle": "Автоматически прокручивать воспроизводимую сетку к центру экрана"
+      "autoScrollTitle": "Автоматически прокручивать воспроизводимую сетку к центру экрана",
+      "autoScrollEnabled": "Слежение включено",
+      "autoScrollDisabled": "Слежение выключено"
+    },
+    "range": {
+      "barLabel": "Действия с диапазоном", "extendHint": "Перетащите до конца или выберите последнюю сетку",
+      "selectedOne": "{start} · 1", "selected": "{start}–{end} · {count}",
+      "copy": "Копировать", "copyShort": "Копировать", "cut": "Вырезать", "cutShort": "Вырезать", "delete": "Удалить", "deleteShort": "Удалить",
+      "cannotRemoveAll": "Нельзя удалить все сетки",
+      "close": "Выйти из выбора диапазона", "caretLabel": "Позиция вставки",
+      "caretStart": "Начало диапазона", "caretEnd": "Конец диапазона", "clearSelection": "Снять выделение",
+      "insertHere": "Добавить сетку", "insertPositionOutsideView": "Позиция вставки находится за пределами экрана", "paste": "Вставить", "pasteCount": "{count}", "pasteReplaceTitle": "Заменяет выбранный диапазон",
+      "deleted": "Удалено сеток: {count}",
+      "collapseBar": "Свернуть панель действий", "expandBar": "Открыть панель действий",
+      "expandBarWithCount": "Открыть панель действий (выбрано: {count})", "selectionCount": "{count}", "selectAll": "Выбрать всё",
+      "wholeLoopTitle": "Повторять диапазон воспроизведения",
+      "wholeLoopEnabled": "Повтор включён", "wholeLoopDisabled": "Повтор выключен"
+    },
+    "playbackAids": {
+      "title": "Помощь при воспроизведении", "speed": "Скорость", "speedValue": "{value}x", "metronome": "Метроном", "volume": "Громкость щелчка", "countIn": "Отсчёт",
+      "tempo": "Темп", "tempoQuarter": "BPM÷4", "tempoHalf": "BPM÷2",
+      "low": "Тихо", "medium": "Средне", "high": "Громко", "off": "Выкл.", "oneBar": "1 такт", "twoBars": "2 такта",
+      "cancel": "Отменить отсчёт"
     },
     "emptyState": {
       "title": "Нот пока нет",
@@ -448,9 +466,7 @@ export default {
       "label": "{key} {state}{membership}"
     },
     "scoreCanvas": {
-      "list": "Список сеток нот",
-      "insertBefore": "Вставить перед сеткой {n}",
-      "insertAfter": "Вставить после сетки {n}"
+      "list": "Список сеток нот"
     },
     "statusBar": {
       "close": "Закрыть уведомление"

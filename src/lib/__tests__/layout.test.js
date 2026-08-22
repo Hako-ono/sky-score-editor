@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   splitIntoRows,
   paginateRows,
+  beatsPerBarForBits,
   columnsForBits,
   resolveColumnsPerPage,
 } from '../layout.js';
@@ -379,6 +380,18 @@ describe('columnsForBits', () => {
       expect(columnsForBits(bitsPerPage)).toBe(4);
     },
   );
+});
+
+describe('beatsPerBarForBits', () => {
+  it.each([
+    [16, 4],
+    [12, 3],
+    [4, 0],
+    [undefined, 0],
+    ['12', 0],
+  ])('%p を楽譜の拍子へ一意に変換する', (bitsPerPage, expected) => {
+    expect(beatsPerBarForBits(bitsPerPage)).toBe(expected);
+  });
 });
 
 /* ============================================================

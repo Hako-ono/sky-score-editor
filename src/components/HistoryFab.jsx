@@ -1,5 +1,6 @@
 import { UndoIcon, RedoIcon } from './icons.jsx';
 import { useT } from '../i18n/LanguageContext.jsx';
+import { useFadePresence } from '../hooks/useFadePresence.js';
 
 /**
  * 「元に戻す／やり直す」の浮遊ボタン。ツールバー内の同じボタンは
@@ -7,10 +8,13 @@ import { useT } from '../i18n/LanguageContext.jsx';
  * 最小化されており、さらに音符編集は拡大表示の中で行われるため、
  * ツールバー側だけでは編集中に手が届かない。
  */
-export default function HistoryFab({ canUndo, canRedo, onUndo, onRedo }) {
+export default function HistoryFab({ visible, canUndo, canRedo, onUndo, onRedo }) {
   const t = useT();
+  const { shouldRender, fadeClassName } = useFadePresence(visible);
+  if (!shouldRender) return null;
+
   return (
-    <div className="history-fab">
+    <div className={`history-fab ${fadeClassName}`}>
       <button
         type="button"
         className="history-fab__btn"

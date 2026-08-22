@@ -174,7 +174,6 @@ export default function Toolbar({
   isPlaying,
   score,
   pdfExportOptions,
-  editMode,
   canUndo,
   canRedo,
   isDirty,
@@ -208,7 +207,6 @@ export default function Toolbar({
   onSetKeyMode,
   onUndo,
   onRedo,
-  onToggleEdit,
   onToggleLayer,
   usesTwoLayers,
   onSaveJson,
@@ -216,6 +214,8 @@ export default function Toolbar({
   onExportPng,
   onOpenPdfPreset,
   onSetTheme,
+  pinnedActionBarRef,
+  pinnedActionSentinelRef,
 }) {
   const t = useT();
   const { language } = useLanguage();
@@ -915,17 +915,6 @@ export default function Toolbar({
                 title={t('ui.toolbar.score.toggleLayer')}
               >
                 {t('ui.toolbar.score.toggleLayer')}
-              </button>
-              {/* 橙はモードに入っている最中だけに使う。入る前も橙だと、
-                  可逆な操作が破壊的な操作に見える */}
-              <button
-                type="button"
-                className={`btn ${editMode ? 'btn--warning-active' : 'btn--ghost'}`}
-                onClick={onToggleEdit}
-                disabled={isProcessing}
-                aria-pressed={editMode}
-              >
-                {t(editMode ? 'ui.toolbar.score.finishGridEdit' : 'ui.toolbar.score.toggleGridEdit')}
               </button>
               {hasData && (
                 <>
@@ -1866,28 +1855,30 @@ export default function Toolbar({
             </div>
           </section>
 
-          <div className="toolbar__pdf-action-bar">
-            <p className="toolbar__pdf-action-note">{t('ui.toolbar.pdf.actionNote')}</p>
-            <div className="toolbar__action-cluster toolbar__action-cluster--pdf-preset">
-              <button
-                type="button"
-                className="btn btn--sm btn--ghost"
-                onClick={() => onOpenPdfPreset('export')}
-                disabled={isProcessing}
-              >
-                {t('ui.toolbar.pdf.exportSettings')}
-              </button>
-              <button
-                type="button"
-                className="btn btn--sm btn--ghost"
-                onClick={() => onOpenPdfPreset('import')}
-                disabled={isProcessing}
-              >
-                {t('ui.toolbar.pdf.importSettings')}
-              </button>
-            </div>
-            <div className="toolbar__action-cluster toolbar__action-cluster--pdf-export">
-              <div className="export-split" ref={exportMenuRef}>
+          {activeTab === 'pdf' && (
+            <>
+              <div className="toolbar__pdf-action-bar" ref={pinnedActionBarRef}>
+                <p className="toolbar__pdf-action-note">{t('ui.toolbar.pdf.actionNote')}</p>
+                <div className="toolbar__action-cluster toolbar__action-cluster--pdf-preset">
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--ghost"
+                    onClick={() => onOpenPdfPreset('export')}
+                    disabled={isProcessing}
+                  >
+                    {t('ui.toolbar.pdf.exportSettings')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--ghost"
+                    onClick={() => onOpenPdfPreset('import')}
+                    disabled={isProcessing}
+                  >
+                    {t('ui.toolbar.pdf.importSettings')}
+                  </button>
+                </div>
+                <div className="toolbar__action-cluster toolbar__action-cluster--pdf-export">
+                  <div className="export-split" ref={exportMenuRef}>
                 <button
                   type="button"
                   className="btn btn--lg btn--primary export-split__main"
@@ -1935,9 +1926,16 @@ export default function Toolbar({
                     )}
                   </div>
                 )}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+              <div
+                className="toolbar__pdf-action-sentinel"
+                ref={pinnedActionSentinelRef}
+                aria-hidden="true"
+              />
+            </>
+          )}
           </div>
         </>
       )}

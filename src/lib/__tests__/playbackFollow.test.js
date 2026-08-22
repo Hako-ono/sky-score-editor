@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   classifyPlaybackFollowTransition,
   computePlaybackFollowTarget,
+  isPlaybackRangeFullyVisible,
 } from '../playbackFollow.js';
 
 describe('classifyPlaybackFollowTransition', () => {
@@ -23,6 +24,41 @@ describe('classifyPlaybackFollowTransition', () => {
       expect(classifyPlaybackFollowTransition(previousRowIndex, nextRowIndex)).toBe(expected);
     },
   );
+});
+
+describe('isPlaybackRangeFullyVisible', () => {
+  it('先頭行から末尾行までが再生バー下へ収まる場合だけtrueを返す', () => {
+    const base = {
+      firstRowTop: 300,
+      lastRowTop: 600,
+      lastRowPitch: 120,
+      scrollY: 200,
+      viewportHeight: 700,
+      currentHeaderBottom: 80,
+    };
+    expect(isPlaybackRangeFullyVisible(base)).toBe(true);
+    expect(isPlaybackRangeFullyVisible({ ...base, currentHeaderBottom: 101 })).toBe(false);
+    expect(isPlaybackRangeFullyVisible({ ...base, viewportHeight: 519 })).toBe(false);
+  });
+
+  it.each([
+    ['firstRowTop', '300'],
+    ['lastRowTop', 200],
+    ['lastRowPitch', 0],
+    ['scrollY', NaN],
+    ['viewportHeight', 0],
+    ['currentHeaderBottom', Infinity],
+  ])('不正な %s はfalseを返す', (key, value) => {
+    expect(isPlaybackRangeFullyVisible({
+      firstRowTop: 300,
+      lastRowTop: 600,
+      lastRowPitch: 120,
+      scrollY: 200,
+      viewportHeight: 700,
+      currentHeaderBottom: 80,
+      [key]: value,
+    })).toBe(false);
+  });
 });
 
 describe('computePlaybackFollowTarget', () => {

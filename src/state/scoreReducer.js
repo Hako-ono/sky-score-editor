@@ -12,6 +12,7 @@ import {
   MAX_TEXT_LENGTH,
 } from '../constants/config.js';
 import { createScore } from './scoreShape.js';
+import { cloneGridForClipboard } from '../lib/gridClipboard.js';
 
 export const initialScore = createScore();
 
@@ -158,12 +159,54 @@ export function scoreReducer(state, action) {
       return { ...state, grids };
     }
 
-    case 'DELETE': {
-      const { gridIndex } = action;
-      if (gridIndex < 0 || gridIndex >= state.grids.length) return state;
+    case 'PASTE_GRIDS': {
+      if (!Array.isArray(action.grids) || action.grids.length === 0) return state;
+      if (!Number.isInteger(action.insertIndex)) return state;
+      // 一部分だけ貼るとフレーズが欠けても成功に見えるため、上限超過時は全体を拒否する。
+      if (action.grids.length > MAX_GRIDS - state.grids.length) return state;
+      const insertIndex = Math.max(0, Math.min(action.insertIndex, state.grids.length));
+      const copies = action.grids.map(cloneGridForClipboard);
+      const grids = [...state.grids];
+      grids.splice(insertIndex, 0, ...copies);
+      return { ...state, grids };
+    }
+
+    case 'REPLACE_RANGE': {
+      if (!Array.isArray(action.grids) || action.grids.length === 0) return state;
+      if (!Number.isInteger(action.startIndex) || !Number.isInteger(action.endIndex)) return state;
+      if (state.grids.length === 0) return state;
+      const start = Math.max(
+        0,
+        Math.min(state.grids.length - 1, action.startIndex, action.endIndex),
+      );
+      const end = Math.min(
+        state.grids.length - 1,
+        Math.max(action.startIndex, action.endIndex),
+      );
+      const removedCount = end - start + 1;
+      if (removedCount <= 0) return state;
+      if (action.grids.length > MAX_GRIDS - state.grids.length + removedCount) return state;
+      const copies = action.grids.map(cloneGridForClipboard);
       return {
         ...state,
-        grids: state.grids.filter((_, i) => i !== gridIndex),
+        grids: [
+          ...state.grids.slice(0, start),
+          ...copies,
+          ...state.grids.slice(end + 1),
+        ],
+      };
+    }
+
+    case 'DELETE_RANGE': {
+      if (!Number.isInteger(action.startIndex) || !Number.isInteger(action.endIndex)) return state;
+      const start = Math.max(0, Math.min(action.startIndex, action.endIndex));
+      const end = Math.min(state.grids.length - 1, Math.max(action.startIndex, action.endIndex));
+      const count = end - start + 1;
+      // 全件削除は一覧と操作文脈を同時に消すため、UIだけでなく書き込み口でも拒否する。
+      if (count <= 0 || count >= state.grids.length) return state;
+      return {
+        ...state,
+        grids: [...state.grids.slice(0, start), ...state.grids.slice(end + 1)],
       };
     }
 

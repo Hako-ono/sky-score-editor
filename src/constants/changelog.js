@@ -8,6 +8,51 @@
 // kind は 'feature' | 'improve' | 'fix' の3種。表示名は辞書側にある。
 export const CHANGELOG = [
   {
+    id: 'range-edit',
+    date: '2026-08-23',
+    kind: 'feature',
+    text: {
+      ja: 'グリッドを範囲で選んで、コピー・カット・削除・貼り付けができるようになりました。',
+      en: 'You can now select a range of grids to copy, cut, delete, and paste.',
+    },
+  },
+  {
+    id: 'edit-mode-removed',
+    date: '2026-08-23',
+    kind: 'improve',
+    text: {
+      ja: '編集モードをなくしました。グリッドの追加や削除は、紫色のキャレットの挿入位置や選択した範囲に対して行います。',
+      en: 'Removed edit mode. Grids are added and removed at the purple caret or across the selected range.',
+    },
+  },
+  {
+    id: 'caret-playback',
+    date: '2026-08-23',
+    kind: 'feature',
+    text: {
+      ja: '再生の開始位置を紫色のキャレットで指定できるようになりました。範囲を選んでいるときは、その範囲だけを再生します。',
+      en: 'The purple caret now sets where playback starts. With a range selected, only that range plays.',
+    },
+  },
+  {
+    id: 'loop-playback',
+    date: '2026-08-23',
+    kind: 'feature',
+    text: {
+      ja: '再生をくり返すループ機能を追加しました。',
+      en: 'Added looping playback.',
+    },
+  },
+  {
+    id: 'playback-aids',
+    date: '2026-08-23',
+    kind: 'feature',
+    text: {
+      ja: 'メトロノーム・カウントイン・再生速度（0.25x／0.5x）を追加しました。',
+      en: 'Added a metronome, a count-in, and playback speeds (0.25x / 0.5x).',
+    },
+  },
+  {
     id: 'pdf-custom-tokens',
     date: '2026-08-20',
     kind: 'feature',

@@ -3,9 +3,19 @@ import { useT } from '../i18n/LanguageContext.jsx';
 import NoteGridSvg from './NoteGridSvg.jsx';
 import { useIsActiveGrid } from '../contexts/ActiveGridContext.jsx';
 import { useGrid, useIsPendingFocus, useScoreGridsStore } from '../contexts/ScoreGridsContext.jsx';
-import { PlayIcon, NoteIcon, LayerSwitchIcon, CloseIcon } from './icons.jsx';
+import { NoteIcon, LayerSwitchIcon } from './icons.jsx';
 import { MAX_TEXT_LENGTH } from '../constants/config.js';
 import { getAudibleKeys, getOtherLayerKeys, getSelectedLayerKeys } from '../lib/scoreLayers.js';
+import { useRangeGridFlags, useRangeSelectionStore } from '../contexts/RangeSelectionContext.jsx';
+import {
+  RANGE_SELECTED,
+  RANGE_SELECTION_END,
+  RANGE_SELECTION_START,
+  RANGE_SELECTING,
+  selectedRange,
+} from '../lib/rangeSelectionStore.js';
+import CaretSlot from './CaretSlot.jsx';
+import { useRangeSelectionGesture } from '../hooks/useRangeSelectionGesture.js';
 
 // 仮想化後は画面外の行がマウントされていないため、targetIndex の入力欄が
 // 常に存在するとは限らない。存在すれば（＝マウント済み＝ほぼ可視範囲内）
@@ -50,8 +60,6 @@ function BreakIcon() {
 
 function GridCard({
   index,
-  editMode,
-  onPlayFrom,
   onPlaySingle,
   onPlayPreview,
   selectedLayer,
@@ -60,12 +68,20 @@ function GridCard({
   onToggleLayer,
   onToggleKey,
   onSetText,
-  onDelete,
   onToggleBreak,
   onRequestNext,
+  /* この prop が真になるのは一覧の中のカードだけで、拡大表示（GridOverlay）
+     では偽になる。キャレットの表示はその結果のひとつにすぎないので、
+     ここでは「一覧の中か」として読む。選択の見た目と選択中の制限も、
+     一覧の中でだけ意味を持つ（拡大表示は1枚を大きく見るための窓であって、
+     選択を操作する場所ではない） */
+  showCaretSlots: isInScoreList = false,
+  isRowStart = false,
+  isRowEnd = false,
+  gridCount = 0,
 }) {
   const t = useT();
-  // props ではなく自分の index でストアから引く。DELETE 直後の1フレームや
+  // props ではなく自分の index でストアから引く。構造編集直後の1フレームや
   // GridOverlay の前後スライド（配列の外）では undefined になりうる。
   const grid = useGrid(index);
   // 自分の index が現在アクティブかどうかだけを購読する。isActive を props
@@ -73,6 +89,20 @@ function GridCard({
   // props比較が発生するため、ここで直接ストアを購読する形にしている。
   const isActive = useIsActiveGrid(index);
   const store = useScoreGridsStore();
+  const rangeStore = useRangeSelectionStore();
+  const rangeFlags = useRangeGridFlags(index);
+  // 拡大表示のカードは「1件選択」の状態で開かれるが、そこへ選択の
+  // 装飾や選択中の制限を持ち込むと、試聴・レイヤー切替・改行という
+  // 拡大表示本来の操作が塞がる。フラグは一覧の中でだけ効かせる
+  const isRangeSelected = isInScoreList && (rangeFlags & RANGE_SELECTED) !== 0;
+  const isRangeEdge = isInScoreList
+    && (rangeFlags & (RANGE_SELECTION_START | RANGE_SELECTION_END)) !== 0;
+  const isSelecting = isInScoreList && (rangeFlags & RANGE_SELECTING) !== 0;
+  const { isPressing, consumeClick, gestureProps } = useRangeSelectionGesture({
+    index,
+    rangeStore,
+    gridStore: store,
+  });
 
   // 画面外から Enter/Tab で移動してきた「保留フォーカス」の対象が
   // 自分になったら、マウントされた今フォーカスする。
@@ -85,7 +115,7 @@ function GridCard({
   }, [isPendingFocus, index, store]);
 
   // フック呼び出しをすべて終えた後でだけ判定できる（ルール上ここより前には
-  // 置けない）。DELETE 直後の1フレームや GridOverlay の前後スライドで
+  // 置けない）。構造編集直後の1フレームや GridOverlay の前後スライドで
   // 実際に undefined になる。
   if (!grid) return null;
 
@@ -99,27 +129,42 @@ function GridCard({
     <div
       className={`grid-card${isEmpty ? ' is-empty' : ''}${
         grid.forceBreakAfter ? ' has-break' : ''
-      }${isActive ? ' is-playing' : ''}`}
+      }${isActive ? ' is-playing' : ''}${isRangeSelected ? ' is-range-selected' : ''}${
+        isRangeEdge ? ' is-range-edge' : ''
+      }${
+        isPressing && isInScoreList ? ' is-long-pressing' : ''
+      }`}
+      data-grid-index={index}
+      aria-selected={isRangeSelected || undefined}
+      {...(isInScoreList ? gestureProps : {})}
+      onClick={isInScoreList ? (event) => {
+        if (consumeClick(event)) return;
+        if (event.target.closest('button, [role="button"], input, textarea, select, a')) return;
+        if (event.shiftKey) rangeStore.extendSelectionToGrid(index);
+        else if (selectedRange(rangeStore.getState())) rangeStore.selectIndex(index);
+        else rangeStore.setCaret(index, 'before');
+      } : undefined}
     >
+      {isInScoreList && (
+        <CaretSlot
+          insertIndex={index}
+          placement="before"
+          gridCount={gridCount}
+          isRowStart={isRowStart}
+        />
+      )}
+      {isInScoreList && isRowEnd && (
+        <CaretSlot insertIndex={index + 1} placement="after" gridCount={gridCount} />
+      )}
       <div className="grid-card__header">
-        {/* 左側に番号と再生ボタンをグループ化 */}
+        {/* 左側に番号と試聴・レイヤー切替をグループ化 */}
         <div className="grid-card__header-left">
           <span className="grid-card__number">{index + 1}</span>
           <button
             type="button"
             className="icon-btn"
-            onClick={() => onPlayFrom(index)}
-            title={t('ui.gridCard.playFromTitle')}
-            aria-label={t('ui.gridCard.playFrom', { n: index + 1 })}
-          >
-            <PlayIcon />
-          </button>
-          <button
-            type="button"
-            className="icon-btn"
             onClick={() => onPlaySingle(index)}
-            disabled={isEmpty}
-            style={{ opacity: isEmpty ? 0.3 : 1 }}
+            disabled={isEmpty || isSelecting}
             title={t('ui.gridCard.playSingleTitle')}
             aria-label={t('ui.gridCard.playSingle', { n: index + 1 })}
           >
@@ -132,6 +177,7 @@ function GridCard({
               e.stopPropagation();
               onToggleLayer();
             }}
+            disabled={isSelecting}
             title={t('ui.gridCard.layerSwitch')}
             aria-label={t('ui.gridCard.layerSwitch')}
           >
@@ -143,6 +189,7 @@ function GridCard({
             type="button"
             className={`icon-btn break-btn${grid.forceBreakAfter ? ' active' : ''}`}
             onClick={() => onToggleBreak(index)}
+            disabled={isSelecting}
             aria-pressed={grid.forceBreakAfter}
             aria-label={
               grid.forceBreakAfter
@@ -153,17 +200,6 @@ function GridCard({
           >
             <BreakIcon />
           </button>
-          {editMode && (
-            <button
-              type="button"
-              className="icon-btn delete-btn"
-              onClick={() => onDelete(index)}
-              aria-label={t('ui.gridCard.delete', { n: index + 1 })}
-              title={t('ui.gridCard.deleteTitle')}
-            >
-              <CloseIcon />
-            </button>
-          )}
         </div>
       </div>
 

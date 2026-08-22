@@ -83,6 +83,12 @@ function createScoreGridsStore() {
     getGrid(index) {
       return grids ? grids[index] : undefined;
     },
+    getGridCount() {
+      return grids?.length ?? 0;
+    },
+    getColumns() {
+      return columns ?? 1;
+    },
     getRows() {
       return rows;
     },

@@ -27,6 +27,12 @@ class AudioEngine {
     // rawContext 自体は unlock() がユーザー操作の中で作るため未生成のことがあり、
     // その場合でも購読だけは先に受け付けておく（rawContext 生成時にリスナを張る）。
     this.contextStateListeners = new Set();
+    this.metronomeSynth = null;
+    this.metronomeEnabled = false;
+    this.metronomeVolume = 'medium';
+    this.metronomeBeatsPerBar = 4;
+    this.metronomeGridsPerBeat = 4;
+    this.metronomeAccentEnabled = true;
     // rawContext ごとに1つだけ張るネイティブ側の statechange リスナ。
     // 購読者が増えてもここは増やさず、この1つが全購読者へ通知する。
     this._handleContextStateChange = this._handleContextStateChange.bind(this);
@@ -55,6 +61,34 @@ class AudioEngine {
 
   setTranspose(semitones) {
     this.transposeSemitones = Number.isFinite(semitones) ? semitones : 0;
+  }
+
+  setMetronomeConfig({ enabled, volume, beatsPerBar, gridsPerBeat }) {
+    this.metronomeEnabled = enabled === true;
+    this.metronomeVolume = ['low', 'medium', 'high'].includes(volume)
+      ? volume
+      : 'medium';
+    this.metronomeAccentEnabled = beatsPerBar === 3 || beatsPerBar === 4;
+    this.metronomeBeatsPerBar = beatsPerBar === 3 ? 3 : 4;
+    // 1拍を何グリッドで数えるか。BPMはグリッドの間隔なので、4なら BPM÷4、
+    // 2なら BPM÷2 の速さでクリックが鳴る
+    this.metronomeGridsPerBeat = gridsPerBeat === 2 ? 2 : 4;
+  }
+
+  ensureMetronomeSynth() {
+    if (this.metronomeSynth || !this.Tone) return;
+    this.metronomeSynth = new this.Tone.Synth({
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.001, decay: 0.035, sustain: 0, release: 0.025 },
+    }).toDestination();
+  }
+
+  triggerMetronome(time, accent, volume = this.metronomeVolume) {
+    this.ensureMetronomeSynth();
+    if (!this.metronomeSynth) return;
+    const volumeDb = { low: -24, medium: -17, high: -10 }[volume] ?? -17;
+    this.metronomeSynth.volume.value = volumeDb;
+    this.metronomeSynth.triggerAttackRelease(accent ? 1320 : 920, 0.045, time);
   }
 
   // tone は約340KB の別チャンクで、初回タップ時に取りに行くと iOS では
@@ -168,6 +202,7 @@ class AudioEngine {
     this.Tone.getContext().lookAhead = 0.1;
     this.Tone.getTransport().stop();
     this.Tone.getTransport().cancel();
+    this.Tone.getTransport().loop = false;
     this.Tone.getDraw().cancel();
     // triggerAttackRelease で発音済みの音は Transport の stop/cancel では消えない
     // （AudioContext 自身の時計で release されるため）。cancel の後に呼ぶことで、
@@ -183,6 +218,11 @@ class AudioEngine {
   resume() {
     if (!this.Tone) return;
     this.Tone.getTransport().start();
+  }
+
+  disableLoop() {
+    if (!this.Tone) return;
+    this.Tone.getTransport().loop = false;
   }
 
   // `?debug=1` の診断オーバレイ専用の読み出し。副作用は持たない。
@@ -210,7 +250,20 @@ class AudioEngine {
     this.sampler.triggerAttackRelease(freqs, SINGLE_GRID_PLAY_SEC, this.Tone.now() + 0.02);
   }
 
-  schedule(grids, bpm, transposeSemitones, startIndex, onUpdateIndex, onStop) {
+  schedule(
+    grids,
+    bpm,
+    transposeSemitones,
+    startIndex,
+    onUpdateIndex,
+    onStop,
+    {
+      endIndex = grids.length - 1,
+      loop = false,
+      countIn = null,
+      onPlaybackStart = null,
+    } = {},
+  ) {
     this.stop(); // 既存のスケジュールをリセット
     this.transposeSemitones = transposeSemitones;
 
@@ -220,11 +273,58 @@ class AudioEngine {
     const gridDuration = 60 / bpm;
     const transport = this.Tone.getTransport();
     const draw = this.Tone.getDraw();
+    const countInBeats = Number.isInteger(countIn?.beats) && countIn.beats > 0
+      ? countIn.beats
+      : 0;
+    // カウントインの1拍も、メトロノームと同じ「何グリッドで1拍か」で数える。
+    // ここだけ 4 固定にすると、テンポを BPM÷2 にしたときにカウントだけ半分の
+    // 速さになり、数えた拍と本編の拍が合わない
+    const countInBeatDuration = (countIn?.gridsPerBeat === 2 ? 2 : 4) * gridDuration;
+    const playbackOffset = countInBeats * countInBeatDuration;
+    const countInBeatsPerBar = countIn?.beatsPerBar === 3 ? 3 : 4;
+    const countInAccentEnabled = countIn?.accentEnabled !== false;
+    const safeStartIndex = Math.max(0, Math.min(startIndex, grids.length - 1));
+    const safeEndIndex = Math.max(
+      safeStartIndex,
+      Math.min(endIndex, grids.length - 1),
+    );
+    const segmentLength = safeEndIndex - safeStartIndex + 1;
+    const scheduleOnceGrid = transport.scheduleOnce.bind(transport);
+    const scheduleGrid = loop
+      ? transport.schedule.bind(transport)
+      : scheduleOnceGrid;
+
+    if (loop) {
+      transport.loop = true;
+      // カウント部分は最初の1回だけ通り、周回は本再生区間へ戻る。
+      transport.loopStart = playbackOffset;
+      transport.loopEnd = playbackOffset + segmentLength * gridDuration;
+    }
+    let playedGridCount = 0;
+    let playedBeatCount = 0;
+
+    // カウントと本再生をTransport開始前にまとめて予約する。カウント終了後に
+    // schedule()を呼び直すと、その再構築時間が境界へそのまま上乗せされるため。
+    // クリックもピアノと同じ50msオフセットへ置き、両方の音の位相を揃える。
+    for (let index = 0; index < countInBeats; index += 1) {
+      transport.scheduleOnce((time) => {
+        const soundTime = time + PLAYBACK_AUDIO_DELAY_SEC;
+        this.triggerMetronome(
+          soundTime,
+          countInAccentEnabled && index % countInBeatsPerBar === 0,
+          countIn.volume,
+        );
+        draw.schedule(
+          () => countIn.onCount?.((index % countInBeatsPerBar) + 1),
+          soundTime,
+        );
+      }, index * countInBeatDuration);
+    }
     
-    // transport.schedule() で登録したイベントは発火後もタイムラインに残り続け、
+    // transport.schedule() で登録したループイベントは発火後もタイムラインに残り続け、
     // cancel() されるまで解放されない。2700グリッド規模ではコールバックと
     // それが捕捉する grid の参照を再生中ずっと抱え込むことになるため、
-    // 発火時に自動で取り除かれる scheduleOnce を使う。
+    // 非ループ再生では発火時に自動で取り除かれる scheduleOnce を使う。
     //
     // 時刻は「+相対時刻」の文字列ではなく数値（秒）で渡す。文字列を渡すと
     // Tone は全11種の時刻表記を正規表現で順に試し、さらに「+」用の式が
@@ -233,11 +333,21 @@ class AudioEngine {
     // 直前の stop() で Transport の位置が0に戻り、start() 前に同期的に
     // 登録しきるため、「+X」と「絶対時刻X秒」は同じ時刻を指す。
     grids.forEach((grid, index) => {
-      if (index < startIndex) return;
-      const timeOffset = (index - startIndex) * gridDuration;
+      if (index < safeStartIndex) return;
+      if (index > safeEndIndex) return;
+      const timeOffset = playbackOffset + (index - safeStartIndex) * gridDuration;
       const audibleKeys = getAudibleKeys(grid);
 
-      transport.scheduleOnce((time) => {
+      scheduleGrid((time) => {
+        if (this.metronomeEnabled && playedGridCount % this.metronomeGridsPerBeat === 0) {
+          this.triggerMetronome(
+            time + PLAYBACK_AUDIO_DELAY_SEC,
+            this.metronomeAccentEnabled
+              && playedBeatCount % this.metronomeBeatsPerBar === 0,
+          );
+          playedBeatCount += 1;
+        }
+        playedGridCount += 1;
         if (audibleKeys.length > 0) {
           const freqs = audibleKeys.map(k =>
             this.Tone.Frequency(GRID_MIDI_NOTES[k] + this.transposeSemitones, 'midi').toNote()
@@ -249,7 +359,10 @@ class AudioEngine {
             time + PLAYBACK_AUDIO_DELAY_SEC,
           );
         }
-        draw.schedule(() => onUpdateIndex(index), time);
+        draw.schedule(() => {
+          if (index === safeStartIndex) onPlaybackStart?.();
+          onUpdateIndex(index);
+        }, time);
       }, timeOffset);
     });
 
@@ -273,7 +386,7 @@ class AudioEngine {
       const delayMs =
         Math.max(0, (time - this.Tone.getContext().currentTime) * 1000) + 300;
       this.stopFallbackId = setTimeout(finish, delayMs);
-    }, (grids.length - startIndex) * gridDuration + PLAYBACK_AUDIO_DELAY_SEC);
+    }, playbackOffset + segmentLength * gridDuration + PLAYBACK_AUDIO_DELAY_SEC);
 
     transport.start();
   }

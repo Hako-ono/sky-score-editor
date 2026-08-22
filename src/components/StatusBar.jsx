@@ -1,17 +1,24 @@
-import { CloseIcon } from './icons.jsx';
+import { AutoScrollIcon, CloseIcon, LoopIcon } from './icons.jsx';
 import { useT } from '../i18n/LanguageContext.jsx';
 
 /** ステータス表示。role/aria-live でスクリーンリーダーへ通知する。 */
-export default function StatusBar({ message, type, action, onClose }) {
+export default function StatusBar({ message, type, action, compactIcon, onClose }) {
   const t = useT();
   if (!message) return null;
   const isError = type === 'error' || type === 'warning';
+  const isCompact = Boolean(compactIcon && !action);
+  const leadingIcon = compactIcon === 'loop'
+    ? <LoopIcon size={17} />
+    : compactIcon === 'autoScroll'
+      ? <AutoScrollIcon size={17} />
+      : null;
   return (
     <div
-      className={`status-bar status-bar--toast status-${type}`}
+      className={`status-bar status-bar--toast${isCompact ? ' status-bar--compact' : ''} status-${type}`}
       role={isError ? 'alert' : 'status'}
       aria-live={isError ? 'assertive' : 'polite'}
     >
+      {leadingIcon && <span className="status-bar__icon">{leadingIcon}</span>}
       <span className="status-bar__message">{message}</span>
       {action && (
         <button
@@ -26,7 +33,7 @@ export default function StatusBar({ message, type, action, onClose }) {
           {action.label}
         </button>
       )}
-      {onClose && (
+      {onClose && !isCompact && (
         <button
           type="button"
           className="status-bar__close"

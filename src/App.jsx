@@ -10,6 +10,7 @@ import PlaybackBar from './components/PlaybackBar.jsx';
 import GridOverlay from './components/GridOverlay.jsx';
 import HistoryFab from './components/HistoryFab.jsx';
 import ScrollTopFab from './components/ScrollTopFab.jsx';
+import RangeActionBar from './components/RangeActionBar.jsx';
 import DebugOverlay from './components/DebugOverlay.jsx';
 import SiteFooter from './components/SiteFooter.jsx';
 import { usePlayback } from './hooks/usePlayback.js';
@@ -17,9 +18,23 @@ import { DEBUG_ENABLED } from './lib/debugFlag.js';
 
 import { useUndoableScore } from './hooks/useUndoableScore.js';
 import { useScoreGridsStore } from './contexts/ScoreGridsContext.jsx';
+import {
+  useExpandedGridStore,
+  useIsExpandedGridOpen,
+} from './contexts/ExpandedGridContext.jsx';
+import {
+  useRangeActionBarOpen,
+  useRangeSelectionStore,
+} from './contexts/RangeSelectionContext.jsx';
+import { resolvePlaybackRange, selectedRange } from './lib/rangeSelectionStore.js';
+import { findPhraseCaret } from './lib/rangeNavigation.js';
+import { copyGridRange } from './lib/gridClipboard.js';
 import { columnsForBits } from './lib/layout.js';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
 import { useIsMobile } from './hooks/useIsMobile.js';
+import { usePinnedActionBar } from './hooks/usePinnedActionBar.js';
+import { useScoreCanvasVisibility } from './hooks/useScoreCanvasVisibility.js';
+import { focusMountedCaret, isScoreEditingFloatingFocus } from './lib/rangeFocus.js';
 import { initialScore } from './state/scoreReducer.js';
 import { createScore, serializeScoreForCompare } from './state/scoreShape.js';
 import {
@@ -99,9 +114,20 @@ export default function App() {
   const { score, dispatch, reset, undo, redo, canUndo, canRedo } =
     useUndoableScore();
 
-  const [editMode, setEditMode] = useState(false);
+  const [loopEnabled, setLoopEnabled] = useState(false);
+  const [playbackAids, setPlaybackAids] = useState({
+    speed: 1,
+    metronomeEnabled: false,
+    // クリックを何グリッドに1回鳴らすか。メトロノームとカウントインの
+    // 両方が同じ値を見るので、片方だけ別の速さで鳴くことがない
+    gridsPerBeat: 4,
+    clickVolume: 'medium',
+    countInBars: 0,
+  });
   const [isProcessing, setIsProcessing] = useState(false);
-  const [status, setStatus] = useState({ message: '', type: 'info', action: null });
+  const [status, setStatus] = useState({
+    message: '', type: 'info', action: null, compactIcon: null,
+  });
   const [fileName, setFileName] = useState('');
   const [themePreference, setThemePreference] = useState(loadThemePreference);
   const [systemTheme, setSystemTheme] = useState(getSystemTheme);
@@ -144,6 +170,53 @@ export default function App() {
   // 自動保存をこれで駆動すると、全消去を undo で戻したときに isDirty が false へ
   // 復帰し、空のまま書かれた下書きが二度と更新されなくなる
   const draftSnapshotRef = useRef(serializeScoreForCompare(initialScore));
+  const rangeStore = useRangeSelectionStore();
+  const isRangeActionBarOpen = useRangeActionBarOpen();
+  const expandedGridStore = useExpandedGridStore();
+  const isGridOverlayOpen = useIsExpandedGridOpen();
+  const hasData = score.grids.length > 0;
+  const [rangeActionBarHeight, setRangeActionBarHeight] = useState(0);
+  const handleRangeActionBarHeightChange = useCallback((height) => {
+    setRangeActionBarHeight((current) => (current === height ? current : height));
+  }, []);
+  const restoreCaretBeforeFloatingUiHides = useCallback(() => {
+    const activeElement = document.activeElement;
+    if (!isScoreEditingFloatingFocus(activeElement)) return;
+    const { caretIndex, caretPlacement } = rangeStore.getState();
+    if (!focusMountedCaret(caretIndex, caretPlacement, {
+      defer: false,
+      preventScroll: true,
+    })) {
+      activeElement.blur?.();
+    }
+  }, [rangeStore]);
+  const {
+    actionBarRef: pinnedActionBarRef,
+    sentinelRef: pinnedActionSentinelRef,
+    isPinnedActionStuck,
+    pinnedActionHeight,
+  } = usePinnedActionBar();
+  const {
+    isScoreCanvasVisibilityReady,
+    isScoreCanvasVisible,
+  } = useScoreCanvasVisibility(
+    hasData,
+    rangeActionBarHeight,
+    restoreCaretBeforeFloatingUiHides,
+  );
+  // 初回判定前だけは実寸計測のため描画し、判定が揃った後は楽譜が見える
+  // 領域にいるときだけ編集用の浮遊UIを表示する。
+  const isScoreEditingUiVisible = hasData
+    && (!isScoreCanvasVisibilityReady || isScoreCanvasVisible);
+
+  // 拡大表示はモバイル専用。画面幅変更や全消去で本体が外れるときに、
+  // 外部ストアの開状態だけが残って操作バーを持ち上げ続けないよう閉じる。
+  useEffect(() => {
+    if ((!isMobile || !hasData) && expandedGridStore.getExpandedIndex() >= 0) {
+      expandedGridStore.setExpandedIndex(-1);
+      rangeStore.clearTransientSelection();
+    }
+  }, [expandedGridStore, hasData, isMobile, rangeStore]);
 
   // 共有URLの設定は起動時に候補として1回だけ取り込み、確認画面での適用まで
   // pdfPrefsへ触れない。認識したhash parameterだけを履歴から取り除き、
@@ -165,7 +238,6 @@ export default function App() {
     });
   }, [t]);
 
-  const hasData = score.grids.length > 0;
   const layerAnalysis = useMemo(() => analyzeScoreLayers(score.grids), [score.grids]);
   const { usesTwoLayers } = layerAnalysis;
   const usesSecondHighlightColor = shouldUseSecondHighlightColor(
@@ -202,12 +274,27 @@ export default function App() {
     gridsStore.setGrids(score.grids, gridColumns);
   }, [gridsStore, score.grids, gridColumns]);
 
-  const showStatus = useCallback((message, type = 'info', autoDismiss = true, action = null) => {
-    setStatus({ message, type, action });
+  useEffect(() => {
+    rangeStore.reconcileGridCount(score.grids.length);
+  }, [rangeStore, score.grids.length]);
+
+  const showStatus = useCallback((
+    message,
+    type = 'info',
+    autoDismiss = true,
+    action = null,
+    compactIcon = null,
+  ) => {
+    setStatus({
+      message,
+      type,
+      action,
+      compactIcon: autoDismiss && !action ? compactIcon : null,
+    });
     if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
     if (autoDismiss && type !== 'error') {
       statusTimerRef.current = setTimeout(
-        () => setStatus({ message: '', type: 'info', action: null }),
+        () => setStatus({ message: '', type: 'info', action: null, compactIcon: null }),
         4000,
       );
     }
@@ -215,7 +302,7 @@ export default function App() {
 
   const dismissStatus = useCallback(() => {
     if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
-    setStatus({ message: '', type: 'info', action: null });
+    setStatus({ message: '', type: 'info', action: null, compactIcon: null });
   }, []);
 
   const markSaved = useCallback((serialized) => {
@@ -224,14 +311,24 @@ export default function App() {
 
   const {
     playbackState,
+    countInBeat,
     isAutoScroll,
     setIsAutoScroll,
     togglePlayPause,
     stop,
-    playFrom,
     playSingleGrid,
     playPreview
-  } = usePlayback(score.grids, score.bpm, score.pitchLevel, showStatus, dismissStatus);
+  } = usePlayback(
+    score.grids,
+    score.bpm,
+    score.pitchLevel,
+    showStatus,
+    dismissStatus,
+    loopEnabled,
+    rangeStore,
+    playbackAids,
+    score.bitsPerPage,
+  );
 
   const toggleLayer = useCallback(() => {
     setSelectedLayer((layer) => (layer === 1 ? 2 : 1));
@@ -248,27 +345,224 @@ export default function App() {
     dispatch({ type: 'SET_TEXT', gridIndex: index, text });
   }, [dispatch]);
 
-  const handleDelete = useCallback((index) => {
-    dispatch({ type: 'DELETE', gridIndex: index });
-  }, [dispatch]);
-
   const handleToggleBreak = useCallback((index) => {
     dispatch({ type: 'TOGGLE_BREAK', gridIndex: index });
   }, [dispatch]);
 
   const handleInsert = useCallback((insertIndex) => {
+    // 拡大表示中のキャレットは画面外にあり、挿入先を確認できない。
+    if (expandedGridStore.getExpandedIndex() >= 0) return false;
     // reducer 側にも最終防御があるが、押せてしまってから理由を伝えないと
     // 利用者には何も起きなかったようにしか見えない
     if (gridsRef.current.length >= MAX_GRIDS) {
       showStatus(t('ui.app.maxGrids', { n: MAX_GRIDS }), 'error', false);
+      return false;
+    }
+    const currentCount = gridsRef.current.length;
+    const targetIndex = Math.max(0, Math.min(insertIndex, currentCount));
+    dispatch({ type: 'INSERT', insertIndex: targetIndex });
+    const nextCaretIndex = targetIndex + 1;
+    rangeStore.setCaret(
+      nextCaretIndex,
+      nextCaretIndex === currentCount + 1 ? 'after' : 'before',
+    );
+    return true;
+  }, [dispatch, expandedGridStore, rangeStore, showStatus, t]);
+
+  const handleCopyRange = useCallback(() => {
+    const range = selectedRange(rangeStore.getState());
+    if (!range) return false;
+    const clipboard = copyGridRange(gridsRef.current, range.start, range.end);
+    if (clipboard.length === 0) return false;
+    rangeStore.setClipboard(clipboard);
+    return true;
+  }, [rangeStore]);
+
+  const handleCutRange = useCallback(() => {
+    const state = rangeStore.getState();
+    const range = selectedRange(state);
+    if (!range) return false;
+    const count = range.end - range.start + 1;
+    if (count >= gridsRef.current.length) return false;
+    const clipboard = copyGridRange(gridsRef.current, range.start, range.end);
+    if (clipboard.length === 0) return false;
+    rangeStore.setClipboard(clipboard);
+    dispatch({ type: 'DELETE_RANGE', startIndex: range.start, endIndex: range.end });
+    const nextCount = gridsRef.current.length - count;
+    if (state.transientSelectionIndex >= 0) {
+      rangeStore.adjustForReplacement(range.start, count, 0, nextCount);
+      expandedGridStore.setExpandedIndex(-1);
+      rangeStore.clearTransientSelection();
+    } else {
+      rangeStore.setCaret(range.start, range.start === nextCount ? 'after' : 'before');
+    }
+    return true;
+  }, [dispatch, expandedGridStore, rangeStore]);
+
+  const handleDeleteRange = useCallback(() => {
+    const state = rangeStore.getState();
+    const range = selectedRange(state);
+    if (!range) return false;
+    const count = range.end - range.start + 1;
+    if (count >= gridsRef.current.length) return false;
+    dispatch({ type: 'DELETE_RANGE', startIndex: range.start, endIndex: range.end });
+    const nextCount = gridsRef.current.length - count;
+    if (state.transientSelectionIndex >= 0) {
+      rangeStore.adjustForReplacement(range.start, count, 0, nextCount);
+      expandedGridStore.setExpandedIndex(-1);
+      rangeStore.clearTransientSelection();
+    } else {
+      rangeStore.setCaret(range.start, range.start === nextCount ? 'after' : 'before');
+    }
+    showStatus(t('ui.range.deleted', { count }), 'info', false, {
+      label: t('ui.toolbar.score.undo'),
+      onClick: undo,
+    });
+    return true;
+  }, [dispatch, expandedGridStore, rangeStore, showStatus, t, undo]);
+
+  const handlePasteAtTarget = useCallback(() => {
+    const state = rangeStore.getState();
+    const { clipboard } = state;
+    if (clipboard.length === 0) return false;
+    const range = selectedRange(state);
+    const removedCount = range ? range.end - range.start + 1 : 0;
+    const nextCount = gridsRef.current.length - removedCount + clipboard.length;
+    if (nextCount > MAX_GRIDS) {
+      showStatus(t('ui.app.maxGrids', { n: MAX_GRIDS }), 'error', false);
+      return false;
+    }
+
+    const insertIndex = range
+      ? range.start
+      : Math.max(0, Math.min(state.caretIndex, gridsRef.current.length));
+    dispatch(range
+      ? {
+        type: 'REPLACE_RANGE',
+        startIndex: range.start,
+        endIndex: range.end,
+        grids: clipboard,
+      }
+      : { type: 'PASTE_GRIDS', insertIndex, grids: clipboard });
+    const nextCaretIndex = insertIndex + clipboard.length;
+    if (state.transientSelectionIndex >= 0) {
+      rangeStore.adjustForReplacement(
+        insertIndex,
+        removedCount,
+        clipboard.length,
+        nextCount,
+      );
+      rangeStore.setTransientSelection(insertIndex);
+    } else {
+      rangeStore.setCaret(
+        nextCaretIndex,
+        nextCaretIndex === nextCount ? 'after' : 'before',
+      );
+    }
+    return true;
+  }, [dispatch, rangeStore, showStatus, t]);
+
+  const handleToggleLoop = useCallback(() => {
+    const nextEnabled = !loopEnabled;
+    setLoopEnabled(nextEnabled);
+    showStatus(
+      t(nextEnabled ? 'ui.range.wholeLoopEnabled' : 'ui.range.wholeLoopDisabled'),
+      'info',
+      true,
+      null,
+      'loop',
+    );
+  }, [loopEnabled, showStatus, t]);
+
+  const handleToggleAutoScroll = useCallback(() => {
+    const nextEnabled = !isAutoScroll;
+    setIsAutoScroll(nextEnabled);
+    showStatus(
+      t(
+        nextEnabled
+          ? 'ui.playbackBar.autoScrollEnabled'
+          : 'ui.playbackBar.autoScrollDisabled',
+      ),
+      'info',
+      true,
+      null,
+      'autoScroll',
+    );
+  }, [isAutoScroll, setIsAutoScroll, showStatus, t]);
+
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key !== 'Escape') return;
+      // 拡大表示側が閉じる操作を受け持つ。背後の通常選択は変更しない。
+      if (expandedGridStore.getExpandedIndex() >= 0) return;
+      const state = rangeStore.getState();
+      if (selectedRange(state)) rangeStore.clearSelection();
+      else if (state.actionBarOpen) rangeStore.closeActionBar();
+      else return;
+      event.preventDefault();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [expandedGridStore, rangeStore]);
+
+  const handleTogglePlayback = useCallback(() => {
+    const target = resolvePlaybackRange(rangeStore.getState(), score.grids.length);
+    if (!target) return;
+    togglePlayPause(target.start, target.end, target.tracksSelection);
+  }, [rangeStore, score.grids.length, togglePlayPause]);
+
+  const handleToStart = useCallback(() => {
+    rangeStore.setCaret(0, 'before');
+  }, [rangeStore]);
+
+  const handleMoveToBoundary = useCallback((toEnd, extend) => {
+    if (expandedGridStore.getExpandedIndex() >= 0) return false;
+    const gridCount = gridsRef.current.length;
+    if (gridCount === 0) return false;
+    const target = toEnd ? gridCount : 0;
+    const state = rangeStore.getState();
+    if (extend) {
+      const range = selectedRange(state);
+      const anchor = range ? state.selectionAnchorCaretIndex : state.caretIndex;
+      rangeStore.setSelectionFromCarets(
+        anchor,
+        target,
+        target === gridCount ? 'after' : 'before',
+      );
+    } else {
+      rangeStore.setCaret(target, target === gridCount ? 'after' : 'before');
+    }
+    return true;
+  }, [expandedGridStore, rangeStore]);
+
+  const handleSelectAll = useCallback(() => {
+    if (expandedGridStore.getExpandedIndex() >= 0) return false;
+    const gridCount = gridsRef.current.length;
+    if (gridCount === 0) return false;
+    rangeStore.setSelectionFromCarets(0, gridCount, 'after');
+    return true;
+  }, [expandedGridStore, rangeStore]);
+
+  const handleMovePhrase = useCallback((direction) => {
+    if (expandedGridStore.getExpandedIndex() >= 0) return false;
+    const state = rangeStore.getState();
+    const target = findPhraseCaret(gridsRef.current, state.caretIndex, direction);
+    if (target < 0) return false;
+    rangeStore.setCaret(
+      target,
+      target === gridsRef.current.length ? 'after' : 'before',
+    );
+    return true;
+  }, [expandedGridStore, rangeStore]);
+
+  const handleClearRangeSelection = useCallback(() => {
+    if (expandedGridStore.getExpandedIndex() >= 0) {
+      expandedGridStore.setExpandedIndex(-1);
+      rangeStore.clearTransientSelection();
       return;
     }
-    dispatch({ type: 'INSERT', insertIndex });
-  }, [dispatch, showStatus, t]);
-
-  const handlePlayFrom = useCallback((index) => {
-    playFrom(index);
-  }, [playFrom]);
+    rangeStore.clearSelection();
+  }, [expandedGridStore, rangeStore]);
 
   const handlePlaySingle = useCallback((index) => {
     playSingleGrid(index);
@@ -430,11 +724,11 @@ export default function App() {
         // 加えて warning を持つ。createScore で9フィールドだけを取り出す。
         const loaded = createScore(parsed);
         reset(loaded);
+        rangeStore.reset();
         const initialLayer = getInitialLayer(loaded.grids);
         setSelectedLayer(initialLayer);
         setStandardColorLayer(initialLayer);
         markSaved(serializeScoreForCompare(loaded));
-        setEditMode(false);
         if (parsed.warning) {
           // 切り詰め等の警告は見逃されると「読み込みが壊れた」と誤解される。
           // 自動で消さず、利用者が閉じるまで残す
@@ -456,7 +750,7 @@ export default function App() {
         showStatus(msg, 'error', false);
       }
     },
-    [isDirty, reset, markSaved, showStatus, dismissStatus, t],
+    [isDirty, reset, rangeStore, markSaved, showStatus, dismissStatus, t],
   );
 
   // --- 新規作成 ---
@@ -471,13 +765,13 @@ export default function App() {
       keyMode: score.keyMode,
     });
     reset(next);
+    rangeStore.reset();
     const initialLayer = getInitialLayer(next.grids);
     setSelectedLayer(initialLayer);
     setStandardColorLayer(initialLayer);
     markSaved(serializeScoreForCompare(next));
     setFileName('');
-    setEditMode(true);
-  }, [isDirty, score.bpm, score.pitchLevel, score.keyMode, reset, markSaved, t]);
+  }, [isDirty, score.bpm, score.pitchLevel, score.keyMode, reset, rangeStore, markSaved, t]);
 
   const restoreDraft = useCallback(() => {
     const draft = loadDraft();
@@ -487,11 +781,12 @@ export default function App() {
     // state に混入させない（混入すると以後の saveDraft で下書きへ書き戻る）。
     const next = createScore(normalizeLoadedScore(draft));
     reset(next);
+    rangeStore.reset();
     const initialLayer = getInitialLayer(next.grids);
     setSelectedLayer(initialLayer);
     setStandardColorLayer(initialLayer);
     markSaved(serializeScoreForCompare(next));
-  }, [reset, markSaved]);
+  }, [reset, rangeStore, markSaved]);
 
   const clearAll = useCallback(() => {
     // 保存状態にかかわらず、必ず確認メッセージを表示する
@@ -504,20 +799,20 @@ export default function App() {
     }
     // reset() ではなく dispatch で CLEAR アクションを発行し、履歴に残す
     dispatch({ type: 'CLEAR' });
+    rangeStore.reset();
     setSelectedLayer(1);
     setStandardColorLayer(1);
 
     // Undo した際にファイル名や保存状態の基準が狂わないよう、
     // markSaved や setFileName('') 等は実行せず、「ファイルの内容をすべて消した」という編集状態として扱います。
 
-    setEditMode(false);
     // 破壊的だが可逆な操作。取り消し手段をツールバーまで探しに行かせず、
     // 通知そのものに載せる。自動で消すと押す機会ごと失われるため消さない
     showStatus(t('ui.app.cleared'), 'info', false, {
       label: t('ui.toolbar.score.undo'),
       onClick: undo,
     });
-  }, [isDirty, dispatch, showStatus, undo, t]);
+  }, [isDirty, dispatch, rangeStore, showStatus, undo, t]);
 
   // --- 下書き削除 (共用端末でのデータ消去手段) ---
   const handleClearDraft = useCallback(() => {
@@ -618,8 +913,6 @@ export default function App() {
   const handleExportPdf = useCallback(async () => {
     if (!hasData || isProcessing) return;
     setIsProcessing(true);
-    const prevEdit = editMode;
-    setEditMode(false);
     try {
       // PDF ライブラリ(jsPDF/svg2pdf)は重いので、必要になった時点で動的読み込みする
       const { exportPdf } = await import('./lib/pdfExport.js');
@@ -640,15 +933,12 @@ export default function App() {
       showStatus(t('ui.app.pdfFailed', { message: err.message }), 'error', false);
     } finally {
       setIsProcessing(false);
-      setEditMode(prevEdit);
     }
-  }, [hasData, isProcessing, editMode, score, pdfExportOptions, showStatus, t]);
+  }, [hasData, isProcessing, score, pdfExportOptions, showStatus, t]);
 
   const handleExportPng = useCallback(async () => {
     if (!hasData || isProcessing) return;
     setIsProcessing(true);
-    const prevEdit = editMode;
-    setEditMode(false);
     try {
       // PDF出力と同じ理由（jsPDF/svg2pdf・pdf.js・zipStoreはいずれも重い）で
       // 必要になった時点で動的読み込みする。
@@ -664,9 +954,8 @@ export default function App() {
       showStatus(t('ui.app.pngFailed', { message: err.message }), 'error', false);
     } finally {
       setIsProcessing(false);
-      setEditMode(prevEdit);
     }
-  }, [hasData, isProcessing, editMode, score, pdfExportOptions, showStatus, t]);
+  }, [hasData, isProcessing, score, pdfExportOptions, showStatus, t]);
 
   const handleOpenPdfPreset = useCallback((nextMode) => {
     pdfPresetReturnFocusRef.current = document.activeElement;
@@ -688,10 +977,38 @@ export default function App() {
     setPdfPrefs(nextPrefs);
   }, []);
 
-  useKeyboardShortcuts({ onUndo: undo, onRedo: redo, onSave: saveJson });
+  useKeyboardShortcuts({
+    onUndo: undo,
+    onRedo: redo,
+    onSave: saveJson,
+    onCopy: handleCopyRange,
+    onCut: handleCutRange,
+    onDelete: handleDeleteRange,
+    onPaste: handlePasteAtTarget,
+    onTogglePlayback: handleTogglePlayback,
+    onMoveToBoundary: handleMoveToBoundary,
+    onSelectAll: handleSelectAll,
+    onMovePhrase: handleMovePhrase,
+  });
 
   return (
-    <div className={`app${editMode ? ' app--edit-mode' : ''}`}>
+    <div
+      className={`app${isRangeActionBarOpen ? ' app--range-bar-open' : ''}${
+        isScoreEditingUiVisible ? ' app--score-editing-ui-visible' : ''
+      }${
+        isGridOverlayOpen ? ' app--grid-overlay-open' : ''
+      }${
+        isPinnedActionStuck ? ' app--pinned-action-stuck' : ''
+      }${
+        isScoreCanvasVisibilityReady && !isScoreCanvasVisible
+          ? ' app--score-canvas-hidden'
+          : ''
+      }`}
+      style={{
+        '--pinned-action-h': `${pinnedActionHeight}px`,
+        '--range-action-bar-h': `${rangeActionBarHeight}px`,
+      }}
+    >
       <div className="app__inner">
         {/* ツールバーは sticky に含めない。楽譜を見ている間に手が届く必要が
             あるのは再生・停止・移調・追尾であって、JSONを開く/曲名/BPM ではない。
@@ -703,7 +1020,6 @@ export default function App() {
             isPlaying={playbackState === 'playing'}
             score={score}
             pdfExportOptions={pdfExportOptions}
-            editMode={editMode}
             canUndo={canUndo}
             canRedo={canRedo}
             isDirty={isDirty}
@@ -737,7 +1053,6 @@ export default function App() {
             onSetBpm={(v) => dispatch({ type: 'SET_BPM', bpm: v })}
             onUndo={undo}
             onRedo={redo}
-            onToggleEdit={() => setEditMode((v) => !v)}
             onToggleLayer={toggleLayer}
             usesTwoLayers={usesTwoLayers}
             onSaveJson={saveJson}
@@ -745,6 +1060,8 @@ export default function App() {
             onExportPng={handleExportPng}
             onOpenPdfPreset={handleOpenPdfPreset}
             onSetTheme={(preference) => setThemePreference(preference)}
+            pinnedActionBarRef={pinnedActionBarRef}
+            pinnedActionSentinelRef={pinnedActionSentinelRef}
         />
 
         {pdfPresetDialog && (
@@ -766,34 +1083,36 @@ export default function App() {
           {hasData && (
             <PlaybackBar
               playbackState={playbackState}
-              onTogglePlayPause={togglePlayPause}
+              onTogglePlayPause={handleTogglePlayback}
               onStop={stop}
+              onToStart={handleToStart}
               isAutoScroll={isAutoScroll}
-              setIsAutoScroll={setIsAutoScroll}
+              onToggleAutoScroll={handleToggleAutoScroll}
+              loopEnabled={loopEnabled}
+              onToggleLoop={handleToggleLoop}
+              countInBeat={countInBeat}
+              playbackAids={playbackAids}
+              onSetPlaybackAids={setPlaybackAids}
             />
           )}
         </div>
 
-        <main className={`output${editMode ? ' edit-mode' : ''}`}>
+        <main className="output">
           {hasData ? (
             <ScoreCanvas
               bitsPerPage={score.bitsPerPage}
-              editMode={editMode}
               isAutoScroll={isAutoScroll}
               playbackState={playbackState}
               isMobile={isMobile}
               selectedLayer={selectedLayer}
               usesTwoLayers={usesTwoLayers}
               usesSecondHighlightColor={usesSecondHighlightColor}
-              onPlayFrom={handlePlayFrom}
               onPlaySingle={handlePlaySingle}
               onPlayPreview={playPreview}
               onToggleKey={handleToggleKey}
               onToggleLayer={toggleLayer}
               onSetText={handleSetText}
-              onDelete={handleDelete}
               onToggleBreak={handleToggleBreak}
-              onInsert={handleInsert}
             />
           ) : (
             <EmptyState
@@ -806,7 +1125,7 @@ export default function App() {
         <SiteFooter hasDraft={hasDraft} onClearDraft={handleClearDraft} />
       </div>
 
-      {/* 画面下部の浮遊レイヤー。通知と「編集を終了」を1つの重なり順にまとめて
+      {/* 画面下部の浮遊レイヤー。通知と構造操作バーを1つの重なり順にまとめて
           いるのは、両方を別々に fixed にすると互いに重なる位置関係を
           2箇所で調整することになるため。
           レイヤー自身は pointer-events を持たない（CSS 参照）。全幅に広がる
@@ -816,43 +1135,47 @@ export default function App() {
           message={status.message}
           type={status.type}
           action={status.action}
+          compactIcon={status.compactIcon}
           onClose={dismissStatus}
         />
-        {editMode && (
-          <button
-            type="button"
-            className="btn btn--warning-active edit-exit-fab"
-            onClick={() => setEditMode(false)}
-            disabled={isProcessing}
-          >
-            {t('ui.app.editFinish')}
-          </button>
-        )}
+        <RangeActionBar
+          visible={isScoreEditingUiVisible}
+          gridCount={score.grids.length}
+          onCollapse={() => rangeStore.closeActionBar()}
+          onExpand={() => rangeStore.openActionBar()}
+          onInsert={() => handleInsert(rangeStore.getState().caretIndex)}
+          insertDisabled={isGridOverlayOpen}
+          insertDisabledTitle={t('ui.range.insertPositionOutsideView')}
+          onPaste={handlePasteAtTarget}
+          onCopy={handleCopyRange}
+          onCut={handleCutRange}
+          onDelete={handleDeleteRange}
+          onClearSelection={handleClearRangeSelection}
+          onHeightChange={handleRangeActionBarHeightChange}
+        />
       </div>
 
       {/* 通知が出ている間は隠す。通知は画面下部の同じ帯に出るため重なるのと、
           「全消去」の通知は取り消しボタンを自前で持っているため、
           そちらが優先されるべき場面だから */}
-      {(canUndo || canRedo) && !status.message && (
-        <HistoryFab
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onUndo={undo}
-          onRedo={redo}
-        />
-      )}
+      <HistoryFab
+        visible={(canUndo || canRedo) && !status.message && (
+          !hasData || !isScoreCanvasVisibilityReady || isScoreCanvasVisible
+        )}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={undo}
+        onRedo={redo}
+      />
 
-      {hasData && <ScrollTopFab editMode={editMode} />}
+      <ScrollTopFab enabled={hasData} />
 
       {hasData && isMobile && (
         <GridOverlay
           grids={score.grids}
-          editMode={editMode}
           onToggleKey={handleToggleKey}
           onSetText={handleSetText}
-          onDelete={handleDelete}
           onToggleBreak={handleToggleBreak}
-          onPlayFrom={handlePlayFrom}
           onPlaySingle={handlePlaySingle}
           onPlayPreview={playPreview}
           selectedLayer={selectedLayer}

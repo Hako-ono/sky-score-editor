@@ -2,18 +2,25 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 
 import { useT } from '../i18n/LanguageContext.jsx';
 import GridCard from './GridCard.jsx';
 import GridCardCompact from './GridCardCompact.jsx';
-import InsertButton from './InsertButton.jsx';
 import { columnsForBits } from '../lib/layout.js';
 import {
   classifyPlaybackFollowTransition,
   computePlaybackFollowTarget,
+  isPlaybackRangeFullyVisible,
 } from '../lib/playbackFollow.js';
 import { computeVisibleRowRange } from '../lib/virtualRows.js';
 import { useActiveGridIndex } from '../contexts/ActiveGridContext.jsx';
 import { useExpandedGridStore } from '../contexts/ExpandedGridContext.jsx';
 import { useGridRows, useScoreGridsStore } from '../contexts/ScoreGridsContext.jsx';
+import {
+  useRangeSelectionState,
+  useRangeSelectionStore,
+} from '../contexts/RangeSelectionContext.jsx';
+import { selectedRange } from '../lib/rangeSelectionStore.js';
+import { useCaretSlotTouchDrag } from '../hooks/useCaretSlotTouchDrag.js';
+import { useDesktopRangeDrag } from '../hooks/useDesktopRangeDrag.js';
 
-// 実測前（初回描画・isMobile/editMode/columns切り替え直後の1フレーム）だけ
+// 実測前（初回描画・isMobile/columns切り替え直後の1フレーム）だけ
 // 使う仮の行ピッチ。.grid-card のCSSから概算した値。
 const PROVISIONAL_ROW_PITCH_DESKTOP = 260;
 const PROVISIONAL_ROW_PITCH_MOBILE = 130;
@@ -29,6 +36,8 @@ const PROVISIONAL_ROW_PITCH_MOBILE = 130;
 function AutoScrollWatcher({ isAutoScroll, playbackState, measure }) {
   const activeGridIndex = useActiveGridIndex();
   const store = useScoreGridsStore();
+  const rangeState = useRangeSelectionState();
+  const playbackRange = selectedRange(rangeState);
   const previousRowRef = useRef(-1);
 
   useEffect(() => {
@@ -60,6 +69,25 @@ function AutoScrollWatcher({ isAutoScroll, playbackState, measure }) {
 
     const stickyHeader = document.querySelector('.app__sticky-header');
     const stickyRect = stickyHeader ? stickyHeader.getBoundingClientRect() : null;
+    previousRowRef.current = rowLayout.rowIndex;
+
+    if (playbackRange) {
+      const firstRow = store.getRowLayout(playbackRange.start);
+      const lastRow = store.getRowLayout(playbackRange.end);
+      if (
+        firstRow
+        && lastRow
+        && isPlaybackRangeFullyVisible({
+          firstRowTop: firstRow.rowTop,
+          lastRowTop: lastRow.rowTop,
+          lastRowPitch: lastRow.rowPitch,
+          scrollY: window.scrollY,
+          viewportHeight: window.innerHeight,
+          currentHeaderBottom: stickyRect?.bottom ?? 0,
+        })
+      ) return;
+    }
+
     const target = computePlaybackFollowTarget({
       rowTop: rowLayout.rowTop,
       rowPitch: rowLayout.rowPitch,
@@ -67,22 +95,19 @@ function AutoScrollWatcher({ isAutoScroll, playbackState, measure }) {
       viewportHeight: window.innerHeight,
       currentHeaderBottom: stickyRect?.bottom ?? 0,
       stickyHeaderHeight: stickyRect?.height ?? 0,
-      preserveIfFullyVisible: transition === 'entry',
+      preserveIfFullyVisible: playbackRange !== null || transition === 'entry',
     });
 
-    previousRowRef.current = rowLayout.rowIndex;
     if (typeof target === 'number') {
       window.scrollTo({ top: target, behavior: 'auto' });
     }
-  }, [activeGridIndex, isAutoScroll, measure, playbackState, store]);
+  }, [activeGridIndex, isAutoScroll, measure, playbackRange, playbackState, store]);
 
   return null;
 }
 
 /**
  * 楽譜全体を行ごとに描画。forceBreakAfter と columns に従って折り返す。
- * 各グリッドの左に挿入ボタン、末尾に最後の挿入ボタンを置く。
- *
  * マウント枚数を可視範囲（＋前後1画面の余裕）に絞る。上下の余白は
  * スペーサー要素ではなく .score-canvas の padding-top/padding-bottom で
  * 作る（.score-canvas は gap を持つ flex コンテナのため、子要素として
@@ -90,11 +115,9 @@ function AutoScrollWatcher({ isAutoScroll, playbackState, measure }) {
  */
 function ScoreCanvas({
   bitsPerPage,
-  editMode,
   isAutoScroll,
   playbackState,
   isMobile,
-  onPlayFrom,
   onPlaySingle,
   onPlayPreview,
   selectedLayer,
@@ -103,14 +126,11 @@ function ScoreCanvas({
   onToggleLayer,
   onToggleKey,
   onSetText,
-  onDelete,
   onToggleBreak,
-  onInsert,
 }) {
   const t = useT();
-  // CSS変数用の列数だけがここで必要で、bitsPerPage は既に props で渡って
-  // いるためストアの columns を別途公開する API は増やさず、ここで
-  // columnsForBits から求める（ストアの rows 計算と同じ式を使う）。
+  // CSS変数にも列数が必要なため、rows計算と同じ関数から求める。
+  // ストア側のcolumns公開値は、仮想行へ範囲選択を伸ばす座標計算に使う。
   const columns = columnsForBits(bitsPerPage);
 
   // 行構造（number[][]）はストアが grids の変化を見て計算済みのものを
@@ -119,8 +139,11 @@ function ScoreCanvas({
   const rows = useGridRows();
   const rowCount = rows.length;
   const store = useScoreGridsStore();
+  const rangeStore = useRangeSelectionStore();
+  const desktopRangeDragProps = useDesktopRangeDrag(rangeStore, store);
 
   const canvasEl = useRef(null);
+  useCaretSlotTouchDrag(canvasEl, rangeStore, store);
   const initialRowPitch = isMobile ? PROVISIONAL_ROW_PITCH_MOBILE : PROVISIONAL_ROW_PITCH_DESKTOP;
   const rowPitchRef = useRef(initialRowPitch);
 
@@ -195,10 +218,10 @@ function ScoreCanvas({
   }, [recompute, store]);
 
   // 初回描画時、および行の高さが変わりうるとき（モバイル/デスクトップの
-  // 切り替え・編集モードの切り替え・列数の変化）に測り直す。
+  // 切り替え・列数の変化）に測り直す。
   useLayoutEffect(() => {
     measure();
-  }, [isMobile, editMode, columns, measure]);
+  }, [isMobile, columns, measure]);
 
   // rows が変わっただけ（rowPitch・canvasTop は変わらない）のときも、
   // rowCount の変化に合わせて範囲をクランプし直す必要がある。
@@ -274,6 +297,7 @@ function ScoreCanvas({
 
   const { rowPitch, startRow, endRow } = layout;
   const visibleRows = rows.slice(startRow, endRow);
+  const gridCount = store.getGridCount();
 
   return (
     // columns を CSS へ渡し、1行分の幅を calc で決め打ちして一覧全体を中央に置く。
@@ -285,6 +309,7 @@ function ScoreCanvas({
       className="score-canvas"
       role="list"
       aria-label={t('ui.scoreCanvas.list')}
+      {...desktopRangeDragProps}
       style={{
         '--columns': columns,
         paddingTop: startRow * rowPitch,
@@ -302,57 +327,45 @@ function ScoreCanvas({
         const rowIndex = startRow + i;
         return (
           <div className="score-row" key={rowIndex} role="presentation">
-            {row.map((index) => (
+            {row.map((index, columnIndex) => (
               <div
                 className="score-cell"
                 role="listitem"
                 key={index}
                 id={`score-cell-${index}`}
               >
-                {editMode && (
-                  <InsertButton
-                    index={index}
-                    onInsert={onInsert}
-                    label={t('ui.scoreCanvas.insertBefore', { n: index + 1 })}
-                  />
-                )}
                 {isMobile ? (
                   <GridCardCompact
                     index={index}
-                    editMode={editMode}
                     selectedLayer={selectedLayer}
                     usesTwoLayers={usesTwoLayers}
                     usesSecondHighlightColor={usesSecondHighlightColor}
                     onExpand={handleExpand}
-                    onDelete={onDelete}
+                    showCaretSlots
+                    isRowStart={columnIndex === 0}
+                    isRowEnd={columnIndex === row.length - 1}
+                    gridCount={gridCount}
                   />
                 ) : (
                   <GridCard
                     index={index}
-                    editMode={editMode}
                     selectedLayer={selectedLayer}
                     usesTwoLayers={usesTwoLayers}
                     usesSecondHighlightColor={usesSecondHighlightColor}
-                    onPlayFrom={onPlayFrom}
                     onPlaySingle={onPlaySingle}
                     onPlayPreview={onPlayPreview}
                     onToggleLayer={onToggleLayer}
                     onToggleKey={onToggleKey}
                     onSetText={onSetText}
-                    onDelete={onDelete}
                     onToggleBreak={onToggleBreak}
+                    showCaretSlots
+                    isRowStart={columnIndex === 0}
+                    isRowEnd={columnIndex === row.length - 1}
+                    gridCount={gridCount}
                   />
                 )}
               </div>
             ))}
-            {/* 行末に、その行最後のグリッドの後ろへ挿入するボタン */}
-            {editMode && row.length > 0 && (
-              <InsertButton
-                index={row[row.length - 1] + 1}
-                onInsert={onInsert}
-                label={t('ui.scoreCanvas.insertAfter', { n: row[row.length - 1] + 1 })}
-              />
-            )}
           </div>
         );
       })}

@@ -52,8 +52,6 @@ export default {
         "redo": "ทำซ้ำ",
         "redoTitle": "ทำซ้ำ (Ctrl+Shift+Z)",
         "toggleLayer": "สลับเลเยอร์",
-        "finishGridEdit": "จบการแก้ไขกริด",
-        "toggleGridEdit": "เพิ่มหรือลบกริด",
         "clear": "ล้างทั้งหมด",
         "unsaved": "มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก",
         "saveJson": "บันทึก JSON"
@@ -378,20 +376,15 @@ export default {
       "pdfFailed": "สร้าง PDF ไม่สำเร็จ ({message})",
       "pngDownloaded": "ดาวน์โหลด PNG แล้ว ({filename})",
       "pngFailed": "สร้าง PNG ไม่สำเร็จ ({message})",
-      "pngTooLarge": "ขนาดรวมของ PNG เกินขีดจำกัด กรุณาลดความละเอียดหรือจำนวนหน้า",
-      "editFinish": "จบการแก้ไขกริด"
+      "pngTooLarge": "ขนาดรวมของ PNG เกินขีดจำกัด กรุณาลดความละเอียดหรือจำนวนหน้า"
     },
     "gridCard": {
-      "playFromTitle": "เล่นจากจุดนี้",
-      "playFrom": "เล่นจากกริด {n}",
       "playSingleTitle": "เล่นเฉพาะกริดนี้",
       "playSingle": "เล่นเฉพาะกริด {n}",
       "layerSwitch": "สลับเลเยอร์",
       "breakOn": "ขึ้นบรรทัดใหม่หลังกริด {n}",
       "breakOff": "ยกเลิกการขึ้นบรรทัดหลังกริด {n}",
       "breakTitle": "ขึ้นบรรทัดใหม่หลังกริดนี้",
-      "delete": "ลบกริด {n}",
-      "deleteTitle": "ลบกริดนี้",
       "expand": "ขยายกริด {n}",
       "text": "ข้อความของกริด {n}"
     },
@@ -406,8 +399,33 @@ export default {
       "resume": "เล่นต่อ",
       "restart": "เล่นตั้งแต่ต้น",
       "stop": "หยุด",
+      "toStart": "ไปจุดเริ่มต้น",
+      "playFromCaret": "เล่นจากตำแหน่งแทรก",
+      "playSelection": "เล่นช่วงที่เลือก",
       "autoScroll": "ติดตาม",
-      "autoScrollTitle": "เลื่อนกริดที่กำลังเล่นมาไว้กลางหน้าจออัตโนมัติ"
+      "autoScrollTitle": "เลื่อนกริดที่กำลังเล่นมาไว้กลางหน้าจออัตโนมัติ",
+      "autoScrollEnabled": "เปิดการติดตาม",
+      "autoScrollDisabled": "ปิดการติดตาม"
+    },
+    "range": {
+      "barLabel": "การทำงานกับช่วงที่เลือก", "extendHint": "ลากไปยังจุดสิ้นสุด หรือเลือกกริดสุดท้าย",
+      "selectedOne": "{start} · 1", "selected": "{start}–{end} · {count}",
+      "copy": "คัดลอก", "copyShort": "คัดลอก", "cut": "ตัด", "cutShort": "ตัด", "delete": "ลบ", "deleteShort": "ลบ",
+      "cannotRemoveAll": "ไม่สามารถลบกริดทั้งหมดได้",
+      "close": "ออกจากการเลือกช่วง", "caretLabel": "ตำแหน่งแทรก",
+      "caretStart": "จุดเริ่มช่วง", "caretEnd": "จุดสิ้นสุดช่วง", "clearSelection": "ล้างการเลือก",
+      "insertHere": "เพิ่มกริด", "insertPositionOutsideView": "ตำแหน่งแทรกอยู่นอกหน้าจอ", "paste": "วาง", "pasteCount": "{count}", "pasteReplaceTitle": "แทนที่ช่วงที่เลือก",
+      "deleted": "ลบแล้ว {count} กริด",
+      "collapseBar": "ยุบแถบการทำงาน", "expandBar": "เปิดแถบการทำงาน",
+      "expandBarWithCount": "เปิดแถบการทำงาน (เลือก {count} รายการ)", "selectionCount": "{count}", "selectAll": "เลือกทั้งหมด",
+      "wholeLoopTitle": "วนซ้ำช่วงที่เล่น",
+      "wholeLoopEnabled": "เปิดวนซ้ำ", "wholeLoopDisabled": "ปิดวนซ้ำ"
+    },
+    "playbackAids": {
+      "title": "ตัวช่วยการเล่น", "speed": "ความเร็ว", "speedValue": "{value}x", "metronome": "เมโทรนอม", "volume": "ระดับเสียงคลิก", "countIn": "นับนำ",
+      "tempo": "จังหวะ", "tempoQuarter": "BPM÷4", "tempoHalf": "BPM÷2",
+      "low": "เบา", "medium": "กลาง", "high": "ดัง", "off": "ปิด", "oneBar": "1 ห้อง", "twoBars": "2 ห้อง",
+      "cancel": "ยกเลิกการนับนำ"
     },
     "emptyState": {
       "title": "ยังไม่มีโน้ตเพลง",
@@ -448,9 +466,7 @@ export default {
       "label": "{key} {state}{membership}"
     },
     "scoreCanvas": {
-      "list": "รายการกริดโน้ตเพลง",
-      "insertBefore": "แทรกก่อนกริด {n}",
-      "insertAfter": "แทรกหลังกริด {n}"
+      "list": "รายการกริดโน้ตเพลง"
     },
     "statusBar": {
       "close": "ปิดการแจ้งเตือน"

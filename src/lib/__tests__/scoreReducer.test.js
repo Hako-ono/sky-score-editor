@@ -186,10 +186,90 @@ describe('INSERT は MAX_GRIDS で頭打ちになる（編集経路からの上�
     expect(next.grids).toHaveLength(MAX_GRIDS);
   });
 
-  it('上限到達後も DELETE は通る', () => {
-    const state = { ...initialScore, grids: makeGrids(MAX_GRIDS) };
-    const next = scoreReducer(state, { type: 'DELETE', gridIndex: 0 });
-    expect(next.grids).toHaveLength(MAX_GRIDS - 1);
+});
+
+describe('範囲の削除と貼り付け', () => {
+  const source = {
+    ...initialScore,
+    grids: [
+      { type: 'note', keys: [1], layer2Keys: [2], text: 'A', forceBreakAfter: true },
+      { type: 'note', keys: [3], layer2Keys: [], text: 'B', forceBreakAfter: false },
+      { type: 'empty', keys: [], layer2Keys: [], text: '', forceBreakAfter: false },
+    ],
+  };
+
+  it('DELETE_RANGE は逆向きの指定も連続範囲として1回で削除する', () => {
+    const next = scoreReducer(source, { type: 'DELETE_RANGE', startIndex: 1, endIndex: 0 });
+    expect(next.grids.map((grid) => grid.text)).toEqual(['']);
+  });
+
+  it('DELETE_RANGE は全グリッドを対象にした場合は同一参照を返す', () => {
+    expect(scoreReducer(source, {
+      type: 'DELETE_RANGE', startIndex: 0, endIndex: 2,
+    })).toBe(source);
+  });
+
+  it('PASTE_GRIDS は指定位置へ全グリッドを1回で挿入し、内容を再複製する', () => {
+    const clipboard = [source.grids[0], source.grids[1]];
+    const next = scoreReducer(source, { type: 'PASTE_GRIDS', insertIndex: 1, grids: clipboard });
+    expect(next.grids.map((grid) => grid.text)).toEqual(['A', 'A', 'B', 'B', '']);
+    expect(next.grids[1]).not.toBe(clipboard[0]);
+    expect(next.grids[1].keys).not.toBe(clipboard[0].keys);
+  });
+
+  it('REPLACE_RANGE は選択範囲を貼り付け内容で1回に置き換える', () => {
+    const clipboard = [source.grids[1]];
+    const next = scoreReducer(source, {
+      type: 'REPLACE_RANGE',
+      startIndex: 0,
+      endIndex: 1,
+      grids: clipboard,
+    });
+    expect(next.grids.map((grid) => grid.text)).toEqual(['B', '']);
+    expect(next.grids[0]).not.toBe(clipboard[0]);
+  });
+
+  it('REPLACE_RANGE は削除分を差し引いて上限を判定する', () => {
+    const full = {
+      ...source,
+      grids: Array.from({ length: MAX_GRIDS }, () => source.grids[2]),
+    };
+    const next = scoreReducer(full, {
+      type: 'REPLACE_RANGE',
+      startIndex: 0,
+      endIndex: 1,
+      grids: [source.grids[0], source.grids[1]],
+    });
+    expect(next).not.toBe(full);
+    expect(next.grids).toHaveLength(MAX_GRIDS);
+  });
+
+  it('上限を超える貼り付けは部分適用せず同一参照を返す', () => {
+    const full = {
+      ...source,
+      grids: Array.from({ length: MAX_GRIDS - 1 }, () => source.grids[2]),
+    };
+    expect(scoreReducer(full, {
+      type: 'PASTE_GRIDS', insertIndex: 0, grids: [source.grids[0], source.grids[1]],
+    })).toBe(full);
+  });
+
+  it('貼り付け値は鍵・歌詞・typeを既存上限へ正規化する', () => {
+    const malformed = {
+      type: 'empty',
+      keys: [-1, 2, 2, 14, 15, ...Array.from({ length: 100 }, (_, i) => i)],
+      layer2Keys: ['3', 3, 3],
+      text: '歌'.repeat(150),
+      forceBreakAfter: 'yes',
+    };
+    const next = scoreReducer(source, {
+      type: 'PASTE_GRIDS', insertIndex: 0, grids: [malformed],
+    });
+    expect(next.grids[0].keys).toEqual(Array.from({ length: 15 }, (_, i) => i));
+    expect(next.grids[0].layer2Keys).toEqual([3]);
+    expect(next.grids[0].text).toHaveLength(100);
+    expect(next.grids[0].type).toBe('note');
+    expect(next.grids[0].forceBreakAfter).toBe(false);
   });
 });
 

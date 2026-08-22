@@ -52,8 +52,6 @@ export default {
         "redo": "Làm lại",
         "redoTitle": "Làm lại (Ctrl+Shift+Z)",
         "toggleLayer": "Đổi lớp",
-        "finishGridEdit": "Kết thúc sửa ô",
-        "toggleGridEdit": "Thêm hoặc xóa ô",
         "clear": "Xóa tất cả",
         "unsaved": "Có thay đổi chưa lưu",
         "saveJson": "Lưu JSON"
@@ -378,20 +376,15 @@ export default {
       "pdfFailed": "Tạo PDF không thành công ({message})",
       "pngDownloaded": "Đã tải PNG xuống ({filename})",
       "pngFailed": "Tạo PNG không thành công ({message})",
-      "pngTooLarge": "Tổng dung lượng PNG đã vượt quá giới hạn. Hãy giảm độ phân giải hoặc số trang.",
-      "editFinish": "Kết thúc sửa ô"
+      "pngTooLarge": "Tổng dung lượng PNG đã vượt quá giới hạn. Hãy giảm độ phân giải hoặc số trang."
     },
     "gridCard": {
-      "playFromTitle": "Phát từ đây",
-      "playFrom": "Phát từ ô {n}",
       "playSingleTitle": "Chỉ phát ô này",
       "playSingle": "Chỉ phát ô {n}",
       "layerSwitch": "Đổi lớp",
       "breakOn": "Ngắt dòng sau ô {n}",
       "breakOff": "Bỏ ngắt dòng sau ô {n}",
       "breakTitle": "Ngắt dòng sau ô này",
-      "delete": "Xóa ô {n}",
-      "deleteTitle": "Xóa ô này",
       "expand": "Mở rộng ô {n}",
       "text": "Văn bản của ô {n}"
     },
@@ -406,8 +399,33 @@ export default {
       "resume": "Tiếp tục",
       "restart": "Phát từ đầu",
       "stop": "Dừng",
+      "toStart": "Về đầu",
+      "playFromCaret": "Phát từ vị trí chèn",
+      "playSelection": "Phát vùng đã chọn",
       "autoScroll": "Theo dõi",
-      "autoScrollTitle": "Tự động cuộn ô đang phát vào giữa màn hình"
+      "autoScrollTitle": "Tự động cuộn ô đang phát vào giữa màn hình",
+      "autoScrollEnabled": "Đã bật theo dõi",
+      "autoScrollDisabled": "Đã tắt theo dõi"
+    },
+    "range": {
+      "barLabel": "Thao tác đoạn đã chọn", "extendHint": "Kéo đến điểm cuối hoặc chọn ô cuối cùng",
+      "selectedOne": "{start} · 1", "selected": "{start}–{end} · {count}",
+      "copy": "Sao chép", "copyShort": "Sao chép", "cut": "Cắt", "cutShort": "Cắt", "delete": "Xóa", "deleteShort": "Xóa",
+      "cannotRemoveAll": "Không thể xóa tất cả các ô",
+      "close": "Thoát chọn đoạn", "caretLabel": "Vị trí chèn",
+      "caretStart": "Đầu phạm vi", "caretEnd": "Cuối phạm vi", "clearSelection": "Bỏ chọn",
+      "insertHere": "Thêm ô", "insertPositionOutsideView": "Vị trí chèn nằm ngoài màn hình", "paste": "Dán", "pasteCount": "{count}", "pasteReplaceTitle": "Thay thế vùng đã chọn",
+      "deleted": "Đã xóa {count} ô",
+      "collapseBar": "Thu gọn thanh thao tác", "expandBar": "Mở thanh thao tác",
+      "expandBarWithCount": "Mở thanh thao tác (đã chọn {count})", "selectionCount": "{count}", "selectAll": "Chọn tất cả",
+      "wholeLoopTitle": "Lặp vùng phát",
+      "wholeLoopEnabled": "Bật lặp", "wholeLoopDisabled": "Tắt lặp"
+    },
+    "playbackAids": {
+      "title": "Hỗ trợ phát", "speed": "Tốc độ", "speedValue": "{value}x", "metronome": "Máy đếm nhịp", "volume": "Âm lượng tiếng nhịp", "countIn": "Đếm vào",
+      "tempo": "Nhịp độ", "tempoQuarter": "BPM÷4", "tempoHalf": "BPM÷2",
+      "low": "Nhỏ", "medium": "Vừa", "high": "Lớn", "off": "Tắt", "oneBar": "1 ô nhịp", "twoBars": "2 ô nhịp",
+      "cancel": "Hủy đếm vào"
     },
     "emptyState": {
       "title": "Chưa có bản nhạc",
@@ -448,9 +466,7 @@ export default {
       "label": "{key} {state}{membership}"
     },
     "scoreCanvas": {
-      "list": "Danh sách các ô bản nhạc",
-      "insertBefore": "Chèn trước ô {n}",
-      "insertAfter": "Chèn sau ô {n}"
+      "list": "Danh sách các ô bản nhạc"
     },
     "statusBar": {
       "close": "Đóng thông báo"

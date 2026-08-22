@@ -3,8 +3,16 @@ import { useT } from '../i18n/LanguageContext.jsx';
 import NoteGridSvg from './NoteGridSvg.jsx';
 import { useIsActiveGrid } from '../contexts/ActiveGridContext.jsx';
 import { useGrid, useIsPendingFocus, useScoreGridsStore } from '../contexts/ScoreGridsContext.jsx';
-import { CloseIcon } from './icons.jsx';
 import { getAudibleKeys, getOtherLayerKeys, getSelectedLayerKeys } from '../lib/scoreLayers.js';
+import { useRangeGridFlags, useRangeSelectionStore } from '../contexts/RangeSelectionContext.jsx';
+import {
+  RANGE_SELECTED,
+  RANGE_SELECTION_END,
+  RANGE_SELECTION_START,
+  selectedRange,
+} from '../lib/rangeSelectionStore.js';
+import { useRangeSelectionGesture } from '../hooks/useRangeSelectionGesture.js';
+import CaretSlot from './CaretSlot.jsx';
 
 // interactive=false の NoteGridSvg は onToggleKey を呼ばないが、
 // 毎レンダーで新しい関数を渡さないようモジュールスコープに置く
@@ -17,19 +25,31 @@ const noop = () => {};
  */
 function GridCardCompact({
   index,
-  editMode,
   selectedLayer,
   usesTwoLayers,
   usesSecondHighlightColor,
   onExpand,
-  onDelete,
+  showCaretSlots = false,
+  isRowStart = false,
+  isRowEnd = false,
+  gridCount = 0,
 }) {
   const t = useT();
-  // props ではなく自分の index でストアから引く。DELETE 直後の1フレームでは
+  // props ではなく自分の index でストアから引く。構造編集直後の1フレームでは
   // undefined になりうる（GridCard.jsx と同じ理由）。
   const grid = useGrid(index);
   const isActive = useIsActiveGrid(index);
   const store = useScoreGridsStore();
+  const rangeStore = useRangeSelectionStore();
+  const rangeFlags = useRangeGridFlags(index);
+  const isRangeSelected = (rangeFlags & RANGE_SELECTED) !== 0;
+  const isRangeEdge = (rangeFlags & (RANGE_SELECTION_START | RANGE_SELECTION_END)) !== 0;
+  const { isPressing, gestureProps, consumeClick } = useRangeSelectionGesture({
+    index,
+    rangeStore,
+    gridStore: store,
+    ignoreInteractive: false,
+  });
 
   // GridOverlay を閉じたとき、画面外（未マウント）だったこのカードに
   // 保留フォーカスが予約されていれば、マウントされた今フォーカスする。
@@ -53,32 +73,44 @@ function GridCardCompact({
     <div
       className={`grid-card grid-card--compact${isEmpty ? ' is-empty' : ''}${
         grid.forceBreakAfter ? ' has-break' : ''
-      }${isActive ? ' is-playing' : ''}`}
+      }${isActive ? ' is-playing' : ''}${isRangeSelected ? ' is-range-selected' : ''}${
+        isRangeEdge ? ' is-range-edge' : ''
+      }${
+        isPressing ? ' is-long-pressing' : ''
+      }`}
+      data-grid-index={index}
+      aria-selected={isRangeSelected || undefined}
+      {...gestureProps}
+      onClick={(event) => {
+        if (consumeClick(event)) return;
+        if (event.shiftKey) {
+          rangeStore.extendSelectionToGrid(index);
+        } else if (selectedRange(rangeStore.getState())) {
+          rangeStore.selectIndex(index);
+        } else if (event.target.closest('.grid-card__tap')) {
+          onExpand(index);
+        }
+      }}
     >
+      {showCaretSlots && (
+        <CaretSlot
+          insertIndex={index}
+          placement="before"
+          gridCount={gridCount}
+          isRowStart={isRowStart}
+        />
+      )}
+      {showCaretSlots && isRowEnd && (
+        <CaretSlot insertIndex={index + 1} placement="after" gridCount={gridCount} />
+      )}
       <div className="grid-card__header">
         <span className="grid-card__number">{index + 1}</span>
-        {editMode && (
-          <div className="grid-card__controls">
-            <button
-              type="button"
-              className="icon-btn delete-btn"
-              onClick={() => onDelete(index)}
-              aria-label={t('ui.gridCard.delete', { n: index + 1 })}
-              title={t('ui.gridCard.deleteTitle')}
-            >
-              <CloseIcon />
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* 削除ボタンを内側に入れると button の入れ子になるため、
-          タップ領域はヘッダの外に分ける */}
       <button
         ref={tapRef}
         type="button"
         className="grid-card__tap"
-        onClick={() => onExpand(index)}
         aria-label={t('ui.gridCard.expand', { n: index + 1 })}
       >
         <NoteGridSvg

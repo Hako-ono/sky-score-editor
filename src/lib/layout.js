@@ -22,18 +22,20 @@ function normalizePositiveInt(value, fallback) {
   return fallback > 0 ? fallback : 1;
 }
 
+/** bitsPerPage の唯一の拍子導出元。0は拍子なし（アクセントなし）を表す。 */
+export function beatsPerBarForBits(bitsPerPage) {
+  if (bitsPerPage === 12) return 3;
+  if (bitsPerPage === 16) return 4;
+  return 0;
+}
+
 /**
  * bitsPerPage から1行あたりの列数を決める。画面（ScoreCanvas.jsx）と
  * PDF（pdfExport.js）の両方が同じ式を独立に持っていたのをここへ一本化した。
- * 3拍子（12）だけ3列にするのは、1行3グリッドが3拍子の区切りとして自然なため。
- * それ以外（4拍子の16、拍子なしの4を含む）は4列にする。
- *
- * bitsPerPage は parseScore.js で [4, 12, 16] に丸められるが、この関数は
- * 外部 JSON 由来の値がそのまま渡ってくる前提（信頼境界）で単独でも
- * 正しく振る舞う必要があるため、12 以外はすべて4列にフォールバックする。
+ * 3拍子（12）だけ3列、それ以外は外部入力の想定外値を含め4列へ倒す。
  */
 export function columnsForBits(bitsPerPage) {
-  return bitsPerPage === 12 ? 3 : 4;
+  return beatsPerBarForBits(bitsPerPage) === 3 ? 3 : 4;
 }
 
 /**

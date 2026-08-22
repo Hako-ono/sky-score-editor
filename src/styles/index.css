@@ -18,6 +18,9 @@
   --warning-hover: #cf7307;
   --warning-active: #d35400;
   --danger: #e03131;
+  --range: #7455d9;
+  --range-hover: #6546c8;
+  --range-soft: #f0ebff;
   --shadow: 0 1px 3px rgba(20, 30, 55, 0.08), 0 6px 20px rgba(20, 30, 55, 0.06);
   --shadow-sticky: 0 2px 10px rgba(20, 30, 55, 0.07);
   /* ボタン・入力欄の高さを1つに統一する。同じ帯に高さの違う操作を
@@ -59,6 +62,9 @@
     --warning-hover: #f5b25a;
     --warning-active: #e8843d;
     --danger: #ff6b6b;
+    --range: #a78bfa;
+    --range-hover: #bea9ff;
+    --range-soft: #2d2547;
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
     --shadow-sticky: 0 2px 10px rgba(0, 0, 0, 0.45);
     --cell-fill: #2a3040;
@@ -93,6 +99,9 @@
   --warning-hover: #f5b25a;
   --warning-active: #e8843d;
   --danger: #ff6b6b;
+  --range: #a78bfa;
+  --range-hover: #bea9ff;
+  --range-soft: #2d2547;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
   --shadow-sticky: 0 2px 10px rgba(0, 0, 0, 0.45);
 
@@ -116,6 +125,19 @@
 
 * {
   box-sizing: border-box;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 html {
@@ -144,19 +166,19 @@ body {
 }
 
 .app {
+  --app-inner-pad: 1.25rem;
+  --stacked-bar-h: 0px;
+  --fab-lift: calc(var(--stacked-bar-h) + var(--pinned-action-h, 0px));
   min-height: 100vh;
+  /* clip はスクロールコンテナを作らないため、内側のsticky再生バーの
+     基準をwindowのまま保って横方向のはみ出しだけを切れる。 */
+  overflow-x: clip;
 }
 
 .app__inner {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 1.5rem 1.25rem 4rem;
-}
-
-/* 編集終了ボタンが画面下端に固定されるので、その分だけ本文の
-   下余白を足す。足さないとフッターの末尾が最後まで読めない */
-.app--edit-mode .app__inner {
-  padding-bottom: 7rem;
+  padding: 1.5rem var(--app-inner-pad) 4rem;
 }
 
 /* ---------- 固定（sticky）コンテナ ---------- */
@@ -166,7 +188,8 @@ body {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--bg); /* スクロール時に下が透けないよう、アプリ背景と同色に設定 */
+  /* 包みは透明にし、スクロール中の譜面は各バー自身のα面でだけ覆う。 */
+  background: none;
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
   display: flex;
@@ -704,6 +727,7 @@ body {
 }
 
 .toolbar__settings-grid--pdf {
+  position: relative;
   grid-template-areas:
     'design design'
     'typography scoreinfo'
@@ -1386,7 +1410,10 @@ body {
   align-items: center;
   gap: 0.8rem;
   min-width: 0;
-  padding: 0.8rem 0.8rem calc(0.8rem + env(safe-area-inset-bottom, 0px));
+  /* iOSのブラウザバー出入りでsafe-areaが急増しても、操作帯の高さを跳ねさせない。 */
+  padding: 0.8rem 0.8rem calc(
+    0.8rem + min(env(safe-area-inset-bottom, 0px), 0.5rem)
+  );
   background: var(--surface-2);
   border-top: 1px solid var(--border);
 }
@@ -1396,6 +1423,15 @@ body {
   min-width: 0;
   color: var(--text-muted);
   font-size: 0.8rem;
+}
+
+.toolbar__pdf-action-sentinel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  pointer-events: none;
 }
 
 @media (min-width: 960px) {
@@ -1861,11 +1897,6 @@ select.text-input {
   flex: 0 0 auto;
 }
 
-.btn--warning-active {
-  --btn-bg: var(--warning-active);
-  --btn-fg: #fff;
-}
-
 /* トグルは色を変えず「押し込まれた面」で示す。緑や橙を使うと
    保存・警告と役割が衝突する（.break-btn.active と同じ表現） */
 .btn--toggle {
@@ -1990,6 +2021,29 @@ select.text-input {
   animation: status-toast-in 0.18s ease-out;
 }
 
+/* 自動で消える短いトグル通知。操作や閉じるボタンを持たないため、
+   長文エラー用の全幅トーストとは分けて中身なりの幅にする。 */
+.status-bar--compact {
+  width: auto;
+  max-width: min(24rem, calc(100vw - 2rem));
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  text-align: center;
+}
+
+.status-bar--compact .status-bar__message {
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+
+.status-bar__icon {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
 .status-bar__message {
   flex: 1;
   min-width: 0;
@@ -2056,6 +2110,7 @@ select.text-input {
 .score-canvas {
   display: flex;
   flex-direction: column;
+  touch-action: pan-y;
   /* 行の上下に --ring-space の余白が入るぶん、行間の見た目が 1.4rem の
      ままになるよう gap 側で足しておく */
   gap: calc(1.4rem + 2 * var(--ring-space));
@@ -2071,21 +2126,15 @@ select.text-input {
   /* 再生中カード（.grid-card.is-playing）の外枠と改行マーク
      （.has-break）が行の外へはみ出す量。この幅だけ行の内側に余白を確保する
      （経緯は .score-row の padding のコメント） */
-  --ring-space: 6px;
-  --insert-unit: 0px; /* 挿入ボタンとその右の余白。編集モードでのみ幅を持つ */
-  --row-tail: 0px; /* 行末の挿入ボタン。編集モードでのみ幅を持つ */
+  /* キャレットのハンドルとフォーカスリングはカード上端からはみ出すため、
+     再生リングだけを基準にした6pxではpaint containmentに切られる。 */
+  --ring-space: 10px;
   width: calc(
-    var(--columns, 4) * (var(--insert-unit) + var(--card-width)) +
-      (var(--columns, 4) - 1) * var(--cell-gap) + var(--row-tail)
+    var(--columns, 4) * var(--card-width) +
+      (var(--columns, 4) - 1) * var(--cell-gap)
   );
   max-width: 100%;
   margin-inline: auto;
-}
-
-/* 挿入ボタンは InsertButton の svg と同じ 26px */
-.output.edit-mode .score-canvas {
-  --insert-unit: calc(26px + var(--cell-gap));
-  --row-tail: calc(var(--cell-gap) + 26px);
 }
 
 .score-row {
@@ -2121,12 +2170,12 @@ select.text-input {
   min-width: 0;
   /* 幅を「その行にある枚数」で等分すると、改行マークや最終行で枚数が
      減った行だけカードが大きくなる。--columns 個並んだときの1個分に
-     固定して、どの行でも同じ大きさにする。.score-canvas の幅計算
-     （--insert-unit・--row-tail・--cell-gap）と同じ変数を使い、
+     固定して、どの行でも同じ大きさにする。.score-canvas の幅計算と
+     同じ --cell-gap を使い、
      十分広い幅ではちょうど --card-width（288px）に一致させる */
   flex: 0 0
     calc(
-      (100% - var(--row-tail) - (var(--columns, 4) - 1) * var(--cell-gap)) /
+      (100% - (var(--columns, 4) - 1) * var(--cell-gap)) /
         var(--columns, 4)
     );
 }
@@ -2152,11 +2201,152 @@ select.text-input {
   box-shadow: var(--shadow), 4px 0 0 -1px var(--primary);
 }
 
+.grid-card.is-range-selected {
+  background: color-mix(in srgb, var(--range-soft) 72%, var(--card-bg));
+  border-color: var(--range);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--range) 30%, transparent), var(--shadow);
+}
+
+/* 挿入位置は可視カードの境界にだけ置く。線は隙間の中央に置き、不可視時は
+   PCで12px、掴む対象が見えている時は20pxの当たり判定を持たせる。 */
+.caret-slot {
+  --caret-hit-width: 12px;
+  /* 隙間の中央からどちらへ寄せるか。範囲の2本は「中身を挟む括弧」なので、
+     範囲の内側のカードに触れる（外側の、選ばれていないカードに触れない）。
+     挿入位置だけの1本はどちらのカードにも属さないので中央のまま */
+  --caret-shift: 0px;
+  appearance: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 6;
+  width: var(--caret-hit-width);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--range);
+  cursor: text;
+  touch-action: pan-y;
+}
+
+.caret-slot--before {
+  left: calc(var(--caret-hit-width) / -2 - var(--cell-gap) / 2);
+}
+
+.caret-slot--before.caret-slot--row-start {
+  left: calc(var(--caret-hit-width) / -2);
+}
+
+.caret-slot--after {
+  right: calc(var(--caret-hit-width) / -2);
+}
+
+/* 行頭の before と行末の after は、隙間ではなくカードの縁に乗っているので
+   寄せる必要がない。動かすのは隙間の真ん中に立っている本だけ */
+.caret-slot--before:not(.caret-slot--row-start).is-selection-start {
+  --caret-shift: calc(var(--cell-gap) / 2);
+}
+
+.caret-slot--before:not(.caret-slot--row-start).is-selection-end {
+  --caret-shift: calc(var(--cell-gap) / -2);
+}
+
+.caret-slot::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--range);
+  opacity: 0;
+  transform: translateX(calc(-50% + var(--caret-shift)));
+}
+
+.caret-slot.is-visible::before {
+  opacity: 1;
+}
+
+.caret-slot.has-handle {
+  --caret-hit-width: 20px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.caret-slot:focus-visible {
+  outline: none;
+}
+
+/* つまみは線の上下の端に出る三角。掴めるのは線の全体（.caret-slot 自身）で、
+   この要素は形を描くだけなので当たり判定を持たない */
+.caret-slot__handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 12px;
+  pointer-events: none;
+  transform: translateX(calc(-50% + var(--caret-shift)));
+}
+
+/* 上端の三角は下を向き、下端の三角は上を向く。2つが向き合うことで、
+   どちら側が範囲の中身かを形が示す */
+.caret-slot__handle::before,
+.caret-slot__handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  transform: translateX(-50%);
+  display: none;
+}
+
+.caret-slot__handle::before {
+  top: -8px;
+  border-top: 8px solid var(--range);
+}
+
+.caret-slot__handle::after {
+  bottom: -8px;
+  border-bottom: 8px solid var(--range);
+}
+
+/* 挿入位置だけの1本は、起点と終点が重なっている姿なので上下とも出す。
+   範囲の2本は、内側を向く1つずつに分かれる */
+.caret-slot.has-handle .caret-slot__handle::before,
+.caret-slot.has-handle .caret-slot__handle::after {
+  display: block;
+}
+
+.caret-slot.is-selection-start .caret-slot__handle::after,
+.caret-slot.is-selection-end .caret-slot__handle::before {
+  display: none;
+}
+
+/* 三角は面積が小さく、影を回しても輪郭が読めない。線そのものを光らせる */
+.caret-slot:focus-visible::before {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--range) 35%, transparent);
+}
+
+.caret-slot.has-handle:active {
+  cursor: grabbing;
+}
+
+.grid-card.is-long-pressing {
+  border-color: var(--range);
+  transform: scale(0.985);
+}
+
 .grid-card__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 1.6rem;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .grid-card__header-left {
@@ -2168,6 +2358,7 @@ select.text-input {
 .grid-card__number {
   font-size: 0.78rem;
   font-weight: 700;
+  line-height: 1;
   color: var(--number);
 }
 
@@ -2210,17 +2401,14 @@ select.text-input {
   border-color: color-mix(in srgb, var(--primary) 40%, transparent);
 }
 
-/* タッチ端末には hover が無く、hover でだけ赤くすると
-   スマートフォンでは削除ボタンが灰色のまま区別できない。
-   編集モード中しか出ない要素なので、常時赤でも視線を奪い続けはしない */
-.delete-btn {
-  background: color-mix(in srgb, var(--danger) 12%, var(--surface-2));
-  color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
-}
-.delete-btn:hover {
-  background: color-mix(in srgb, var(--danger) 24%, var(--surface-2));
-  border-color: color-mix(in srgb, var(--danger) 60%, transparent);
+/* 範囲選択中はカード全体が終点のタップ対象になる。ヘッダ操作だけが
+   押せそうに見えないよう、元の用途色も含めて中立色へ落とす。 */
+.grid-card .icon-btn:disabled {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border-color: var(--border);
+  opacity: 0.4;
+  box-shadow: none;
 }
 
 /* ノートグリッド SVG */
@@ -2316,42 +2504,6 @@ select.text-input {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
 }
 
-/* 挿入ボタン */
-.insert-button {
-  appearance: none;
-  border: none;
-  background: none;
-  padding: 0;
-  cursor: pointer;
-  color: var(--success);
-  display: inline-flex;
-  transition: transform 0.1s ease, opacity 0.15s ease;
-  flex: 0 0 auto;
-}
-.insert-button:hover {
-  transform: scale(1.12);
-}
-.insert-button:focus-visible {
-  outline: none;
-  border-radius: 50%;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 40%, transparent);
-}
-.insert-button circle {
-  fill: var(--success);
-  stroke: var(--surface);
-  stroke-width: 1.5;
-}
-.insert-button line {
-  stroke: #fff;
-  stroke-width: 3;
-}
-
-/* 編集モードの視覚的手がかり */
-.output.edit-mode .grid-card {
-  border-style: dashed;
-  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
-}
-
 /* ---------- 空状態 ---------- */
 .empty-state {
   text-align: center;
@@ -2386,6 +2538,10 @@ select.text-input {
 
 /* ---------- レスポンシブ ---------- */
 @media (max-width: 640px) {
+  .app {
+    --app-inner-pad: max(0.4rem, 10px);
+  }
+
   /* 入力欄が iOS 対策で 16px になるぶん背が高くなるため、
      操作系の基準高さも合わせて上げる（指で押す的としても妥当な大きさ） */
   :root {
@@ -2393,11 +2549,9 @@ select.text-input {
   }
 
   .app__inner {
-    padding: 1rem 0.4rem 3rem;
-  }
-
-  .app--edit-mode .app__inner {
-    padding-bottom: 6rem;
+    /* .score-row はpaint containment用の10px負マージンを持つため、
+       それ以上の内側余白を確保して行をviewport外へ出さない。 */
+    padding: 1rem var(--app-inner-pad) 3rem;
   }
 
   /* 見出しの右にはテーマ・開閉というアプリ自身の操作だけを置き、
@@ -2720,11 +2874,12 @@ select.text-input {
     flex-wrap: nowrap;
     gap: var(--row-gap);
     --row-gap: 0.25rem;
-    /* 編集モードでは行末に挿入ボタンが1つ付く（.insert-button svg の 14px） */
-    --row-tail-mobile: 0px;
+    /* キャレットも実際の列間隔の中央へ置く。14pxの当たり判定が左右の
+       カードへ5pxずつ重なり、内側の鍵盤までは届かない。 */
+    --cell-gap: var(--row-gap);
   }
-  .output.edit-mode .score-row {
-    --row-tail-mobile: calc(14px + var(--row-gap));
+  .caret-slot:not(.has-handle) {
+    --caret-hit-width: 14px;
   }
   /* 幅を「その行にある枚数」で等分すると、改行マークや最終行で枚数が
      減った行だけカードが大きくなる。--columns 個並んだときの1個分に
@@ -2732,7 +2887,7 @@ select.text-input {
   .score-cell {
     flex: 0 0
       calc(
-        (100% - var(--row-tail-mobile) - (var(--columns, 4) - 1) * var(--row-gap)) /
+        (100% - (var(--columns, 4) - 1) * var(--row-gap)) /
           var(--columns, 4)
       );
     min-width: 0;
@@ -2750,15 +2905,9 @@ select.text-input {
   }
 
   /* カード幅が 90px 前後まで縮むので、ヘッダの操作系も同じだけ詰める */
-  .grid-card__header {
-    min-height: 0;
-  }
   .grid-card__header-left,
   .grid-card__controls {
     gap: 0.1rem;
-  }
-  .grid-card__number {
-    font-size: 0.62rem;
   }
   .icon-btn {
     width: 1.25rem;
@@ -2770,17 +2919,6 @@ select.text-input {
     width: 0.8rem;
     height: 0.8rem;
   }
-  .insert-button svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  /* 一覧（GridCardCompact）のヘッダは番号と削除ボタンの2つだけなので、
-     折り返しは不要。番号を左上、削除ボタンを右上に離して置く */
-  .output.edit-mode .grid-card__header {
-    justify-content: space-between;
-  }
-
   /* iOS Safari は font-size が 16px 未満の入力にフォーカスすると画面を
      自動拡大する。カードが狭くても 16px を下回らせない。
      ズーム自体を禁じる（viewport の maximum-scale）方法は、利用者から
@@ -2797,11 +2935,6 @@ select.text-input {
 
   .toolbar__group--right {
     margin-left: 0;
-  }
-
-  .playback-bar__play {
-    min-width: 9.5rem;
-    font-size: 0.875rem;
   }
 
   /* ---------- 一覧カード（タップで拡大表示） ---------- */
@@ -2890,6 +3023,10 @@ select.text-input {
      （.history-fab / .scroll-top-fab）と同じ的の大きさ */
   --arrow-size: 2.75rem;
   --arrow-inset: 0.25rem;
+  /* 操作バーのぶんだけ下を空ける量。カードを持ち上げる余白と、矢印を
+     カードの中心へ合わせる補正の両方がこの1つを見る。別々の数値で持つと、
+     片方だけ直した瞬間に矢印がカードの中心から黙ってずれる */
+  --overlay-bottom-pad: 0px;
 }
 
 /* 実際に見えている領域そのもの。position:fixed の .grid-overlay は
@@ -2984,8 +3121,11 @@ select.text-input {
   box-shadow: 0 0 0 3px color-mix(in srgb, #fff 55%, transparent);
 }
 
+/* 50% は絶対配置の基準（.grid-overlay__viewport のパディングボックス）に
+   対する割合なので、下の余白を含んだ真ん中になる。カードは余白の内側に
+   置かれるため、その半分だけ上へ戻さないとカードの中心と合わない */
 .grid-overlay__arrow {
-  top: 50%;
+  top: calc(50% - var(--overlay-bottom-pad) / 2);
   transform: translateY(-50%);
 }
 .grid-overlay__arrow--prev {
@@ -3035,8 +3175,10 @@ select.text-input {
   * {
     transition: none !important;
   }
+  .floating-fade {
+    transition: none !important;
+  }
   .status-bar--toast,
-  .edit-exit-fab,
   .pdf-preview__spinner {
     animation: none;
   }
@@ -3047,29 +3189,249 @@ select.text-input {
    影で浮かせるとグリッドと重なったとき「固定された道具」に見えないため、
    影は弱め下辺の境界を濃くする */
 .playback-bar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 0.5rem 0.75rem;
   padding: 0.6rem 0.9rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   border-bottom-color: color-mix(in srgb, var(--text) 18%, var(--border));
   border-radius: 12px;
   box-shadow: var(--shadow-sticky);
+  position: relative;
+}
+
+.playback-bar__status {
+  grid-column: 1;
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* 狭幅時は状態列と操作列を2行へ折り返すため、空の状態列を残すと
+   高さ0の1行目とのrow gapだけが上側に入り、操作列が下へずれて見える。 */
+.playback-bar__status:empty {
+  display: none;
+}
+
+.playback-bar__console {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
 }
 
 .playback-bar__transport {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
-/* ラベルが「最初から再生 / 一時停止 / 再開」と伸縮すると、
-   隣の停止ボタンの位置が押すたびに動く */
+.playback-bar__modes {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
+}
+
 .playback-bar__play {
-  min-width: 10.5rem;
+  width: 2.4rem;
+  height: 2.4rem;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.playback-bar__play--counting {
+  border-color: var(--primary);
+  background: transparent;
+  color: var(--primary);
+}
+
+.playback-bar__icon {
+  width: 2.4rem;
+  height: 2.4rem;
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  padding: 0;
+}
+
+.playback-bar__stop {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.playback-bar__stop--placeholder {
+  visibility: hidden;
+}
+
+.playback-bar__stop:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.playback-bar__loop[aria-pressed='true'] {
+  --btn-bg: color-mix(in srgb, var(--range) 14%, var(--surface-2));
+  --btn-fg: var(--range);
+  border-color: color-mix(in srgb, var(--range) 45%, transparent);
+}
+
+.playback-bar__play svg,
+.playback-bar__icon svg {
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
+.playback-bar__countin {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.playback-bar__countin strong {
+  min-width: 1.2em;
+  color: var(--primary);
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: center;
+}
+
+.playback-aids {
+  position: relative;
+}
+
+.playback-aids__trigger {
+  padding: 0;
+}
+
+.playback-aids__trigger[aria-expanded='true'] {
+  --btn-bg: color-mix(in srgb, var(--primary) 14%, var(--surface-2));
+  --btn-fg: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.playback-aids__panel {
+  position: absolute;
+  top: calc(100% + 0.65rem);
+  right: 0;
+  z-index: 21;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  width: 17rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.playback-aids__heading,
+.playback-aids__label {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.playback-aids__heading {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.playback-aids__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.playback-aids__switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.playback-aids__switch {
+  appearance: none;
+  position: relative;
+  width: 2.6rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.playback-aids__switch span {
+  position: absolute;
+  top: 0.17rem;
+  left: 0.18rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.playback-aids__switch[aria-checked='true'] {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.playback-aids__switch[aria-checked='true'] span {
+  background: #fff;
+  transform: translateX(1.05rem);
+}
+
+.playback-aids__switch:focus-visible,
+.playback-aids__segment:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.playback-aids__segments {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.playback-aids__segment {
+  appearance: none;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--border);
+  border-right-width: 0;
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.playback-aids__segment:first-child {
+  border-radius: 7px 0 0 7px;
+}
+
+.playback-aids__segment:last-child {
+  border-right-width: 1px;
+  border-radius: 0 7px 7px 0;
+}
+
+.playback-aids__segment[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  color: var(--primary);
+  font-weight: 700;
 }
 
 /* ---------- 再生中のグリッドハイライト ---------- */
@@ -3293,8 +3655,8 @@ select.text-input {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 50; /* .app__sticky-header が 20、.grid-overlay が 100。
-                  拡大表示中は隠れてよい（あちらに閉じる手段がある） */
+  z-index: 50; /* 通常は .grid-overlay（100）より下。拡大表示中だけ
+                  操作バーを使うためルート修飾クラスで120へ上げる。 */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3302,7 +3664,9 @@ select.text-input {
   padding: 0 1rem 0.75rem;
   /* iPhone のホームバーに重ならないようにする。非対応ブラウザでは
      第2引数の 0px が使われるだけで、レイアウトは崩れない */
-  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(
+    0.75rem + min(env(safe-area-inset-bottom, 0px), 0.5rem)
+  );
   /* レイヤー自身は画面下部いっぱいに広がる。ここを透過させないと、
      通知が出ていない間もグリッドがタップできなくなる */
   pointer-events: none;
@@ -3312,14 +3676,194 @@ select.text-input {
   pointer-events: auto;
 }
 
-.edit-exit-fab {
-  border-radius: 999px;
+/* 画面端の浮遊UIはすべて同じ不透明度トランジションを使う。
+   位置は即時に追従させ、退出中は背後の操作を妨げない。 */
+.floating-fade {
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
+}
+
+.floating-fade.is-visible {
+  opacity: 1;
+}
+
+.floating-fade.is-hidden {
+  pointer-events: none;
+}
+
+.app--pinned-action-stuck .bottom-layer {
+  padding-bottom: calc(
+    0.75rem + var(--pinned-action-h, 0px)
+      + min(env(safe-area-inset-bottom, 0px), 0.5rem)
+  );
+}
+
+.range-action-bar {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  width: auto;
+  max-width: min(48rem, calc(100vw - 2rem));
+  min-height: 3rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--range) 55%, var(--border));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
   box-shadow: var(--shadow);
-  animation: status-toast-in 0.18s ease-out;
-  /* 左下の履歴ピルと横に並ぶ。中央のままだと 320px 級の幅で重なる。
-     .bottom-layer の align-items: center は通知の中央寄せに要るので、
-     このボタンだけ align-self で上書きする */
-  align-self: flex-end;
+}
+
+.range-action-bar__summary {
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.range-action-bar__context {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: 2.25rem minmax(0, 1fr) 2.25rem;
+  align-items: center;
+}
+
+.range-action-bar__context-copy {
+  grid-column: 2;
+  min-width: 0;
+  text-align: center;
+}
+
+.range-action-bar__context .range-action-bar__clear {
+  grid-column: 3;
+  justify-self: end;
+}
+
+.range-action-bar__hint {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.range-action-bar__button-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.range-action-bar__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-left: 0;
+}
+
+.range-action-bar__group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.range-action-bar__button-row > .v-sep,
+.range-action-bar__actions > .v-sep {
+  margin-inline: 0.5rem;
+}
+
+.range-action {
+  --btn-bg: var(--surface);
+  gap: 0.3rem;
+  color: var(--text);
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+.range-action:hover:not(:disabled) {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--text) 35%, var(--border));
+  background: color-mix(in srgb, var(--text) 6%, var(--surface));
+}
+
+.range-action--danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+.range-action--danger:not(:disabled):hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+}
+
+.range-action svg {
+  flex: 0 0 auto;
+}
+
+.range-action__short {
+  display: none;
+}
+
+.range-action__paste-count {
+  flex: 0 0 auto;
+  margin-left: 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.range-action-bar__clear,
+.range-action-bar__collapse {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted);
+}
+
+.range-action-bar__clear:focus-visible,
+.range-action-bar__collapse:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--range) 35%, transparent);
+}
+
+.range-action-bar__expand {
+  width: max-content;
+  min-width: 3.25rem;
+  max-width: 5.25rem;
+  box-sizing: border-box;
+  height: 2.25rem;
+  padding: 0 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--range) 55%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  color: var(--range);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.range-action-bar__expand span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.range-action-bar__expand:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--range) 35%, transparent), var(--shadow);
 }
 
 /* ---------- 履歴（元に戻す／やり直す）の浮遊ボタン ---------- */
@@ -3330,7 +3874,9 @@ select.text-input {
 .history-fab {
   position: fixed;
   left: 1rem;
-  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(
+    0.75rem + env(safe-area-inset-bottom, 0px) + var(--fab-lift)
+  );
   z-index: 110;
   display: flex;
   align-items: center;
@@ -3338,7 +3884,6 @@ select.text-input {
   border: 1px solid var(--border);
   border-radius: 999px;
   box-shadow: var(--shadow);
-  animation: status-toast-in 0.18s ease-out;
 }
 
 .history-fab__btn {
@@ -3382,7 +3927,9 @@ select.text-input {
 .scroll-top-fab {
   position: fixed;
   right: 1rem;
-  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(
+    0.75rem + env(safe-area-inset-bottom, 0px) + var(--fab-lift)
+  );
   z-index: 90;
   width: 2.75rem;
   height: 2.75rem;
@@ -3395,7 +3942,6 @@ select.text-input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  animation: status-toast-in 0.18s ease-out;
 }
 
 .scroll-top-fab:focus-visible {
@@ -3403,9 +3949,206 @@ select.text-input {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
-/* 編集モード中は同じ右下を edit-exit-fab が占有するため、その1段上へ積む */
-.scroll-top-fab--raised {
-  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px) + var(--control-h) + 0.5rem);
+@media (max-width: 900px) {
+  .range-action__wide {
+    display: none;
+  }
+
+  .range-action__short {
+    display: inline;
+  }
+}
+
+@media (max-width: 640px) {
+  /* 再生バーはモバイルでもカード型のまま。全幅の棚に
+     したことがあるが、画面上端の帯だけ形が変わると、下端の操作バーと
+     違って「浮いた板」の語彙が失われて落ち着かなかった。
+     画面幅いっぱいにするのは下端の操作バーだけに留める */
+  .playback-bar {
+    padding-inline: 0.4rem;
+  }
+
+  .playback-bar__transport {
+    gap: 0.2rem;
+  }
+
+  .playback-bar__transport > .v-sep {
+    margin-inline: 0.05rem;
+  }
+
+  .grid-card__tap {
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+
+  .grid-card--compact,
+  .grid-card__tap {
+    touch-action: pan-y;
+  }
+
+  /* 親カードをnoneにすると、その子にある空の隙間をpan-yへ戻せない。
+     境界ドラッグを即時開始する実内容だけをnoneにし、隙間は縦スクロールへ渡す。 */
+  .grid-card--compact.is-range-edge .grid-card__header,
+  .grid-card--compact.is-range-edge .grid-card__tap {
+    touch-action: none;
+  }
+
+}
+
+@media (max-width: 34rem) {
+  .app--range-bar-open:not(.app--score-canvas-hidden) {
+    --stacked-bar-h: calc(var(--range-action-bar-h, 0px) + 0.5rem);
+  }
+
+  .bottom-layer {
+    padding-inline: 0;
+  }
+
+  .app--score-editing-ui-visible .bottom-layer {
+    padding-bottom: 0;
+  }
+
+  .bottom-layer > .status-bar--toast {
+    max-width: calc(100vw - 2rem);
+  }
+
+  .range-action-bar {
+    width: 100%;
+    max-width: none;
+    padding-bottom: calc(
+      0.5rem + min(env(safe-area-inset-bottom, 0px), 0.5rem)
+    );
+    border-width: 1px 0 0;
+    border-top-color: color-mix(in srgb, var(--text) 18%, var(--range));
+    border-radius: 1rem 1rem 0 0;
+    box-shadow: none;
+  }
+
+  /* たたんだ姿は展開時と同じ縁・同じ接地で、幅だけ短い。
+     左右の枠も同じ 1px を持たせるのは、上辺だけ 1px・左右 0 にすると
+     角の丸みの途中で線が 1px から 0 へ細っていき、幅の短いこの姿では
+     その先細りが目立つため（展開時は全幅なので角が画面端に寄って目立たない） */
+  .range-action-bar__expand {
+    min-height: 2rem;
+    height: calc(2rem + min(env(safe-area-inset-bottom, 0px), 0.5rem));
+    padding-bottom: min(env(safe-area-inset-bottom, 0px), 0.5rem);
+    border-width: 1px 1px 0;
+    border-color: color-mix(in srgb, var(--text) 18%, var(--range));
+    border-radius: 1rem 1rem 0 0;
+    box-shadow: none;
+  }
+
+  .range-action-bar__context {
+    align-items: center;
+  }
+
+  .range-action-bar__summary {
+    font-size: 0.72rem;
+  }
+
+  .range-action-bar__button-row,
+  .range-action-bar__actions {
+    gap: 0.3rem;
+  }
+
+  .range-action-bar__group {
+    gap: 0.3rem;
+  }
+
+  .range-action-bar__button-row > .v-sep,
+  .range-action-bar__actions > .v-sep {
+    margin-inline: 0.3rem;
+  }
+
+  .range-action {
+    min-width: var(--control-h);
+    padding-inline: 0.42rem;
+  }
+
+  .grid-card__number {
+    font-size: 0.62rem;
+  }
+}
+
+.app--grid-overlay-open .bottom-layer {
+  z-index: 120;
+}
+
+.app--grid-overlay-open .grid-overlay {
+  --overlay-bottom-pad: calc(var(--range-action-bar-h, 0px) + 0.5rem);
+}
+
+/* キーボードが出ているあいだは操作バーを出さない（下記）ので、
+   そのぶんの余白も戻す。残すとカードと矢印だけが上へ寄る */
+.grid-overlay.is-keyboard {
+  --overlay-bottom-pad: 0px;
+}
+
+.app--grid-overlay-open .grid-overlay__viewport {
+  padding-bottom: var(--overlay-bottom-pad);
+}
+
+/* 拡大表示を開いているあいだ、背面には触れさせない。
+   .grid-overlay は position: fixed で全面を覆っているが、iOS はキーボードが
+   出ると fixed の基準を表示領域へ付け替えるため、鍵盤の上端と画面の下端の
+   あいだに暗い背景の掛からない帯が残ることがある（サードパーティ製の
+   キーボードで実機確認）。そこから一覧が覗くだけでなく、指が届いてしまう。
+   .bottom-layer と .grid-overlay は .app__inner の外にあるので、
+   操作バーと拡大表示自身はこの指定の影響を受けない */
+.app--grid-overlay-open .app__inner {
+  pointer-events: none;
+}
+
+/* iOS は fixed 要素をソフトキーボードの上へ持ち上げる。文字を打っている
+   あいだ、画面下端のものが鍵盤の上に貼り付いて動くのが目に障るため、
+   キーボードが出ているあいだは出さない。選択やクリップボードは保たれる */
+.app--soft-keyboard .range-action-bar,
+.app--soft-keyboard .range-action-bar__expand,
+.app--soft-keyboard .history-fab,
+.app--soft-keyboard .scroll-top-fab {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .range-action-bar {
+    /* 320pxでも5つの正方形と左右対称列を同居させるため、このバー内だけ
+       デスクトップと同じ基準高へ戻す。全体のモバイル入力高は変えない。 */
+    --control-h: 2.15rem;
+  }
+
+  .range-action__short {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .range-action {
+    width: var(--control-h);
+    min-width: var(--control-h);
+    padding-inline: 0;
+  }
+
+  .range-action--paste {
+    width: auto;
+    padding-inline: 0.25rem;
+    justify-content: center;
+    gap: 0.3rem;
+  }
+
+  .range-action-bar__clear,
+  .range-action-bar__collapse {
+    width: var(--control-h);
+    height: var(--control-h);
+  }
+
+  .range-action-bar__button-row > .v-sep,
+  .range-action-bar__actions > .v-sep {
+    margin-inline: 0.3rem;
+  }
 }
 
 /* `?debug=1` の診断オーバレイ。
@@ -3829,5 +4572,36 @@ select.text-input {
      モバイルの自動拡大を防ぐ16px指定をここでも明示する */
   .pdf-preset-dialog__code {
     font-size: 16px;
+  }
+}
+
+/* 6つの再生操作を3列へ収められない幅では、位置固定よりタップ対象を
+   欠けさせないことを優先する。 */
+@media (max-width: 34rem) {
+  .playback-bar {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .playback-bar__status {
+    order: 1;
+    flex: 0 0 100%;
+    justify-content: center;
+  }
+
+  .playback-bar__console {
+    order: 2;
+    justify-content: center;
+    gap: 0.2rem;
+  }
+
+  .playback-bar__modes {
+    gap: 0.2rem;
+  }
+
+  .playback-bar__console > .v-sep,
+  .playback-bar__modes > .v-sep {
+    margin-inline: 0.05rem;
   }
 }
