@@ -126,6 +126,8 @@ describe('AudioEngine.schedule', () => {
       start: vi.fn(),
       schedule: vi.fn((callback, time) => recurring.push({ callback, time })),
       scheduleOnce: vi.fn((callback, time) => once.push({ callback, time })),
+      // Tone の既定（120BPM・192PPQ）と同じ 1秒 = 384tick で換算する
+      toTicks: (seconds) => seconds * 384,
       loop: false,
       loopStart: null,
       loopEnd: null,
@@ -153,8 +155,9 @@ describe('AudioEngine.schedule', () => {
     expect(recurring.map(({ time }) => time)).toEqual([0, 0.5]);
     expect(once.map(({ time }) => time)).toEqual([1.05]);
     expect(transport.loop).toBe(true);
-    expect(transport.loopStart).toBe(0);
-    expect(transport.loopEnd).toBe(1);
+    // 0秒〜1秒を tick（1秒 = 384tick）で表したもの
+    expect(transport.loopStart).toBe('0i');
+    expect(transport.loopEnd).toBe('384i');
   });
 
   it('カウントイン付きループはカウントを周回範囲へ含めない', () => {
@@ -167,6 +170,7 @@ describe('AudioEngine.schedule', () => {
       start: vi.fn(),
       scheduleOnce: vi.fn((callback, time) => once.push({ callback, time })),
       schedule: vi.fn((callback, time) => recurring.push({ callback, time })),
+      toTicks: (seconds) => seconds * 384,
       loop: false,
       loopStart: null,
       loopEnd: null,
@@ -191,8 +195,9 @@ describe('AudioEngine.schedule', () => {
 
     expect(once.map(({ time }) => time)).toEqual([0, 2, 4, 6, 9.05]);
     expect(recurring.map(({ time }) => time)).toEqual([8, 8.5]);
-    expect(transport.loopStart).toBe(8);
-    expect(transport.loopEnd).toBe(9);
+    // 8秒〜9秒を tick（1秒 = 384tick）で表したもの
+    expect(transport.loopStart).toBe('3072i');
+    expect(transport.loopEnd).toBe('3456i');
   });
 
   it('ループ解除を再生停止やイベント破棄なしでTransportへ反映する', () => {
@@ -297,6 +302,107 @@ describe('AudioEngine.schedule', () => {
     expect(synth.triggerAttackRelease.mock.calls).toEqual([
       [920, 0.045, 20.05],
       [920, 0.045, 22.05],
+    ]);
+  });
+
+  it('ループ位置を区間先頭のイベントと同じ整数tickへ揃える', () => {
+    const recurring = [];
+    const transport = {
+      stop: vi.fn(),
+      cancel: vi.fn(),
+      pause: vi.fn(),
+      start: vi.fn(),
+      schedule: vi.fn((callback, time) => recurring.push({ callback, time })),
+      scheduleOnce: vi.fn(),
+      toTicks: (seconds) => seconds * 384,
+      loop: false,
+      loopStart: null,
+      loopEnd: null,
+    };
+    audioEngine.Tone = {
+      Frequency: vi.fn((midi) => ({ toNote: () => `note-${midi}` })),
+      getContext: () => ({ lookAhead: 0.1, currentTime: 0 }),
+      getDraw: () => ({ cancel: vi.fn(), schedule: vi.fn() }),
+      getTransport: () => transport,
+    };
+    audioEngine.sampler = { releaseAll: vi.fn(), triggerAttackRelease: vi.fn() };
+
+    // BPM100・4拍のカウントインだと先頭は 9.6秒 = 3686.4tick となり、
+    // 秒のまま渡すと Tone 側で切り捨てられるイベント（3686tick）と一致しない
+    audioEngine.schedule(
+      [{ keys: [0] }, { keys: [1] }],
+      100,
+      0,
+      0,
+      vi.fn(),
+      vi.fn(),
+      { loop: true, countIn: { beats: 4, beatsPerBar: 4, volume: 'medium' } },
+    );
+
+    expect(recurring[0].time).toBeCloseTo(9.6);
+    expect(transport.loopStart).toBe('3686i');
+    expect(Math.floor(transport.toTicks(recurring[0].time))).toBe(3686);
+    // 2グリッド（1.2秒 = 460.8tick）ぶんの周回長
+    expect(transport.loopEnd).toBe('4147i');
+  });
+
+  it('拍で割り切れないループでもクリックとアクセントを周回ごとに先頭へ戻す', () => {
+    const recurring = [];
+    const synth = {
+      volume: { value: 0 },
+      triggerAttackRelease: vi.fn(),
+      toDestination() { return this; },
+    };
+    const transport = {
+      stop: vi.fn(),
+      cancel: vi.fn(),
+      pause: vi.fn(),
+      start: vi.fn(),
+      schedule: vi.fn((callback, time) => recurring.push({ callback, time })),
+      scheduleOnce: vi.fn(),
+      toTicks: (seconds) => seconds * 384,
+      loop: false,
+      loopStart: null,
+      loopEnd: null,
+    };
+    class SynthMock {
+      constructor() { return synth; }
+    }
+    audioEngine.Tone = {
+      Synth: SynthMock,
+      Frequency: vi.fn((midi) => ({ toNote: () => `note-${midi}` })),
+      getContext: () => ({ lookAhead: 0.1, currentTime: 0 }),
+      getDraw: () => ({ cancel: vi.fn(), schedule: vi.fn() }),
+      getTransport: () => transport,
+    };
+    audioEngine.sampler = { releaseAll: vi.fn(), triggerAttackRelease: vi.fn() };
+    audioEngine.metronomeSynth = null;
+    audioEngine.setMetronomeConfig({ enabled: true, volume: 'medium', beatsPerBar: 4 });
+
+    // 1拍4グリッドに対し区間長を6グリッドにして、1拍でも1小節でも割り切れなくする
+    audioEngine.schedule(
+      Array.from({ length: 6 }, () => ({ keys: [] })),
+      120,
+      0,
+      0,
+      vi.fn(),
+      vi.fn(),
+      { endIndex: 5, loop: true },
+    );
+
+    // Transport が周回するのと同じ順序で3周ぶん発火させる
+    for (let pass = 0; pass < 3; pass += 1) {
+      recurring.forEach(({ callback }, index) => callback(pass * 3 + index * 0.5));
+    }
+
+    // 周回の先頭（0秒・3秒・6秒）でアクセント、その4グリッド後に通常のクリック
+    expect(synth.triggerAttackRelease.mock.calls).toEqual([
+      [1320, 0.045, 0.05],
+      [920, 0.045, 2.05],
+      [1320, 0.045, 3.05],
+      [920, 0.045, 5.05],
+      [1320, 0.045, 6.05],
+      [920, 0.045, 8.05],
     ]);
   });
 

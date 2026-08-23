@@ -297,11 +297,18 @@ class AudioEngine {
     if (loop) {
       transport.loop = true;
       // カウント部分は最初の1回だけ通り、周回は本再生区間へ戻る。
-      transport.loopStart = playbackOffset;
-      transport.loopEnd = playbackOffset + segmentLength * gridDuration;
+      //
+      // ループ位置は秒ではなく tick で渡すこと。予約したイベントの時刻は Tone 側で
+      // 整数 tick へ切り捨てられる一方、loopStart は小数のまま保持され、周回時は
+      // その小数値でイベントを探しにいく。両者が一致しないと区間先頭のグリッドが
+      // 周回のたびに素通りする（カウントイン秒数が tick 境界に乗らない
+      // BPM で起きる）。イベント側と同じ切り捨てで tick を求めて渡す。
+      const loopStartTicks = Math.floor(transport.toTicks(playbackOffset));
+      const loopEndTicks = loopStartTicks
+        + Math.round(transport.toTicks(segmentLength * gridDuration));
+      transport.loopStart = `${loopStartTicks}i`;
+      transport.loopEnd = `${loopEndTicks}i`;
     }
-    let playedGridCount = 0;
-    let playedBeatCount = 0;
 
     // カウントと本再生をTransport開始前にまとめて予約する。カウント終了後に
     // schedule()を呼び直すと、その再構築時間が境界へそのまま上乗せされるため。
@@ -335,19 +342,23 @@ class AudioEngine {
     grids.forEach((grid, index) => {
       if (index < safeStartIndex) return;
       if (index > safeEndIndex) return;
-      const timeOffset = playbackOffset + (index - safeStartIndex) * gridDuration;
+      // 拍とアクセントの位置は、発火回数を数えるのではなく区間先頭からの
+      // グリッド数そのものから決める。カウンタにするとループの周回をまたいで
+      // 数え続けてしまい、区間長が1拍（metronomeGridsPerBeat）や1小節の
+      // 整数倍でないとき、クリックとアクセントの位置が周回のたびにずれていく。
+      const gridPosition = index - safeStartIndex;
+      const timeOffset = playbackOffset + gridPosition * gridDuration;
       const audibleKeys = getAudibleKeys(grid);
 
       scheduleGrid((time) => {
-        if (this.metronomeEnabled && playedGridCount % this.metronomeGridsPerBeat === 0) {
+        if (this.metronomeEnabled && gridPosition % this.metronomeGridsPerBeat === 0) {
+          const beatPosition = gridPosition / this.metronomeGridsPerBeat;
           this.triggerMetronome(
             time + PLAYBACK_AUDIO_DELAY_SEC,
             this.metronomeAccentEnabled
-              && playedBeatCount % this.metronomeBeatsPerBar === 0,
+              && beatPosition % this.metronomeBeatsPerBar === 0,
           );
-          playedBeatCount += 1;
         }
-        playedGridCount += 1;
         if (audibleKeys.length > 0) {
           const freqs = audibleKeys.map(k =>
             this.Tone.Frequency(GRID_MIDI_NOTES[k] + this.transposeSemitones, 'midi').toNote()
