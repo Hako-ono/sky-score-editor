@@ -10,6 +10,25 @@ function rangeToken(range) {
   return range ? `${range.start}:${range.end}` : null;
 }
 
+export function caretToken(state) {
+  return `${state?.caretIndex}:${state?.caretPlacement}`;
+}
+
+// 再生の前提が崩れたかどうかの判定。選択再生では選択の変更が、
+// 選択なしの再生ではキャレットの置き直しが該当する。
+// キャレットは再生開始位置そのものなので、再生中・一時停止中に置き直されたときは
+// 停止して、次の再生を新しいキャレット位置から始められるようにする。
+// stop() はキャレットを動かさないため、停止後の開始位置は置き直した位置のまま残る。
+export function shouldStopForRangeChange({
+  isStopped,
+  scheduledSelection,
+  currentSelectionToken,
+  caretMoved,
+}) {
+  if (scheduledSelection !== null && currentSelectionToken !== scheduledSelection) return true;
+  return caretMoved && !isStopped;
+}
+
 export function usePlayback(
   grids,
   bpm,
@@ -82,10 +101,19 @@ export function usePlayback(
     return unsubscribe;
   }, [stop]);
 
+  // 停止中のキャレット移動は再生の前提を変えないため、基準の更新だけ行う
+  const caretTokenRef = useRef(caretToken(rangeStore.getState()));
   useEffect(() => rangeStore.subscribe(() => {
-    const scheduledSelection = playbackSelectionRef.current;
-    if (scheduledSelection === null) return;
-    if (rangeToken(selectedRange(rangeStore.getState())) !== scheduledSelection) stop();
+    const state = rangeStore.getState();
+    const nextCaretToken = caretToken(state);
+    const caretMoved = nextCaretToken !== caretTokenRef.current;
+    caretTokenRef.current = nextCaretToken;
+    if (shouldStopForRangeChange({
+      isStopped: playbackStateRef.current === 'stopped',
+      scheduledSelection: playbackSelectionRef.current,
+      currentSelectionToken: rangeToken(selectedRange(state)),
+      caretMoved,
+    })) stop();
   }), [rangeStore, stop]);
 
   // レンダリングのたびに grids 全体の配列生成と JSON.stringify を行わないよう、
