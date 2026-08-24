@@ -8,6 +8,7 @@ import {
   MAX_PDF_PRESET_MEMO_CODE_POINTS,
 } from './pdfPresetCodec.js';
 import { tryShareFile } from './webShare.js';
+import { filenameTimestamp, sanitizeFilenamePart } from './exportFilename.js';
 
 export const PDF_QR_DISPLAY_SIZE = 512;
 export const PDF_QR_MAX_DPR = 2;
@@ -21,7 +22,6 @@ export const PDF_QR_OPTIONS = Object.freeze({
   scale: 1,
 });
 
-const PATH_CHARACTER_RE = /[<>:"/\\|?*\u0000-\u001F\u007F-\u009F]/g;
 const CONTROL_CHARACTER_RE = /[\u0000-\u001F\u007F-\u009F]/g;
 
 export class PdfQrError extends Error {
@@ -385,18 +385,12 @@ export function buildPdfPresetQrCardCanvas({
   return canvas;
 }
 
-function sanitizeFilenamePart(value) {
-  const cleaned = typeof value === 'string' ? value.replace(PATH_CHARACTER_RE, '').trim() : '';
-  return [...cleaned].slice(0, MAX_PDF_PRESET_NAME_CODE_POINTS).join('') || 'preset';
-}
-
 export function buildPdfPresetQrFilename(name, date = new Date()) {
-  const timestamp = date instanceof Date && !Number.isNaN(date.valueOf())
-    ? date
-    : new Date(0);
-  const two = (value) => String(value).padStart(2, '0');
-  const stamp = `${timestamp.getFullYear()}${two(timestamp.getMonth() + 1)}${two(timestamp.getDate())}-${two(timestamp.getHours())}${two(timestamp.getMinutes())}${two(timestamp.getSeconds())}`;
-  return `sky-pdf-preset-${sanitizeFilenamePart(name)}-${stamp}.png`;
+  const safeName = sanitizeFilenamePart(name, {
+    fallback: 'preset',
+    maxCodePoints: MAX_PDF_PRESET_NAME_CODE_POINTS,
+  });
+  return `sky-pdf-preset-${safeName}-${filenameTimestamp(date)}.png`;
 }
 
 function canvasToPngBlob(canvas) {

@@ -30,6 +30,7 @@ import { resolvePlaybackRange, selectedRange } from './lib/rangeSelectionStore.j
 import { findPhraseCaret } from './lib/rangeNavigation.js';
 import { copyGridRange } from './lib/gridClipboard.js';
 import { columnsForBits } from './lib/layout.js';
+import { buildScoreFilename } from './lib/exportFilename.js';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
 import { useIsMobile } from './hooks/useIsMobile.js';
 import { usePinnedActionBar } from './hooks/usePinnedActionBar.js';
@@ -98,14 +99,6 @@ async function downloadText(text, filename, mime) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-}
-
-function jsonFilename() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return `sky_score_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(
-    d.getHours(),
-  )}${p(d.getMinutes())}${p(d.getSeconds())}.json`;
 }
 
 export default function App() {
@@ -834,7 +827,11 @@ export default function App() {
     if (!hasData) return;
     try {
       const text = serializeScore(score); // フォーマットバージョンを含めて出力する
-      await downloadText(text, jsonFilename(), 'application/json');
+      await downloadText(
+        text,
+        buildScoreFilename(score.title, 'json'),
+        'application/json',
+      );
       markSaved(serializeScoreForCompare(score));
     } catch (err) {
       showStatus(t('ui.app.saveFailed', { message: err.message }), 'error', false);
@@ -923,12 +920,7 @@ export default function App() {
       );
       // 共有シート経由（outcome: 'shared'）でも、利用者からは画面を見れば
       // わかることなので、通常のダウンロードと同じ文言にまとめる。
-      showStatus(
-        result.outcome === 'opened'
-          ? t('ui.app.pdfOpened', { filename: result.filename })
-          : t('ui.app.pdfDownloaded', { filename: result.filename }),
-        'success',
-      );
+      showStatus(t('ui.app.pdfDownloaded', { filename: result.filename }), 'success');
     } catch (err) {
       showStatus(t('ui.app.pdfFailed', { message: err.message }), 'error', false);
     } finally {

@@ -1858,7 +1858,6 @@ export default function Toolbar({
           {activeTab === 'pdf' && (
             <>
               <div className="toolbar__pdf-action-bar" ref={pinnedActionBarRef}>
-                <p className="toolbar__pdf-action-note">{t('ui.toolbar.pdf.actionNote')}</p>
                 <div className="toolbar__action-cluster toolbar__action-cluster--pdf-preset">
                   <button
                     type="button"

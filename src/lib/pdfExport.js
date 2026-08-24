@@ -72,6 +72,7 @@ import { derivePdfGridEdgePadding, resolvePdfGridStyle } from './pdfGridStyle.js
 import { computeGridBlockSize, resolvePdfDensity } from './pdfDensity.js';
 import { shapeThai } from './thaiShaping.js';
 import { tryShareFile } from './webShare.js';
+import { buildScoreFilename, sanitizeDisplayText } from './exportFilename.js';
 import {
   analyzeScoreLayers,
   getAudibleKeys,
@@ -1561,13 +1562,6 @@ function drawPageNumber(
   );
 }
 
-function timestamp() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(
-    d.getHours(),
-  )}${p(d.getMinutes())}${p(d.getSeconds())}`;
-}
 
 // svg2pdf の Promise は解決後に次のマイクロタスクへ連鎖するため、await だけでは
 // 長い譜面の全ページ処理中に描画や入力処理へ戻れない。タイマーを1回挟み、PDFの
@@ -1578,26 +1572,20 @@ function yieldToBrowser() {
   });
 }
 
-// jsPDF は画像リソースの出力時に内部の圧縮フィルターを変更するため、同じ
-// インスタンスを再出力してはいけない。プレビュー不能時も最初に作ったBlobを
-// そのままダウンロードし、2回目のPDF組み立てを避ける。
+// 別タブでのプレビュー（`window.open`）は使わない。ポップアップ遮断や
+// ブラウザ依存でタブが開いたり開かなかったりするうえ、開けた場合も
+// `blob:` URLの末尾（UUID）が保存名になり、buildScoreFilename が決めた
+// 名前が捨てられるため。中身を確認する用途はページ内プレビューが担う。
+// これでPNG/ZIP（pngExport.js の downloadBlob）と同じ手順になる。
 //
-// iOSのスタンドアロンPWAでは、この関数が使う `window.open` も `<a download>`
-// も「別ページへ遷移した」ように見える（詳細は webShare.js）ため、その文脈
-// でだけ共有シートを先に試す。共有シートが使えない/失敗したときは、この関数
-// が元々持っていた window.open → <a download> の優先順位をそのまま使う。
-async function openOrDownloadPdfBlob(blob, filename) {
+// iOSのスタンドアロンPWAでは `<a download>` が「別ページへ遷移した」ように
+// 見える（詳細は webShare.js）ため、その文脈でだけ共有シートを先に試す。
+async function savePdfBlob(blob, filename) {
   if (await tryShareFile(blob, filename, 'application/pdf')) {
     return 'shared';
   }
 
   const blobUrl = URL.createObjectURL(blob);
-  const win = window.open(blobUrl, '_blank');
-  if (win) {
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-    return 'opened';
-  }
-
   const link = document.createElement('a');
   link.href = blobUrl;
   link.download = filename;
@@ -1818,6 +1806,12 @@ export async function buildPdfBlob(
   }
   doc.setFont(font.name);
 
+  // 保存したPDFをビューアで開いたときのタブ名になる。未設定だとファイル名や
+  // 一時URLがそのまま出るため、曲名を入れる。ファイル名ではなく曲名そのものを
+  // 入れるのは、これが書類のメタデータであって保存名ではないため
+  // （保存名は buildScoreFilename が決める）。
+  doc.setProperties({ title: sanitizeDisplayText(score.title, 'Untitled') });
+
   // オフスクリーン領域に一時的に配置して getBBox を安定させる
   const holder = document.createElement('div');
   holder.style.cssText =
@@ -2004,7 +1998,7 @@ export async function buildPdfBlob(
     document.body.removeChild(holder);
   }
 
-  const filename = `sky_score_${timestamp()}.pdf`;
+  const filename = buildScoreFilename(score.title, 'pdf');
   const blob = doc.output('blob');
   return { filename, blob };
 }
@@ -2012,16 +2006,17 @@ export async function buildPdfBlob(
 /**
  * PDFを組み立ててダウンロードする（従来の `exportPdf` と外から見た挙動は
  * 変えていない）。組み立て自体は `buildPdfBlob` に委ね、ここでは
- * ダウンロードだけを行う。同じ jsPDF インスタンスを2回 `output()` しては
- * いけないという制約（`openOrDownloadPdfBlob` 直上のコメント参照）のため、
- * `buildPdfBlob` は `Blob` だけを返し、`doc` 自体は外に出さない。
+ * ダウンロードだけを行う。jsPDF は画像リソースの出力時に内部の圧縮
+ * フィルターを破壊的に変更するため、同じインスタンスを2回 `output()`
+ * すると2回目が無圧縮になる。そのため `buildPdfBlob` は `Blob` だけを
+ * 返し、`doc` 自体は外に出さない。
  *
  * @param {*} score
  * @param {*} options
  * @param {(msg: string) => void} [onProgress]
- * @returns {Promise<{ filename: string, outcome: 'opened' | 'downloaded' | 'shared' }>}
+ * @returns {Promise<{ filename: string, outcome: 'downloaded' | 'shared' }>}
  */
 export async function exportPdf(score, options, onProgress = () => {}) {
   const { filename, blob } = await buildPdfBlob(score, options, onProgress);
-  return { filename, outcome: await openOrDownloadPdfBlob(blob, filename) };
+  return { filename, outcome: await savePdfBlob(blob, filename) };
 }

@@ -1418,13 +1418,6 @@ body {
   border-top: 1px solid var(--border);
 }
 
-.toolbar__pdf-action-note {
-  margin: 0;
-  min-width: 0;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-}
-
 .toolbar__pdf-action-sentinel {
   position: absolute;
   left: 0;

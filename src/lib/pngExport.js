@@ -15,6 +15,7 @@ import { openPdfForRaster } from './pdfRaster.js';
 import { createStoreZipBlob } from './zipStore.js';
 import { normalizePngDpi } from '../constants/config.js';
 import { tryShareFile } from './webShare.js';
+import { buildScoreFilename } from './exportFilename.js';
 
 // 生成したPNGの合計バイト数の上限。超えたら中止してエラーを返す。実測値では
 // なく、実機での確認を経て見直す前提の仮の値。
@@ -22,13 +23,6 @@ import { tryShareFile } from './webShare.js';
 // ページを積み増すたびに確認する。
 export const MAX_PNG_TOTAL_BYTES = 200 * 1024 * 1024;
 
-function timestamp() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(
-    d.getHours(),
-  )}${p(d.getMinutes())}${p(d.getSeconds())}`;
-}
 
 // pdfExport.js の yieldToBrowser と同じ理由：canvasの描画・toBlob(PNGエンコード)は
 // ページ数に比例してメインスレッドを占有するため、ページごとに明示的に
@@ -51,9 +45,8 @@ function canvasToPngBlob(canvas) {
   });
 }
 
-// `openOrDownloadPdfBlob`（pdfExport.js）は先に window.open を試すが、PNG/ZIPで
-// 同じことをするとタブの挙動がブラウザ依存になるため使い回さない。
-// <a download> をクリックするだけの、より単純な手順にする。
+// <a download> をクリックするだけの手順。PDF（pdfExport.js の savePdfBlob）も
+// 同じ手順で、別タブでのプレビューは行わない。
 //
 // iOSのスタンドアロンPWAでは <a download> が別ページへ遷移したように見える
 // （詳細は webShare.js）ため、その文脈でだけ共有シートを先に試す。
@@ -121,9 +114,8 @@ export async function exportPng(score, options, onProgress = () => {}) {
       await yieldToBrowser();
     }
 
-    const stamp = timestamp();
     if (pageCount === 1) {
-      const filename = `sky_score_${stamp}.png`;
+      const filename = buildScoreFilename(score.title, 'png');
       const shared = await downloadBlob(pngBlobs[0], filename, 'image/png');
       return { filename, pageCount, shared };
     }
@@ -134,7 +126,7 @@ export async function exportPng(score, options, onProgress = () => {}) {
       blob,
     }));
     const zipBlob = await createStoreZipBlob(entries);
-    const filename = `sky_score_${stamp}.zip`;
+    const filename = buildScoreFilename(score.title, 'zip');
     const shared = await downloadBlob(zipBlob, filename, 'application/zip');
     return { filename, pageCount, shared };
   } finally {

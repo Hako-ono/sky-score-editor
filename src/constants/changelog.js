@@ -8,6 +8,15 @@
 // kind は 'feature' | 'improve' | 'fix' の3種。表示名は辞書側にある。
 export const CHANGELOG = [
   {
+    id: 'export-filename',
+    date: '2026-08-25',
+    kind: 'improve',
+    text: {
+      ja: '保存するファイルの名前に曲名が入るようになりました（例：Sky_月の光_20260825-143012.pdf）。曲名が未入力のときは「Untitled」になります。',
+      en: 'Saved files are now named with the song title (for example, Sky_Moonlight_20260825-143012.pdf). Scores with no title are saved as "Untitled".',
+    },
+  },
+  {
     id: 'range-edit',
     date: '2026-08-23',
     kind: 'feature',
