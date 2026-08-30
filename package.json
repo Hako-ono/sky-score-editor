@@ -10,6 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "preview:headers": "node scripts/preview-headers.mjs",
+    "generate:max-grids-fixtures": "node scripts/generate-max-grids-fixtures.mjs",
     "lint": "eslint .",
     "test": "vitest run"
   },

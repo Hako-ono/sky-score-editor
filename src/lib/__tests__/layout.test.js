@@ -7,6 +7,7 @@ import {
   columnsForBits,
   resolveColumnsPerPage,
 } from '../layout.js';
+import { MAX_GRIDS } from '../../constants/config.js';
 
 /* ============================================================
  * この関数が満たすべき契約
@@ -224,8 +225,8 @@ describe('splitIntoRows 異常系', () => {
     expect(flat[2].grid).toBe('x');
   });
 
-  it('12. 上限の 3000 グリッドを現実的な時間で処理できる', () => {
-    const grids = makeGrids(3000);
+  it(`12. 上限の ${MAX_GRIDS} グリッドを現実的な時間で処理できる`, () => {
+    const grids = makeGrids(MAX_GRIDS);
     const start = performance.now();
     const rows = splitIntoRows(grids, 16);
     expect(performance.now() - start).toBeLessThan(500);
@@ -338,8 +339,8 @@ describe('paginateRows 異常系', () => {
     expect(rows).toEqual(snapshot);
   });
 
-  it('23. splitIntoRows と連結しても 3000 グリッドが1件も失われない', () => {
-    const grids = makeGrids(3000).map((x, i) =>
+  it(`23. splitIntoRows と連結しても ${MAX_GRIDS} グリッドが1件も失われない`, () => {
+    const grids = makeGrids(MAX_GRIDS).map((x, i) =>
       i % 37 === 0 ? { ...x, forceBreakAfter: true } : x
     );
     const rows = splitIntoRows(grids, 16);
@@ -347,7 +348,7 @@ describe('paginateRows 異常系', () => {
 
     // pages: Array<Array<row>>, row: Array<{ grid, index }>
     const flatGrids = pages.flat().flat().map((item) => item.grid);
-    expect(flatGrids).toHaveLength(3000);
+    expect(flatGrids).toHaveLength(MAX_GRIDS);
     expect(flatGrids.map((x) => x.text)).toEqual(grids.map((x) => x.text));
   }, 5000);
 });

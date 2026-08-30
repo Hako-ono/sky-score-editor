@@ -8,6 +8,24 @@
 // kind は 'feature' | 'improve' | 'fix' の3種。表示名は辞書側にある。
 export const CHANGELOG = [
   {
+    id: 'max-grids-10000',
+    date: '2026-08-30',
+    kind: 'improve',
+    text: {
+      ja: '1つの楽譜で扱えるグリッド数を3,000件から10,000件へ増やしました。',
+      en: 'Raised the per-score limit from 3,000 to 10,000 grids.',
+    },
+  },
+  {
+    id: 'playback-live-settings',
+    date: '2026-08-30',
+    kind: 'fix',
+    text: {
+      ja: '再生中にBPM・速度・拍子を変えたり、ループをオンにしても再生が止まらないようになりました。',
+      en: 'Playback no longer stops when you change the BPM, speed, or time signature, or turn on loop.',
+    },
+  },
+  {
     id: 'export-filename',
     date: '2026-08-25',
     kind: 'improve',

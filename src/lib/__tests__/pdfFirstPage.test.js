@@ -53,7 +53,7 @@ describe('resolvePdfFirstPageLayout', () => {
   });
 });
 
-describe('editorial header metrics', () => {
+describe('見出しの寸法計算', () => {
   it('描画座標から本文の共通確保高を導出する', () => {
     const metrics = getEditorialHeaderMetrics(15, 9);
     expect(metrics.titleAreaPt).toBe(deriveEditorialTitleAreaPt(15, 9));
@@ -116,7 +116,7 @@ describe('editorial header metrics', () => {
   });
 });
 
-describe('first-page header alignment', () => {
+describe('1ページ目の見出しの配置', () => {
   it.each([
     ['editorial', 'left'],
     ['classic', 'center'],

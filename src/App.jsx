@@ -15,6 +15,7 @@ import DebugOverlay from './components/DebugOverlay.jsx';
 import SiteFooter from './components/SiteFooter.jsx';
 import { usePlayback } from './hooks/usePlayback.js';
 import { DEBUG_ENABLED } from './lib/debugFlag.js';
+import { recordScoreLoadMetrics } from './lib/debugMetrics.js';
 
 import { useUndoableScore } from './hooks/useUndoableScore.js';
 import { useScoreGridsStore } from './contexts/ScoreGridsContext.jsx';
@@ -709,10 +710,13 @@ export default function App() {
       }
       setFileName(file.name);
       showStatus(t('ui.app.loadingFile'), 'loading', false);
+      const loadT0 = DEBUG_ENABLED ? performance.now() : 0;
       try {
         const bytes = await file.arrayBuffer();
         const text = decodeScoreFileBytes(bytes);
+        const parseT0 = DEBUG_ENABLED ? performance.now() : 0;
         const parsed = parseScoreJson(text);
+        const parseMs = DEBUG_ENABLED ? performance.now() - parseT0 : 0;
         // parsed は normalizeLoadedScore の戻り値で、score のフィールドに
         // 加えて warning を持つ。createScore で9フィールドだけを取り出す。
         const loaded = createScore(parsed);
@@ -722,6 +726,14 @@ export default function App() {
         setSelectedLayer(initialLayer);
         setStandardColorLayer(initialLayer);
         markSaved(serializeScoreForCompare(loaded));
+        if (DEBUG_ENABLED) {
+          recordScoreLoadMetrics({
+            fileBytes: file.size,
+            readMs: parseT0 - loadT0,
+            parseMs,
+            totalMs: performance.now() - loadT0,
+          });
+        }
         if (parsed.warning) {
           // 切り詰め等の警告は見逃されると「読み込みが壊れた」と誤解される。
           // 自動で消さず、利用者が閉じるまで残す

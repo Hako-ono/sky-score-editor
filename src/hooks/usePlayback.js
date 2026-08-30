@@ -29,6 +29,11 @@ export function shouldStopForRangeChange({
   return caretMoved && !isStopped;
 }
 
+export function loopTransition(wasEnabled, isEnabled) {
+  if (wasEnabled === isEnabled) return null;
+  return isEnabled ? 'enable' : 'disable';
+}
+
 export function usePlayback(
   grids,
   bpm,
@@ -126,19 +131,24 @@ export function usePlayback(
   useEffect(() => {
     stop();
     return stop;
-  }, [keysSignature, bpm, playbackSpeed, scoreBeatsPerBar, stop]);
+  }, [keysSignature, stop]);
+
+  // 再生位置をtickで持つTransportは、イベントを登録し直さなくてもテンポ変更へ
+  // 追従する。速度はBPMへの倍率として同じ経路へ反映する。
+  useEffect(() => {
+    audioEngine.setTempo(bpm * playbackSpeed);
+  }, [bpm, playbackSpeed]);
 
   const previousLoopEnabledRef = useRef(loopEnabled);
   useEffect(() => {
-    const wasLoopEnabled = previousLoopEnabledRef.current;
-    const isLoopEnabled = loopEnabled;
-    if (wasLoopEnabled && !isLoopEnabled) {
+    const transition = loopTransition(previousLoopEnabledRef.current, loopEnabled);
+    if (transition === 'disable') {
       audioEngine.disableLoop();
-    } else if (isLoopEnabled) {
-      stop();
+    } else if (transition === 'enable') {
+      audioEngine.enableLoop();
     }
-    previousLoopEnabledRef.current = isLoopEnabled;
-  }, [grids, loopEnabled, stop]);
+    previousLoopEnabledRef.current = loopEnabled;
+  }, [loopEnabled]);
 
   // Transport に登録済みのイベントは発火時にエンジンのキーを読むため、
   // 一時停止中・再生中にキーが変わっても次のグリッドから反映される。

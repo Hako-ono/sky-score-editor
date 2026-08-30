@@ -1,5 +1,10 @@
 import { GRID_MIDI_NOTES, SINGLE_GRID_PLAY_SEC } from '../constants/config.js';
 import { getAudibleKeys } from './scoreLayers.js';
+import { DEBUG_ENABLED } from './debugFlag.js';
+import {
+  recordPlaybackScheduleMetrics,
+  recordPlaybackStopMetrics,
+} from './debugMetrics.js';
 
 // public/audio/salamander/ に自前ホスト。BASE_URL を挟むことでサブパス配信でも解決できる。
 const SALAMANDER_URL = `${import.meta.env.BASE_URL}audio/salamander/`;
@@ -17,10 +22,12 @@ class AudioEngine {
     this.tonePromise = null; // tone チャンクの取得。先読みと本読みで共有する
     this.rawContext = null;  // ユーザー操作の中で起こした AudioContext
     this.contextAttached = false;
-    // scheduleOnce のコールバックはこのフィールドを発火時に読む。引数として
+    // 予約済みのコールバックはこのフィールドを発火時に読む。引数として
     // クロージャに閉じ込めると、一時停止中にキーを変えても resume() は
     // イベントを登録し直さないため古い値のまま発音してしまう。
     this.transposeSemitones = 0;
+    this.tempoBpm = 120;
+    this.playbackSession = null;
     // 停止処理のフォールバック用タイマー（stop() の「壊しやすい点」参照）
     this.stopFallbackId = null;
     // AudioContext.state の変化を外部（usePlayback）へ配るための購読者集合。
@@ -61,6 +68,14 @@ class AudioEngine {
 
   setTranspose(semitones) {
     this.transposeSemitones = Number.isFinite(semitones) ? semitones : 0;
+  }
+
+  setTempo(bpm) {
+    this.tempoBpm = Number.isFinite(bpm) && bpm > 0 ? bpm : 120;
+    if (this.Tone) {
+      const transport = this.Tone.getTransport();
+      if (transport.bpm) transport.bpm.value = this.tempoBpm;
+    }
   }
 
   setMetronomeConfig({ enabled, volume, beatsPerBar, gridsPerBeat }) {
@@ -196,8 +211,10 @@ class AudioEngine {
   }
 
   stop() {
+    const t0 = DEBUG_ENABLED ? performance.now() : 0;
     // Tone の読み込み状態とタイマーの生死は無関係なため、!this.Tone のガードより前に置く
     this.clearStopFallback();
+    this.playbackSession = null;
     if (!this.Tone) return;
     this.Tone.getContext().lookAhead = 0.1;
     this.Tone.getTransport().stop();
@@ -208,6 +225,7 @@ class AudioEngine {
     // （AudioContext 自身の時計で release されるため）。cancel の後に呼ぶことで、
     // cancel 前にスケジュールされていた音が releaseAll 直後に鳴り出すのを防ぐ
     if (this.sampler) this.sampler.releaseAll();
+    if (DEBUG_ENABLED) recordPlaybackStopMetrics(performance.now() - t0);
   }
 
   pause() {
@@ -225,18 +243,37 @@ class AudioEngine {
     this.Tone.getTransport().loop = false;
   }
 
+  enableLoop() {
+    if (!this.Tone || !this.playbackSession) return;
+    const transport = this.Tone.getTransport();
+    transport.loopStart = `${this.playbackSession.playbackStartTicks}i`;
+    transport.loopEnd = `${this.playbackSession.playbackEndTicks}i`;
+    transport.loop = true;
+  }
+
   // `?debug=1` の診断オーバレイ専用の読み出し。副作用は持たない。
   // rawContext は Tone の Context クラスが公開する「ラップ前のネイティブ
   // AudioContext/OfflineAudioContext」を返す getter（`[コード実測]`
   // node_modules/tone/build/esm/core/context/Context.js）。
   getDebugSnapshot() {
     if (!this.Tone) {
-      return { audioContextState: null, transportState: null, transportSeconds: null };
+      return {
+        audioContextState: null,
+        transportState: null,
+        transportSeconds: null,
+        transportEventCount: null,
+      };
     }
+    const transport = this.Tone.getTransport();
     return {
       audioContextState: this.Tone.getContext().rawContext.state,
-      transportState: this.Tone.getTransport().state,
-      transportSeconds: this.Tone.getTransport().seconds,
+      transportState: transport.state,
+      transportSeconds: transport.seconds,
+      // Tone.js 15.1.22 の Timeline.length getter。Object.keys(_scheduledEvents)は
+      // 10,000件の配列を250msごとに作るため、診断自体が負荷源になる。
+      transportEventCount: Number.isFinite(transport._timeline?.length)
+        ? transport._timeline.length
+        : null,
     };
   }
 
@@ -265,22 +302,24 @@ class AudioEngine {
     } = {},
   ) {
     this.stop(); // 既存のスケジュールをリセット
+    const scheduleT0 = DEBUG_ENABLED ? performance.now() : 0;
     this.transposeSemitones = transposeSemitones;
 
     this.Tone.getContext().lookAhead = 0.3;
 
-    // 1分間にBPM個のグリッドを消化する計算 (1グリッドの秒数)
-    const gridDuration = 60 / bpm;
     const transport = this.Tone.getTransport();
     const draw = this.Tone.getDraw();
+    this.setTempo(bpm);
+    const gridTicks = transport.PPQ;
     const countInBeats = Number.isInteger(countIn?.beats) && countIn.beats > 0
       ? countIn.beats
       : 0;
     // カウントインの1拍も、メトロノームと同じ「何グリッドで1拍か」で数える。
     // ここだけ 4 固定にすると、テンポを BPM÷2 にしたときにカウントだけ半分の
     // 速さになり、数えた拍と本編の拍が合わない
-    const countInBeatDuration = (countIn?.gridsPerBeat === 2 ? 2 : 4) * gridDuration;
-    const playbackOffset = countInBeats * countInBeatDuration;
+    const countInGridsPerBeat = countIn?.gridsPerBeat === 2 ? 2 : 4;
+    const countInBeatTicks = countInGridsPerBeat * gridTicks;
+    const playbackStartTicks = countInBeats * countInBeatTicks;
     const countInBeatsPerBar = countIn?.beatsPerBar === 3 ? 3 : 4;
     const countInAccentEnabled = countIn?.accentEnabled !== false;
     const safeStartIndex = Math.max(0, Math.min(startIndex, grids.length - 1));
@@ -289,25 +328,21 @@ class AudioEngine {
       Math.min(endIndex, grids.length - 1),
     );
     const segmentLength = safeEndIndex - safeStartIndex + 1;
-    const scheduleOnceGrid = transport.scheduleOnce.bind(transport);
-    const scheduleGrid = loop
-      ? transport.schedule.bind(transport)
-      : scheduleOnceGrid;
+    const playbackEndTicks = playbackStartTicks + segmentLength * gridTicks;
+    this.playbackSession = {
+      playbackStartTicks,
+      playbackEndTicks,
+      playbackStarted: false,
+    };
+
+    if (countIn) {
+      this.metronomeBeatsPerBar = countInBeatsPerBar;
+      this.metronomeAccentEnabled = countInAccentEnabled;
+      this.metronomeGridsPerBeat = countInGridsPerBeat;
+    }
 
     if (loop) {
-      transport.loop = true;
-      // カウント部分は最初の1回だけ通り、周回は本再生区間へ戻る。
-      //
-      // ループ位置は秒ではなく tick で渡すこと。予約したイベントの時刻は Tone 側で
-      // 整数 tick へ切り捨てられる一方、loopStart は小数のまま保持され、周回時は
-      // その小数値でイベントを探しにいく。両者が一致しないと区間先頭のグリッドが
-      // 周回のたびに素通りする（カウントイン秒数が tick 境界に乗らない
-      // BPM で起きる）。イベント側と同じ切り捨てで tick を求めて渡す。
-      const loopStartTicks = Math.floor(transport.toTicks(playbackOffset));
-      const loopEndTicks = loopStartTicks
-        + Math.round(transport.toTicks(segmentLength * gridDuration));
-      transport.loopStart = `${loopStartTicks}i`;
-      transport.loopEnd = `${loopEndTicks}i`;
+      this.enableLoop();
     }
 
     // カウントと本再生をTransport開始前にまとめて予約する。カウント終了後に
@@ -316,90 +351,95 @@ class AudioEngine {
     for (let index = 0; index < countInBeats; index += 1) {
       transport.scheduleOnce((time) => {
         const soundTime = time + PLAYBACK_AUDIO_DELAY_SEC;
+        const beatsPerBar = this.metronomeBeatsPerBar;
         this.triggerMetronome(
           soundTime,
-          countInAccentEnabled && index % countInBeatsPerBar === 0,
+          this.metronomeAccentEnabled && index % beatsPerBar === 0,
           countIn.volume,
         );
         draw.schedule(
-          () => countIn.onCount?.((index % countInBeatsPerBar) + 1),
+          () => countIn.onCount?.((index % beatsPerBar) + 1),
           soundTime,
         );
-      }, index * countInBeatDuration);
+      }, `${index * countInBeatTicks}i`);
     }
-    
-    // transport.schedule() で登録したループイベントは発火後もタイムラインに残り続け、
-    // cancel() されるまで解放されない。2700グリッド規模ではコールバックと
-    // それが捕捉する grid の参照を再生中ずっと抱え込むことになるため、
-    // 非ループ再生では発火時に自動で取り除かれる scheduleOnce を使う。
-    //
-    // 時刻は「+相対時刻」の文字列ではなく数値（秒）で渡す。文字列を渡すと
-    // Tone は全11種の時刻表記を正規表現で順に試し、さらに「+」用の式が
-    // もう1つ時刻オブジェクトを生成して再帰評価するため、2700件分の
-    // その処理が再生開始の瞬間に集中する。数値ならその解析を一切通らない。
-    // 直前の stop() で Transport の位置が0に戻り、start() 前に同期的に
-    // 登録しきるため、「+X」と「絶対時刻X秒」は同じ時刻を指す。
-    grids.forEach((grid, index) => {
-      if (index < safeStartIndex) return;
-      if (index > safeEndIndex) return;
-      // 拍とアクセントの位置は、発火回数を数えるのではなく区間先頭からの
-      // グリッド数そのものから決める。カウンタにするとループの周回をまたいで
-      // 数え続けてしまい、区間長が1拍（metronomeGridsPerBeat）や1小節の
-      // 整数倍でないとき、クリックとアクセントの位置が周回のたびにずれていく。
-      const gridPosition = index - safeStartIndex;
-      const timeOffset = playbackOffset + gridPosition * gridDuration;
-      const audibleKeys = getAudibleKeys(grid);
 
-      scheduleGrid((time) => {
-        if (this.metronomeEnabled && gridPosition % this.metronomeGridsPerBeat === 0) {
-          const beatPosition = gridPosition / this.metronomeGridsPerBeat;
-          this.triggerMetronome(
-            time + PLAYBACK_AUDIO_DELAY_SEC,
-            this.metronomeAccentEnabled
-              && beatPosition % this.metronomeBeatsPerBar === 0,
-          );
+    // 全グリッドを個別に予約せず、PPQ tickごとの1本の反復イベントから現在位置を
+    // 導出する。発火回数を状態として持たないため、ループ周回やBPM変更の前後でも
+    // 同じTransport tickは必ず同じグリッドを指す。
+    transport.scheduleRepeat((time) => {
+      const ticks = Math.round(transport.getTicksAtTime(time));
+      const gridPosition = Math.round((ticks - playbackStartTicks) / gridTicks);
+      if (gridPosition < 0 || gridPosition >= segmentLength) return;
+
+      const index = safeStartIndex + gridPosition;
+      const audibleKeys = getAudibleKeys(grids[index]);
+      if (this.metronomeEnabled && gridPosition % this.metronomeGridsPerBeat === 0) {
+        const beatPosition = gridPosition / this.metronomeGridsPerBeat;
+        this.triggerMetronome(
+          time + PLAYBACK_AUDIO_DELAY_SEC,
+          this.metronomeAccentEnabled
+            && beatPosition % this.metronomeBeatsPerBar === 0,
+        );
+      }
+      if (audibleKeys.length > 0) {
+        const freqs = audibleKeys.map(k =>
+          this.Tone.Frequency(GRID_MIDI_NOTES[k] + this.transposeSemitones, 'midi').toNote()
+        );
+        const playDuration = Math.max(60 / this.tempoBpm, 0.4);
+        this.sampler.triggerAttackRelease(
+          freqs,
+          playDuration,
+          time + PLAYBACK_AUDIO_DELAY_SEC,
+        );
+      }
+      draw.schedule(() => {
+        if (!this.playbackSession?.playbackStarted) {
+          if (this.playbackSession) this.playbackSession.playbackStarted = true;
+          onPlaybackStart?.();
         }
-        if (audibleKeys.length > 0) {
-          const freqs = audibleKeys.map(k =>
-            this.Tone.Frequency(GRID_MIDI_NOTES[k] + this.transposeSemitones, 'midi').toNote()
-          );
-          const playDuration = Math.max(gridDuration, 0.4);
-          this.sampler.triggerAttackRelease(
-            freqs,
-            playDuration,
-            time + PLAYBACK_AUDIO_DELAY_SEC,
-          );
-        }
-        draw.schedule(() => {
-          if (index === safeStartIndex) onPlaybackStart?.();
-          onUpdateIndex(index);
-        }, time);
-      }, timeOffset);
-    });
+        onUpdateIndex(index);
+      }, time);
+    }, `${gridTicks}i`, `${playbackStartTicks}i`, `${segmentLength * gridTicks}i`);
 
     // 停止処理は Tone.Draw（rAF駆動）に載せている。発音より最大 lookAhead ぶん
     // 早く来る Transport のコールバックで直接止めると最後の音が切れるため。
     // ただし Draw は期限(0.25秒)を過ぎたコールバックを実行せずに捨てるので、
     // タブが裏に回るなどで rAF が止まると停止処理が永久に失われる。時間で追う
     // 経路を併走させ、先に来たほうだけが実行されるようにする。
-    transport.scheduleOnce((time) => {
+    // loopEndと同じtickに永続イベントを置く。ループ中はToneがイベント実行より先に
+    // loopStartへ戻すため発火せず、ループ解除後は次の区間末尾で発火する。
+    transport.schedule((time) => {
       let done = false;
       const finish = () => {
         if (done) return;
+        if (transport.loop) {
+          this.clearStopFallback();
+          return;
+        }
         done = true;
         this.clearStopFallback();
         this.Tone.getContext().lookAhead = 0.1;
         onStop();
       };
-      draw.schedule(finish, time);
+      const finishTime = time + PLAYBACK_AUDIO_DELAY_SEC;
+      draw.schedule(finish, finishTime);
       // Tone.now() は lookAhead を足した値を返すため使わない。Draw が捨てる
       // 境界（time + 0.25）より後ろに置き、通常は Draw が先に来るようにする
       const delayMs =
-        Math.max(0, (time - this.Tone.getContext().currentTime) * 1000) + 300;
+        Math.max(0, (finishTime - this.Tone.getContext().currentTime) * 1000) + 300;
       this.stopFallbackId = setTimeout(finish, delayMs);
-    }, playbackOffset + segmentLength * gridDuration + PLAYBACK_AUDIO_DELAY_SEC);
+    }, `${playbackEndTicks}i`);
 
     transport.start();
+    if (DEBUG_ENABLED) {
+      recordPlaybackScheduleMetrics({
+        durationMs: performance.now() - scheduleT0,
+        gridCount: segmentLength,
+        eventCount: countInBeats + 2,
+        loop,
+      });
+    }
   }
 }
 

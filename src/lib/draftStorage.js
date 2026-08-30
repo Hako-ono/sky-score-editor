@@ -4,13 +4,35 @@
  */
 
 import { DRAFT_STORAGE_KEY } from '../constants/config.js';
+import { DEBUG_ENABLED } from './debugFlag.js';
+import { recordDraftSaveMetrics } from './debugMetrics.js';
 
 export function saveDraft(score) {
+  const t0 = DEBUG_ENABLED ? performance.now() : 0;
+  let payload = null;
   try {
-    const payload = JSON.stringify({ ...score, savedAt: Date.now() });
+    payload = JSON.stringify({ ...score, savedAt: Date.now() });
     localStorage.setItem(DRAFT_STORAGE_KEY, payload);
+    if (DEBUG_ENABLED) {
+      const durationMs = performance.now() - t0;
+      recordDraftSaveMetrics({
+        chars: payload.length,
+        utf8Bytes: new Blob([payload]).size,
+        durationMs,
+        succeeded: true,
+      });
+    }
     return true;
   } catch {
+    if (DEBUG_ENABLED) {
+      const durationMs = performance.now() - t0;
+      recordDraftSaveMetrics({
+        chars: payload?.length ?? null,
+        utf8Bytes: payload === null ? null : new Blob([payload]).size,
+        durationMs,
+        succeeded: false,
+      });
+    }
     return false; // 容量超過やプライベートモードなどは黙って無視
   }
 }

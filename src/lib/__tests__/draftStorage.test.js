@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { loadDraft, saveDraft } from '../draftStorage.js';
-import { DRAFT_STORAGE_KEY } from '../../constants/config.js';
+import { DRAFT_STORAGE_KEY, MAX_GRIDS } from '../../constants/config.js';
 
 // vite.config.js に test.environment の指定は無く、vitest は既定の node 環境で
 // 動いている。localStorage が存在しないため、最小のスタブを globalThis に載せる。
@@ -49,6 +49,22 @@ describe('loadDraft', () => {
 
     expect(saveDraft(score)).toBe(true);
     expect(loadDraft().grids[0].layer2Keys).toEqual([2]);
+  });
+
+  it(`正式上限の${MAX_GRIDS}件を既存のdraft:v3形式で往復できる`, () => {
+    const grids = Array.from({ length: MAX_GRIDS }, (_, index) => ({
+      keys: [index % 15],
+      layer2Keys: [],
+      text: '',
+      forceBreakAfter: false,
+    }));
+    const score = { grids, bpm: 120, title: 'MAX_GRIDS draft' };
+
+    expect(saveDraft(score)).toBe(true);
+    const loaded = loadDraft();
+    expect(loaded.grids).toHaveLength(MAX_GRIDS);
+    expect(loaded.grids[0]).toEqual(grids[0]);
+    expect(loaded.grids.at(-1)).toEqual(grids.at(-1));
   });
 
   it('grids が配列でない場合に null を返す（既存挙動の保護）', () => {

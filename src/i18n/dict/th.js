@@ -1,4 +1,4 @@
-// Full dictionary with the same key structure as ja.js.
+// ja.js と同じキー構造を持つ完全な辞書。
 export default {
   "ui": {
     "toolbar": {

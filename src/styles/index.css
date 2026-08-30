@@ -2965,6 +2965,20 @@ select.text-input {
     text-overflow: ellipsis;
   }
 
+  /* 高速タッチスクロール中だけ使う同寸法の骨格。SVGのviewBoxと同じ
+     縦横比・余白を持たせ、通常カードへ戻すときに行高を変えない。 */
+  .grid-card--scroll-placeholder {
+    box-shadow: none;
+    pointer-events: none;
+  }
+  .grid-card__note-placeholder {
+    width: 100%;
+    aspect-ratio: 350 / 210;
+    margin: 0.15rem 0 0.4rem;
+    border-radius: 6px;
+    background: var(--surface-2);
+  }
+
   /* ---------- 拡大表示（GridOverlay）: 一覧向けの縮小指定を打ち消す ---------- */
   .grid-overlay .grid-card {
     width: auto;

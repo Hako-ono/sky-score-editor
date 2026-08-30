@@ -9,7 +9,7 @@ import { recordSetGridsMetrics } from '../lib/debugMetrics.js';
 // rows（number[][]、各行に入る index の配列）は先頭から昇順に並んだ
 // 連続区間の集まりである（splitIntoRows の生成規則）。ある index が
 // どの行に属するかは、各行の最後の要素と比較しながら前から探せば求まる。
-// rowCount は MAX_GRIDS 由来で有界（forceBreakAfter により最大 3000 行程度）
+// rowCount は MAX_GRIDS 由来で有界（forceBreakAfter により最大 MAX_GRIDS 行程度）
 // のため、線形走査で十分。
 function findRowIndexForGridIndex(rows, gridIndex) {
   if (!Number.isInteger(gridIndex) || gridIndex < 0) return -1;

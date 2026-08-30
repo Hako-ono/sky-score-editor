@@ -127,7 +127,7 @@ const FULL_PREFS = normalizePdfPrefs({
   },
 });
 
-describe('pdf preset codec', () => {
+describe('PDF設定コードの変換', () => {
   it('既定設定をgzipでencode-decodeできる', async () => {
     const code = await encodePdfPreset({ name: '既定', memo: '確認用', prefs: DEFAULT_PREFS });
     expect(code.startsWith('SKYPDF2.G.')).toBe(true);
@@ -329,7 +329,7 @@ describe('pdf preset codec', () => {
   });
 });
 
-describe('pdf preset key context and URL helpers', () => {
+describe('PDF設定のキー文脈とURL補助関数', () => {
   it.each([
     [1, 'major', 'sharp', 'flat'],
     [1, 'major', 'flat', 'flat'],
@@ -452,7 +452,7 @@ describe('pdf preset key context and URL helpers', () => {
   });
 });
 
-describe('pdf preset defaults are stable', () => {
+describe('PDF設定の既定値が変わらないこと', () => {
   it('テスト用既定値が現行pdfPrefsの既定値と一致する', () => {
     expect(DEFAULT_PREFS.presetId).toBe(DEFAULT_PRESET_ID);
     expect(DEFAULT_PREFS.fontId).toBe(DEFAULT_FONT_ID);

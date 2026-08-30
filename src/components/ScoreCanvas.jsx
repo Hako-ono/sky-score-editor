@@ -17,6 +17,17 @@ import {
   useRangeSelectionStore,
 } from '../contexts/RangeSelectionContext.jsx';
 import { selectedRange } from '../lib/rangeSelectionStore.js';
+import { DEBUG_ENABLED } from '../lib/debugFlag.js';
+import {
+  computeVirtualScrollSample,
+  recordRapidScrollPlaceholder,
+  recordVirtualScrollFrame,
+  recordVirtualizedRenderMetrics,
+} from '../lib/debugMetrics.js';
+import {
+  RAPID_TOUCH_SCROLL_IDLE_MS,
+  shouldUseRapidScrollPlaceholders,
+} from '../lib/rapidScroll.js';
 import { useCaretSlotTouchDrag } from '../hooks/useCaretSlotTouchDrag.js';
 import { useDesktopRangeDrag } from '../hooks/useDesktopRangeDrag.js';
 
@@ -24,6 +35,20 @@ import { useDesktopRangeDrag } from '../hooks/useDesktopRangeDrag.js';
 // 使う仮の行ピッチ。.grid-card のCSSから概算した値。
 const PROVISIONAL_ROW_PITCH_DESKTOP = 260;
 const PROVISIONAL_ROW_PITCH_MOBILE = 130;
+
+// 高速タッチスクロール中は、SVG・歌詞・ストア購読・ジェスチャを持たない
+// 同寸法の骨格だけを描く。スクロール停止後に通常カードへ戻る。
+function RapidScrollGridPlaceholder({ index }) {
+  return (
+    <div className="grid-card grid-card--compact grid-card--scroll-placeholder" aria-hidden="true">
+      <div className="grid-card__header">
+        <span className="grid-card__number">{index + 1}</span>
+      </div>
+      <div className="grid-card__note-placeholder" />
+      <span className="grid-card__text-view">&nbsp;</span>
+    </div>
+  );
+}
 
 // 再生中のグリッドへの自動スクロールだけを担当する。activeGrid の変化は
 // ここで購読が完結し、2700件の GridCard を抱える ScoreCanvas 本体は
@@ -144,6 +169,13 @@ function ScoreCanvas({
 
   const canvasEl = useRef(null);
   useCaretSlotTouchDrag(canvasEl, rangeStore, store);
+  const [rapidTouchScroll, setRapidTouchScroll] = useState(false);
+  const touchScrollRef = useRef({
+    active: false,
+    lastTimestamp: null,
+    lastScrollY: null,
+    idleTimerId: null,
+  });
   const initialRowPitch = isMobile ? PROVISIONAL_ROW_PITCH_MOBILE : PROVISIONAL_ROW_PITCH_DESKTOP;
   const rowPitchRef = useRef(initialRowPitch);
 
@@ -236,30 +268,103 @@ function ScoreCanvas({
   // scroll は変わらないため recompute（算術のみ）から呼ぶ。
   useEffect(() => {
     let scrollScheduled = false;
+    let scrollFrameId = null;
+    const touchScroll = touchScrollRef.current;
+
+    const finishTouchScroll = () => {
+      touchScroll.active = false;
+      touchScroll.lastTimestamp = null;
+      touchScroll.lastScrollY = null;
+      touchScroll.idleTimerId = null;
+      setRapidTouchScroll(false);
+    };
+
+    const scheduleTouchScrollFinish = () => {
+      if (touchScroll.idleTimerId !== null) clearTimeout(touchScroll.idleTimerId);
+      touchScroll.idleTimerId = setTimeout(finishTouchScroll, RAPID_TOUCH_SCROLL_IDLE_MS);
+    };
+
+    const handleTouchStart = (event) => {
+      if (!isMobile || playbackState !== 'stopped') return;
+      const target = event.target;
+      if (
+        typeof target?.closest === 'function'
+        && target.closest('input, textarea, select, [contenteditable="true"]')
+      ) return;
+
+      if (touchScroll.idleTimerId !== null) clearTimeout(touchScroll.idleTimerId);
+      touchScroll.active = true;
+      touchScroll.lastTimestamp = performance.now();
+      touchScroll.lastScrollY = window.scrollY;
+    };
+
+    const handleTouchEnd = () => {
+      if (touchScroll.active) scheduleTouchScrollFinish();
+    };
+
     const handleScroll = () => {
       if (scrollScheduled) return;
       scrollScheduled = true;
-      window.requestAnimationFrame(() => {
+      scrollFrameId = window.requestAnimationFrame((timestamp) => {
         scrollScheduled = false;
+        if (DEBUG_ENABLED) recordVirtualScrollFrame(timestamp, window.scrollY);
+        if (touchScroll.active) {
+          const sample = computeVirtualScrollSample({
+            previousTimestamp: touchScroll.lastTimestamp,
+            previousScrollY: touchScroll.lastScrollY,
+            timestamp,
+            scrollY: window.scrollY,
+          });
+          touchScroll.lastTimestamp = timestamp;
+          touchScroll.lastScrollY = window.scrollY;
+          const activeElement = document.activeElement;
+          const hasEditableFocus = typeof activeElement?.matches === 'function'
+            && (activeElement.matches('input, textarea, select') || activeElement.isContentEditable);
+          if (shouldUseRapidScrollPlaceholders({
+            isMobile,
+            hasTouchScrollSession: true,
+            playbackState,
+            hasEditableFocus,
+            speedPxPerSec: sample?.speedPxPerSec,
+          })) {
+            setRapidTouchScroll(true);
+          }
+          scheduleTouchScrollFinish();
+        }
         recompute();
       });
     };
     let resizeScheduled = false;
+    let resizeFrameId = null;
     const handleResize = () => {
       if (resizeScheduled) return;
       resizeScheduled = true;
-      window.requestAnimationFrame(() => {
+      resizeFrameId = window.requestAnimationFrame(() => {
         resizeScheduled = false;
         measure();
       });
     };
+    const canvas = canvasEl.current;
+    canvas?.addEventListener('touchstart', handleTouchStart, { passive: true });
+    canvas?.addEventListener('touchend', handleTouchEnd, { passive: true });
+    canvas?.addEventListener('touchcancel', handleTouchEnd, { passive: true });
     window.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('resize', handleResize);
     return () => {
+      canvas?.removeEventListener('touchstart', handleTouchStart);
+      canvas?.removeEventListener('touchend', handleTouchEnd);
+      canvas?.removeEventListener('touchcancel', handleTouchEnd);
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleResize);
+      if (scrollFrameId !== null) window.cancelAnimationFrame(scrollFrameId);
+      if (resizeFrameId !== null) window.cancelAnimationFrame(resizeFrameId);
+      if (touchScroll.idleTimerId !== null) clearTimeout(touchScroll.idleTimerId);
+      touchScroll.active = false;
+      touchScroll.lastTimestamp = null;
+      touchScroll.lastScrollY = null;
+      touchScroll.idleTimerId = null;
     };
-  }, [recompute, measure]);
+  }, [isMobile, measure, playbackState, recompute]);
 
   // ツールバーや再生バーの高さ変更は ScoreCanvas 自身の resize では検出できず、
   // canvasTop だけが変わる。兄弟要素を同じ observer で監視し、1フレームに1回だけ
@@ -298,6 +403,39 @@ function ScoreCanvas({
   const { rowPitch, startRow, endRow } = layout;
   const visibleRows = rows.slice(startRow, endRow);
   const gridCount = store.getGridCount();
+  const useRapidScrollPlaceholders = rapidTouchScroll
+    && isMobile
+    && playbackState === 'stopped';
+
+  useEffect(() => {
+    if (!isMobile || playbackState !== 'stopped') setRapidTouchScroll(false);
+  }, [isMobile, playbackState]);
+
+  useEffect(() => {
+    if (DEBUG_ENABLED) recordRapidScrollPlaceholder(useRapidScrollPlaceholders);
+  }, [useRapidScrollPlaceholders]);
+
+  useEffect(() => {
+    if (!DEBUG_ENABLED) return;
+
+    let renderedGridCount = 0;
+    for (let rowIndex = startRow; rowIndex < endRow; rowIndex += 1) {
+      renderedGridCount += rows[rowIndex]?.length ?? 0;
+    }
+    const firstRow = rows[startRow];
+    const lastRow = rows[endRow - 1];
+    const gridStart = firstRow?.[0] ?? null;
+    const gridEnd = lastRow?.length > 0 ? lastRow[lastRow.length - 1] + 1 : null;
+
+    recordVirtualizedRenderMetrics({
+      timestamp: performance.now(),
+      startRow,
+      endRow,
+      gridStart,
+      gridEnd,
+      gridCount: renderedGridCount,
+    });
+  }, [endRow, rows, startRow]);
 
   return (
     // columns を CSS へ渡し、1行分の幅を calc で決め打ちして一覧全体を中央に置く。
@@ -309,6 +447,7 @@ function ScoreCanvas({
       className="score-canvas"
       role="list"
       aria-label={t('ui.scoreCanvas.list')}
+      aria-busy={useRapidScrollPlaceholders || undefined}
       {...desktopRangeDragProps}
       style={{
         '--columns': columns,
@@ -334,7 +473,9 @@ function ScoreCanvas({
                 key={index}
                 id={`score-cell-${index}`}
               >
-                {isMobile ? (
+                {useRapidScrollPlaceholders ? (
+                  <RapidScrollGridPlaceholder index={index} />
+                ) : isMobile ? (
                   <GridCardCompact
                     index={index}
                     selectedLayer={selectedLayer}

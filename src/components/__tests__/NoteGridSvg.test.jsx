@@ -15,7 +15,7 @@ const countSecondHighlights = (markup) => (
   markup.match(/highlight-layer2/g) ?? []
 ).length;
 
-describe('NoteGridSvg layer colors', () => {
+describe('NoteGridSvgのレイヤー色', () => {
   it('0・7・14番の円＋ひし形をそれぞれ1つの複合pathとして描く', () => {
     const markup = renderGrid({ keys: [] });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { caretToken, shouldStopForRangeChange } from './usePlayback.js';
+import { caretToken, loopTransition, shouldStopForRangeChange } from './usePlayback.js';
 
 describe('caretToken', () => {
   it('位置と placement の両方が変わったことを見分けられる', () => {
@@ -62,5 +62,17 @@ describe('shouldStopForRangeChange', () => {
       currentSelectionToken: '2:5',
       caretMoved: false,
     })).toBe(false);
+  });
+});
+
+describe('loopTransition', () => {
+  it('OFFからONへの変化だけを有効化として返す', () => {
+    expect(loopTransition(false, true)).toBe('enable');
+    expect(loopTransition(true, true)).toBeNull();
+  });
+
+  it('ONからOFFへの変化だけを無効化として返す', () => {
+    expect(loopTransition(true, false)).toBe('disable');
+    expect(loopTransition(false, false)).toBeNull();
   });
 });

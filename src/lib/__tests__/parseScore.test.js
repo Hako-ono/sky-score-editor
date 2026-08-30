@@ -10,6 +10,7 @@ import {
 } from '../parseScore.js';
 import {
   EDITOR_JSON_FORMAT_VERSION_V2,
+  MAX_GRIDS,
   MAX_SONG_NOTES,
 } from '../../constants/config.js';
 import { analyzeScoreLayers, getInitialLayer } from '../scoreLayers.js';
@@ -31,7 +32,6 @@ import { analyzeScoreLayers, getInitialLayer } from '../scoreLayers.js';
  * 「範囲外の値が素通りする」ことだけは確実に落ちる。
  * ============================================================ */
 
-const MAX_GRIDS = 3000;
 const VALID_BITS = [4, 12, 16];
 
 function tryParse(json) {
@@ -552,9 +552,9 @@ describe('keyMode', () => {
   });
 });
 
-describe('grids 上限 3000', () => {
-  it('19. 3001件は 3000件に切り詰められる', () => {
-    const grids = Array.from({ length: 3001 }, () => ({
+describe(`grids 上限 ${MAX_GRIDS}`, () => {
+  it('19. 上限+1件は上限件数に切り詰められる', () => {
+    const grids = Array.from({ length: MAX_GRIDS + 1 }, () => ({
       type: 'note',
       keys: [0],
       text: '',
@@ -564,10 +564,10 @@ describe('grids 上限 3000', () => {
       JSON.stringify({ formatVersion: 'sky-editor-v1', bpm: 120, grids })
     );
     if (score) expect(score.grids).toHaveLength(MAX_GRIDS);
-  });
+  }, 15_000);
 
-  it('20. 境界値：3000件はそのまま通る', () => {
-    const grids = Array.from({ length: 3000 }, () => ({
+  it('20. 境界値：上限ちょうどの件数はそのまま通る', () => {
+    const grids = Array.from({ length: MAX_GRIDS }, () => ({
       type: 'note',
       keys: [0],
       text: '',
@@ -576,8 +576,8 @@ describe('grids 上限 3000', () => {
     const score = expectRejectedOrSafe(
       JSON.stringify({ formatVersion: 'sky-editor-v1', bpm: 120, grids })
     );
-    if (score) expect(score.grids).toHaveLength(3000);
-  });
+    if (score) expect(score.grids).toHaveLength(MAX_GRIDS);
+  }, 15_000);
 
   it('21. grids が配列でない／要素が null や配列', () => {
     for (const grids of [null, 'x', 0, {}, { length: 5 }]) {
@@ -850,7 +850,9 @@ describe('songNotes からのグリッド生成量の打ち切り', () => {
     }));
     const score = expectRejectedOrSafe(JSON.stringify([{ bpm, songNotes }]));
     if (!score) return;
-    expect(score.warning).toContain('グリッド数が上限(3000)を超えたため切り詰めました。');
+    expect(score.warning).toContain(
+      `グリッド数が上限(${MAX_GRIDS})を超えたため切り詰めました。`,
+    );
   });
 });
 
@@ -905,8 +907,8 @@ describe('songNotes の入力件数上限', () => {
  * ============================================================ */
 
 describe('grids の1パス打ち切り（正規化しながらMAX_GRIDS+1で走査を止める）', () => {
-  it('44. 5000件すべて有効なら3000件に切り詰められ、上限超過の警告が出る', () => {
-    const grids = Array.from({ length: 5000 }, () => ({
+  it('44. 上限を超える全件有効入力は切り詰められ、上限超過の警告が出る', () => {
+    const grids = Array.from({ length: MAX_GRIDS + 2_000 }, () => ({
       type: 'note',
       keys: [0],
       text: '',
@@ -918,18 +920,18 @@ describe('grids の1パス打ち切り（正規化しながらMAX_GRIDS+1で走�
     if (!score) return;
     expect(score.grids).toHaveLength(MAX_GRIDS);
     expect(score.warning).toContain(`グリッド数が上限(${MAX_GRIDS})を超えたため切り詰めました。`);
-  });
+  }, 15_000);
 
-  it('45. 先頭のnull/数値/文字列はカウントされずに読み飛ばされ、後続の有効なグリッドが3000件揃う', () => {
-    // null / 0 / 'note' は typeof が 'object' でないため読み飛ばされ、3001件の
-    // カウントに含まれない。先に3001件で切ってから非オブジェクトを除く実装だと、
-    // その分だけ有効なグリッドが目減りして3000件に届かなくなる（このテストで検出できる）。
+  it('45. 先頭のnull/数値/文字列を読み飛ばしても後続の有効グリッドが上限件数揃う', () => {
+    // null / 0 / 'note' は typeof が 'object' でないため読み飛ばされ、上限+1件の
+    // カウントに含まれない。先に上限+1件で切ってから非オブジェクトを除く実装だと、
+    // その分だけ有効なグリッドが目減りして上限へ届かなくなる（このテストで検出できる）。
     // [] は typeof が 'object' の配列であり、既存テスト21と同じ扱いで有効な
     // （keysを持たない）グリッド1件としてカウントされる。
     const junk = [null, 0, 'note', []];
     const grids = [
       ...junk,
-      ...Array.from({ length: 5000 }, () => ({
+      ...Array.from({ length: MAX_GRIDS + 2_000 }, () => ({
         type: 'note',
         keys: [0],
         text: '',
@@ -944,9 +946,9 @@ describe('grids の1パス打ち切り（正規化しながらMAX_GRIDS+1で走�
     const noteCount = score.grids.filter(
       (g) => g.keys.length === 1 && g.keys[0] === 0
     ).length;
-    // [] 由来の空グリッド1件を除いた残り2999件が note グリッドであること
+    // [] 由来の空グリッド1件を除いた残りが note グリッドであること
     expect(noteCount).toBe(MAX_GRIDS - 1);
-  });
+  }, 15_000);
 });
 
 describe('sanitizeText のチャンク単位打ち切り', () => {

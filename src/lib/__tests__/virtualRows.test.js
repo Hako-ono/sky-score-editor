@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+﻿import { describe, it, expect } from 'vitest';
 
+import { MAX_GRIDS } from '../../constants/config.js';
 import { computeVisibleRowRange, computeRowOffsetY } from '../virtualRows.js';
 
 /* ============================================================
@@ -49,15 +50,15 @@ const VP = 800;
 const PITCH = 260;
 const TOP = 120;
 
-/** MAX_GRIDS = 3000 を 4列で並べたときの行数 */
-const ROWS_3000 = 750;
+/** 正式上限を4列で並べたときの行数 */
+const ROWS_AT_GRID_LIMIT = Math.ceil(MAX_GRIDS / 4);
 
 const args = (over = {}) => ({
   scrollY: 0,
   viewportHeight: VP,
   canvasTop: TOP,
   rowPitch: PITCH,
-  rowCount: ROWS_3000,
+  rowCount: ROWS_AT_GRID_LIMIT,
   overscanPx: 0,
   ...over,
 });
@@ -119,7 +120,7 @@ describe('computeVisibleRowRange 正常系', () => {
     const input = args();
     const range = computeVisibleRowRange(input);
 
-    expectRangeInvariants(range, ROWS_3000);
+    expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
     expect(range.startRow).toBe(0);
     expectCoversViewport(input, range);
     expectRangeIsTight(input, range);
@@ -129,7 +130,7 @@ describe('computeVisibleRowRange 正常系', () => {
     const input = args({ scrollY: 5000 });
     const range = computeVisibleRowRange(input);
 
-    expectRangeInvariants(range, ROWS_3000);
+    expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
     expect(range.startRow).toBeGreaterThan(0);
     expectCoversViewport(input, range);
     expectRangeIsTight(input, range);
@@ -140,7 +141,7 @@ describe('computeVisibleRowRange 正常系', () => {
     const input = args({ scrollY: 5000, overscanPx: VP });
     const withOverscan = computeVisibleRowRange(input);
 
-    expectRangeInvariants(withOverscan, ROWS_3000);
+    expectRangeInvariants(withOverscan, ROWS_AT_GRID_LIMIT);
     expect(withOverscan.startRow).toBeLessThanOrEqual(withoutOverscan.startRow);
     expect(withOverscan.endRow).toBeGreaterThanOrEqual(withoutOverscan.endRow);
     expectCoversViewport(input, withOverscan);
@@ -148,16 +149,16 @@ describe('computeVisibleRowRange 正常系', () => {
   });
 
   it('末尾までスクロールしても endRow は rowCount を超えない', () => {
-    const input = args({ scrollY: TOP + ROWS_3000 * PITCH + 10000, overscanPx: VP });
+    const input = args({ scrollY: TOP + ROWS_AT_GRID_LIMIT * PITCH + 10000, overscanPx: VP });
     const range = computeVisibleRowRange(input);
 
-    expectRangeInvariants(range, ROWS_3000);
-    expect(range.endRow).toBe(ROWS_3000);
+    expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
+    expect(range.endRow).toBe(ROWS_AT_GRID_LIMIT);
   });
 
   it('一覧が画面より下にあるとき（canvasTop が大きい）空の範囲になる', () => {
     const range = computeVisibleRowRange(args({ canvasTop: 100000 }));
-    expectRangeInvariants(range, ROWS_3000);
+    expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
     expect(range.endRow - range.startRow).toBe(0);
   });
 });
@@ -171,7 +172,7 @@ describe('computeVisibleRowRange 出力が入力に比例して爆発しない�
     const input = args({ scrollY: 40000, overscanPx: VP });
     const range = computeVisibleRowRange(input);
 
-    expectRangeInvariants(range, ROWS_3000);
+    expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
     expectRangeIsTight(input, range);
     expect(range.endRow - range.startRow).toBeLessThan(30);
   });
@@ -190,15 +191,15 @@ describe('computeVisibleRowRange 出力が入力に比例して爆発しない�
     const input = args({ viewportHeight: 1e12 });
     const range = computeVisibleRowRange(input);
 
-    expectRangeInvariants(range, ROWS_3000);
-    expect(range.endRow).toBeLessThanOrEqual(ROWS_3000);
+    expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
+    expect(range.endRow).toBeLessThanOrEqual(ROWS_AT_GRID_LIMIT);
   });
 
   it('E-04. overscanPx が巨大でも rowCount を超えない', () => {
     const input = args({ overscanPx: 1e12, scrollY: 5000 });
     const range = computeVisibleRowRange(input);
 
-    expectRangeInvariants(range, ROWS_3000);
+    expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
   });
 
   it('E-05. scrollY / canvasTop が桁あふれを起こす大きさでも整数を返す', () => {
@@ -212,7 +213,7 @@ describe('computeVisibleRowRange 出力が入力に比例して爆発しない�
     ];
     for (const over of cases) {
       const range = computeVisibleRowRange(args({ ...over, overscanPx: 1e308 }));
-      expectRangeInvariants(range, ROWS_3000);
+      expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
     }
   });
 
@@ -284,7 +285,7 @@ describe('computeVisibleRowRange 全域フォールバック', () => {
     (rowPitch) => {
       const range = computeVisibleRowRange(args({ rowPitch, scrollY: 99999 }));
       expect(range.startRow).toBe(0);
-      expect(range.endRow).toBe(ROWS_3000);
+      expect(range.endRow).toBe(ROWS_AT_GRID_LIMIT);
     }
   );
 
@@ -293,14 +294,14 @@ describe('computeVisibleRowRange 全域フォールバック', () => {
     (viewportHeight) => {
       const range = computeVisibleRowRange(args({ viewportHeight, scrollY: 99999 }));
       expect(range.startRow).toBe(0);
-      expect(range.endRow).toBe(ROWS_3000);
+      expect(range.endRow).toBe(ROWS_AT_GRID_LIMIT);
     }
   );
 
   it('F-03. 全域フォールバックでも rowCount を超えない', () => {
     const range = computeVisibleRowRange(args({ viewportHeight: NaN, rowPitch: NaN }));
-    expectRangeInvariants(range, ROWS_3000);
-    expect(range.endRow).toBe(ROWS_3000);
+    expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
+    expect(range.endRow).toBe(ROWS_AT_GRID_LIMIT);
   });
 });
 
@@ -313,7 +314,7 @@ describe('computeVisibleRowRange scrollY・canvasTop・overscanPx の異常値',
     for (const scrollY of [-1, -300, -100000]) {
       const zero = computeVisibleRowRange(args({ scrollY: 0 }));
       const range = computeVisibleRowRange(args({ scrollY }));
-      expectRangeInvariants(range, ROWS_3000);
+      expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
       // 負のスクロールは 0 として扱われるため、scrollY = 0 と同じ結果になる。
       expect(range).toEqual(zero);
     }
@@ -329,7 +330,7 @@ describe('computeVisibleRowRange scrollY・canvasTop・overscanPx の異常値',
     'S-03. scrollY が %p のとき 0 として扱う',
     (scrollY) => {
       const range = computeVisibleRowRange(args({ scrollY }));
-      expectRangeInvariants(range, ROWS_3000);
+      expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
       expect(range).toEqual(computeVisibleRowRange(args({ scrollY: 0 })));
     }
   );
@@ -338,7 +339,7 @@ describe('computeVisibleRowRange scrollY・canvasTop・overscanPx の異常値',
     'S-04. canvasTop が %p のとき 0 として扱う',
     (canvasTop) => {
       const range = computeVisibleRowRange(args({ canvasTop, scrollY: 3000 }));
-      expectRangeInvariants(range, ROWS_3000);
+      expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
       expect(range).toEqual(computeVisibleRowRange(args({ canvasTop: 0, scrollY: 3000 })));
     }
   );
@@ -355,7 +356,7 @@ describe('computeVisibleRowRange scrollY・canvasTop・overscanPx の異常値',
     'S-06. overscanPx が %p のとき 0 として扱う',
     (overscanPx) => {
       const range = computeVisibleRowRange(args({ overscanPx, scrollY: 3000 }));
-      expectRangeInvariants(range, ROWS_3000);
+      expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
       expect(range).toEqual(computeVisibleRowRange(args({ overscanPx: 0, scrollY: 3000 })));
     }
   );
@@ -369,7 +370,7 @@ describe('computeVisibleRowRange scrollY・canvasTop・overscanPx の異常値',
       const range = computeVisibleRowRange(
         args({ rowPitch: value, scrollY: 3000, overscanPx: value })
       );
-      expectRangeInvariants(range, ROWS_3000);
+      expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
     }
   });
 
@@ -395,7 +396,7 @@ describe('computeVisibleRowRange scrollY・canvasTop・overscanPx の異常値',
         expect(e).toBeInstanceOf(Error);
         continue;
       }
-      expectRangeInvariants(range, ROWS_3000);
+      expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
     }
   });
 
@@ -406,7 +407,7 @@ describe('computeVisibleRowRange scrollY・canvasTop・overscanPx の異常値',
     const flaky = { valueOf: () => (n++ % 2 === 0 ? 1e9 : 0) };
     for (let i = 0; i < 8; i += 1) {
       const range = computeVisibleRowRange(args({ scrollY: flaky, overscanPx: flaky }));
-      expectRangeInvariants(range, ROWS_3000);
+      expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
     }
   });
 });
@@ -506,7 +507,7 @@ describe('computeVisibleRowRange 境界と単調性', () => {
     const input = Object.freeze(args({ scrollY: 1234, overscanPx: 300 }));
     const snapshot = { ...input };
     const range = computeVisibleRowRange(input);
-    expectRangeInvariants(range, ROWS_3000);
+    expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
     expect({ ...input }).toEqual(snapshot);
   });
 });
@@ -587,7 +588,7 @@ describe('computeRowOffsetY', () => {
 
 describe('computeRowOffsetY と computeVisibleRowRange の整合', () => {
   it('C-01. ある行の Y 座標へスクロールすると、その行は必ず可視範囲に入る', () => {
-    const rowCount = ROWS_3000;
+    const rowCount = ROWS_AT_GRID_LIMIT;
     for (const canvasTop of [0, TOP, -37.5]) {
       for (const rowPitch of [PITCH, 110, 137.73333333333333]) {
         for (const rowIndex of [0, 1, 2, 17, 100, 374, rowCount - 2, rowCount - 1]) {
@@ -636,13 +637,13 @@ describe('computeRowOffsetY と computeVisibleRowRange の整合', () => {
         viewportHeight: VP,
         canvasTop: TOP,
         rowPitch,
-        rowCount: ROWS_3000,
+        rowCount: ROWS_AT_GRID_LIMIT,
         overscanPx: 0,
       });
       // rowPitch が異常なときは全域を返す契約なので、10行目は必ず含まれる。
-      expectRangeInvariants(range, ROWS_3000);
+      expectRangeInvariants(range, ROWS_AT_GRID_LIMIT);
       expect(range.startRow).toBe(0);
-      expect(range.endRow).toBe(ROWS_3000);
+      expect(range.endRow).toBe(ROWS_AT_GRID_LIMIT);
     }
   });
 });

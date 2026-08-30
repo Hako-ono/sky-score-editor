@@ -15,7 +15,9 @@ export const PDF_PREFS_STORAGE_KEY = 'sky-score-editor:pdf-prefs:v1';
 // `?debug=1` の計測をリロードをまたいで見るための一時置き場。DEBUG_ENABLED の
 // ときしか読み書きしない（タブを閉じれば消える sessionStorage）。
 export const DEBUG_METRICS_STORAGE_KEY = 'sky-score-editor:debug-metrics:v1';
-export const MAX_GRIDS = 3000;
+// 通常利用の読込・編集・保存・再生・PDF出力までを対象とする正式上限。
+// 外部JSONは parseScore.js で正規化しながら MAX_GRIDS+1 件目で打ち切る。
+export const MAX_GRIDS = 10_000;
 // 信頼境界: 元形式の songNotes は、Map/Setやソートを構築する前に
 // 配列の件数を確認する。MAX_GRIDSとは独立した固定値として、上限変更時に
 // 入力処理の負荷を自動で拡大させない。
@@ -899,8 +901,8 @@ export const DEFAULT_SHEET_LAYOUT_ID = 'single';
  * （縮尺は `contentWidthPt / svgWidth` と `contentHeightPt / svgHeight` の
  * 小さい方。行数・余白・グリッド間隔の組み合わせも同じ1つの式で吸収される）。
  * 一方、列数を減らすと行数＝論理ページ数が増える。下限を2列に留めているのは、
- * 1列にすると3000グリッドで行数が3000になり、ページ数の課題を一段深くする
- * ため。
+ * 1列にすると10,000グリッドで行数が10,000になり、ページ数の課題を一段深く
+ * するため。
  *
  * idに数字だけを使うと Object.entries が整数キーを先頭へ並べ替え、selectの
  * 先頭が `auto` でなくなる。表示順を保つため接頭辞付きのidにしている。
