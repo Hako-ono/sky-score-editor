@@ -22,7 +22,6 @@ import {
   PDF_GRID_GAPS,
   DEFAULT_PAGE_MARGIN_ID,
   DEFAULT_GRID_GAP_ID,
-  PDF_ROW_SHADING_COLOR,
   rowShadingOpacity,
   shadeRowPalette,
   PDF_SHEET_LAYOUTS,
@@ -576,35 +575,32 @@ export function buildPageSvg(
   // 同じ見え方になり、改行マークで行数が変わっても紙面の途中で反転しない。
   const isShadedRow = (rowIndex) => layout.rowShadingId === 'even' && rowIndex % 2 === 1;
   const shadingOpacity = rowShadingOpacity(palette.pageBackground);
-  // 帯は鍵盤の面（半透明）には効かないため、網掛け行のグリッドは面の色を
-  // 同じ割合だけ暗くして、行全体が一様に沈んで見えるようにする。
+  // 塗りは鍵盤の面（不透明）には効かないため、網掛け行のグリッドは通常鍵の
+  // 面にも同じ線色を同じ割合で混ぜ、行全体が一様に沈んで見えるようにする。
   const shadedPalette = layout.rowShadingId === 'even'
     ? shadeRowPalette(palette, shadingOpacity)
     : palette;
 
-  // 網掛けはグリッドより前に置く（後ろから重ねると記号や歌詞も沈む）。
+  // 網掛けはグリッドより先に置く（後から重ねると記号や歌詞が沈む）。
+  // グリッドのgroupの外に置くのは、無音グリッドのgroup不透明度と
+  // 入れ子にせず、網掛けの濃さを行内で揃えるため。
   if (layout.rowShadingId === 'even') {
-    pageRows.forEach((_row, rowIndex) => {
+    pageRows.forEach((row, rowIndex) => {
       if (!isShadedRow(rowIndex)) return;
-      const bandTop = Math.max(
-        0,
-        safeEdgePadding + rowIndex * rowPitch - layout.gridVerticalSpacing / 2,
-      );
-      const bandBottom = Math.min(
-        svgHeight,
-        safeEdgePadding + rowIndex * rowPitch + layout.gridBaseHeight
-          + layout.gridVerticalSpacing / 2,
-      );
-      svg.appendChild(
-        el('rect', {
-          x: 0,
-          y: bandTop,
-          width: svgWidth,
-          height: bandBottom - bandTop,
-          fill: PDF_ROW_SHADING_COLOR,
-          opacity: shadingOpacity,
-        }),
-      );
+      row.forEach((_cell, colIndex) => {
+        svg.appendChild(
+          el('rect', {
+            x: safeEdgePadding + colIndex * columnPitch,
+            y: safeEdgePadding + rowIndex * rowPitch,
+            width: layout.gridBaseWidth,
+            height: layout.gridBaseHeight,
+            rx: gridStyle.outerRadius,
+            ry: gridStyle.outerRadius,
+            fill: palette.cellStroke,
+            opacity: shadingOpacity,
+          }),
+        );
+      });
     });
   }
 

@@ -171,8 +171,8 @@ export default {
           "sheetLayout": "Размещение страниц",
           "maxRows": "Строк на странице",
           "columns": "Столбцов на странице",
-          "rowShading": "Затемнять чётные строки",
-          "rowShadingAria": "Затенение чётных строк",
+          "rowShading": "Цвет чётных строк",
+          "rowShadingAria": "Цвет чётных строк",
           "margin": "Поля",
           "gap": "Интервал сетки"
         },
@@ -513,7 +513,7 @@ export default {
         "sheetLayoutId": "Размещение страниц",
         "maxRowsPerPage": "Строк на странице",
         "columnsPerPageId": "Столбцов на странице",
-        "rowShadingId": "Затемнять чётные строки",
+        "rowShadingId": "Цвет чётных строк",
         "pageMarginId": "Поля",
         "gridGapId": "Интервал сетки"
       },

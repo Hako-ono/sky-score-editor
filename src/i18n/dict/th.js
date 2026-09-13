@@ -171,8 +171,8 @@ export default {
           "sheetLayout": "การจัดหน้า",
           "maxRows": "จำนวนแถวต่อหน้า",
           "columns": "จำนวนคอลัมน์ต่อหน้า",
-          "rowShading": "ทำให้แถวคู่มืดลง",
-          "rowShadingAria": "แรเงาแถวคู่",
+          "rowShading": "สีแถวคู่",
+          "rowShadingAria": "สีแถวคู่",
           "margin": "ระยะขอบ",
           "gap": "ระยะห่างกริด"
         },
@@ -513,7 +513,7 @@ export default {
         "sheetLayoutId": "การจัดหน้า",
         "maxRowsPerPage": "จำนวนแถวต่อหน้า",
         "columnsPerPageId": "จำนวนคอลัมน์ต่อหน้า",
-        "rowShadingId": "ทำให้แถวคู่มืดลง",
+        "rowShadingId": "สีแถวคู่",
         "pageMarginId": "ระยะขอบ",
         "gridGapId": "ระยะห่างกริด"
       },

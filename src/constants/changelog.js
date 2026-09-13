@@ -8,6 +8,15 @@
 // kind は 'feature' | 'improve' | 'fix' の3種。表示名は辞書側にある。
 export const CHANGELOG = [
   {
+    id: 'pdf-row-tint',
+    date: '2026-09-13',
+    kind: 'improve',
+    text: {
+      ja: 'PDFの「偶数行の色分け」（旧「偶数行を暗くする」）が見やすくなるように、見た目を調整しました。',
+      en: 'Adjusted the look of the PDF "Even-row tint" option (formerly "Shade even rows") so rows are easier to tell apart.',
+    },
+  },
+  {
     id: 'max-grids-10000',
     date: '2026-08-30',
     kind: 'improve',

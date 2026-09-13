@@ -944,13 +944,14 @@ export function normalizeRowShadingId(value) {
 }
 
 /**
- * 網掛けは紙面色から作った中間色ではなく、黒の半透明を重ねて描く。
- * 背景画像の上でも同じ「暗くする」効果になり、画像を塗りつぶさない。ただし
- * 暗い紙面色では同じ半透明度だと差が出ないので、明暗で2段階だけ持つ
+ * 網掛けは行全体の帯ではなく、偶数行の各グリッドの外枠の内側だけを塗る。
+ * 帯だと列の隙間や紙面の余白まで暗い縞になり、配色から浮いて見えるため。
+ * 色は黒ではなく配色の線色（cellStroke）の半透明にする。同じ配色の色なので
+ * 紙面に馴染み、半透明のままなので背景画像を塗りつぶさない。
+ * 暗い紙面色では同じ不透明度だと差が出ないので、明暗で2段階だけ持つ
  * （判定は既存の isDarkSeedBg と共有する）。
  */
-export const PDF_ROW_SHADING_COLOR = '#000000';
-export const PDF_ROW_SHADING_OPACITY = { light: 0.1, dark: 0.36 };
+export const PDF_ROW_SHADING_OPACITY = { light: 0.45, dark: 0.55 };
 
 export function rowShadingOpacity(pageBackground) {
   return isDarkSeedBg(pageBackground)
@@ -959,20 +960,20 @@ export function rowShadingOpacity(pageBackground) {
 }
 
 /**
- * 網掛け行のためのパレット。帯は塗りの背後にあり、半透明な鍵盤の面（通常鍵・
- * 押鍵）には効かないため、行全体が同じだけ暗く見えるよう面の色にも同じ黒を
- * 同じ割合で混ぜる（半透明を重ねたのと同じ結果になる）。
+ * 網掛け行のためのパレット。塗りは鍵盤の面の背後にあり、不透明な面には
+ * 効かないため、通常鍵の面にも同じ線色を同じ割合で混ぜて、行全体を一様に
+ * 沈める。セルはグリッド面積の半分強を占めるので、面を据え置いたり紙面色へ
+ * 反転させたりすると、行の平均の明るさが奇数行と変わらず、薄目・遠目では
+ * 行が分かれて見えない。外枠は線色へ寄せて、塗りの縁を描き切る。
  *
- * 枠線・記号・番号・歌詞は暗くしない。面と一緒に暗くすると、行の中での
- * コントラストは変わらないまま全体が沈むだけで、可読性が落ちるため。
+ * 押鍵の面・枠線・記号・番号・歌詞は変えない。譜面の読みに関わる色を
+ * 行ごとに変えると、押鍵の見分けが行によって揺れるため。
  */
 export function shadeRowPalette(palette, opacity) {
-  const shade = (color) => mixHex(color, PDF_ROW_SHADING_COLOR, opacity);
   return {
     ...palette,
-    cellFill: shade(palette.cellFill),
-    cellFillHighlight: shade(palette.cellFillHighlight),
-    cellFillHighlight2: shade(palette.cellFillHighlight2),
+    cellFill: mixHex(palette.cellFill, palette.cellStroke, opacity),
+    outerFrame: mixHex(palette.cellStroke, palette.pageBackground, 0.05),
   };
 }
 export const PDF_FIRST_PAGE_LAYOUTS = {

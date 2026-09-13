@@ -171,8 +171,8 @@ export default {
           "sheetLayout": "Dàn trang",
           "maxRows": "Số hàng mỗi trang",
           "columns": "Số cột mỗi trang",
-          "rowShading": "Làm tối hàng chẵn",
-          "rowShadingAria": "Tô nền hàng chẵn",
+          "rowShading": "Màu hàng chẵn",
+          "rowShadingAria": "Màu hàng chẵn",
           "margin": "Lề",
           "gap": "Khoảng cách ô"
         },
@@ -513,7 +513,7 @@ export default {
         "sheetLayoutId": "Dàn trang",
         "maxRowsPerPage": "Số hàng mỗi trang",
         "columnsPerPageId": "Số cột mỗi trang",
-        "rowShadingId": "Làm tối hàng chẵn",
+        "rowShadingId": "Màu hàng chẵn",
         "pageMarginId": "Lề",
         "gridGapId": "Khoảng cách ô"
       },

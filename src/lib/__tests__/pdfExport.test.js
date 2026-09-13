@@ -33,6 +33,7 @@ import {
   normalizeKeyModeNotationId,
   normalizeScoreInfoDesignId,
   buildPdfPalette,
+  mixHex,
   pdfConfig,
 } from '../../constants/config.js';
 import { resolvePdfTypography } from '../pdfTypography.js';
@@ -772,6 +773,113 @@ describe('buildPageSvg', () => {
       .toBe(Number(result.svg.getAttribute('width')));
   });
 
+  /* ----------------------------------------------------------
+   * 偶数行の網掛け（帯から枠内の塗りへ変更済み）
+   * 既定（無効）では何も足さない。有効のときは、そのページの2・4・6…行目の
+   * 各グリッドの外枠の内側へ線色の半透明の塗りを「グリッドより先に」置く
+   * （後から重ねると記号や歌詞が沈むため）。行全体の帯は敷かない。
+   * -------------------------------------------------------- */
+  function shadedLayout(options) {
+    return buildLayout({ rowShadingId: 'even', ...options });
+  }
+
+  function threeRows() {
+    return [0, 1, 2].map((rowIndex) => [
+      { grid: { keys: [], layer2Keys: [], text: '' }, index: rowIndex },
+    ]);
+  }
+
+  function shadingRects(result) {
+    return result.svg.children.filter(
+      (child) => child.nodeName === 'rect' && child.getAttribute('opacity') !== null,
+    );
+  }
+
+  it('既定では網掛けの塗りを描かない', () => {
+    const result = withSvgDocument(() => buildPageSvg(
+      stubDoc(), threeRows(), 1, palette, 'PDF-Font', gridStyle, typography, buildLayout(), 0,
+    ));
+    expect(shadingRects(result)).toHaveLength(0);
+  });
+
+  it('有効のとき、2行目のグリッドの枠内だけを線色で塗り、グリッドより先に置く', () => {
+    const layoutWithShading = shadedLayout();
+    const result = withSvgDocument(() => buildPageSvg(
+      stubDoc(), threeRows(), 1, palette, 'PDF-Font', gridStyle, typography, layoutWithShading, 0,
+    ));
+
+    const rects = shadingRects(result);
+    expect(rects).toHaveLength(1);
+    // 塗りはSVGの先頭（＝すべてのグリッドより前）にある
+    expect(result.svg.children[0]).toBe(rects[0]);
+    expect(rects[0].getAttribute('fill')).toBe(palette.cellStroke);
+    expect(Number(rects[0].getAttribute('width'))).toBe(layoutWithShading.gridBaseWidth);
+    expect(Number(rects[0].getAttribute('height'))).toBe(layoutWithShading.gridBaseHeight);
+    expect(Number(rects[0].getAttribute('rx'))).toBe(gridStyle.outerRadius);
+
+    const rowPitch = layoutWithShading.gridBaseHeight + layoutWithShading.gridVerticalSpacing;
+    expect(Number(rects[0].getAttribute('x'))).toBe(0);
+    expect(Number(rects[0].getAttribute('y'))).toBeCloseTo(rowPitch, 6);
+  });
+
+  it('偶数行の列ごとに1枚ずつ塗り、列の隙間には塗らない', () => {
+    const rows = [
+      [0, 1].map((col) => ({ grid: { keys: [], layer2Keys: [], text: '' }, index: col })),
+      [2, 3].map((col) => ({ grid: { keys: [], layer2Keys: [], text: '' }, index: col })),
+    ];
+    const layoutWithShading = shadedLayout();
+    const result = withSvgDocument(() => buildPageSvg(
+      stubDoc(), rows, 2, palette, 'PDF-Font', gridStyle, typography, layoutWithShading, 0,
+    ));
+
+    const rects = shadingRects(result);
+    expect(rects).toHaveLength(2);
+    const columnPitch = layoutWithShading.gridBaseWidth + layoutWithShading.gridHorizontalSpacing;
+    expect(Number(rects[1].getAttribute('x'))).toBeCloseTo(columnPitch, 6);
+    expect(Number(rects[0].getAttribute('x')) + Number(rects[0].getAttribute('width')))
+      .toBeLessThan(Number(rects[1].getAttribute('x')));
+  });
+
+  it('網掛け行では通常鍵の面にも塗りと同じ割合で線色を混ぜ、押鍵の面・枠・記号は変えない', () => {
+    const rows = [
+      [{ grid: { keys: [0], layer2Keys: [], text: '' }, index: 0 }],
+      [{ grid: { keys: [0], layer2Keys: [], text: '' }, index: 1 }],
+    ];
+    const result = withSvgDocument(() => buildPageSvg(
+      stubDoc(), rows, 1, palette, 'PDF-Font', gridStyle, typography, shadedLayout(), 0,
+    ));
+
+    const grids = result.svg.children.filter((child) => child.nodeName === 'g');
+    const fills = grids.map((group) => cellRects({ svg: { children: [group] } })
+      .map((rect) => rect.getAttribute('fill')));
+    const strokes = grids.map((group) => cellRects({ svg: { children: [group] } })
+      .map((rect) => rect.getAttribute('stroke')));
+
+    // 1行目は素のパレット、2行目（偶数行）は通常鍵の面に塗りと同じ割合で線色を混ぜる
+    const opacity = Number(shadingRects(result)[0].getAttribute('opacity'));
+    expect(fills[0]).toContain(palette.cellFill);
+    expect(fills[1]).not.toContain(palette.cellFill);
+    expect(fills[1]).toContain(mixHex(palette.cellFill, palette.cellStroke, opacity));
+    // 押鍵の面は両方の行で同じ
+    expect(fills[0]).toContain(palette.cellFillHighlight);
+    expect(fills[1]).toContain(palette.cellFillHighlight);
+    // 枠線は両方の行で同じ
+    expect(strokes[1]).toEqual(strokes[0]);
+  });
+
+  it('暗い紙面色では塗りの不透明度を上げる', () => {
+    const dark = buildPdfPalette(PDF_PRESETS.winterDark);
+    const light = withSvgDocument(() => buildPageSvg(
+      stubDoc(), threeRows(), 1, palette, 'PDF-Font', gridStyle, typography, shadedLayout(), 0,
+    ));
+    const shaded = withSvgDocument(() => buildPageSvg(
+      stubDoc(), threeRows(), 1, dark, 'PDF-Font', gridStyle, typography, shadedLayout(), 0,
+    ));
+
+    expect(Number(shadingRects(shaded)[0].getAttribute('opacity')))
+      .toBeGreaterThan(Number(shadingRects(light)[0].getAttribute('opacity')));
+  });
+
   it('番号なしでは番号textだけを省き、歌詞textは残す', () => {
     const result = withSvgDocument(() => buildPageSvg(
       { getStringUnitWidth: (text) => Array.from(text).length },
@@ -795,116 +903,6 @@ describe('buildPageSvg', () => {
       .filter((child) => child.nodeName === 'rect')
       .slice(1);
   }
-
-  /* ----------------------------------------------------------
-   * 偶数行の網掛け
-   * 既定（無効）では何も足さない。有効のときは、そのページの2・4・6…行目の
-   * 背後へ黒の半透明の帯を「グリッドより前に」置く（後ろから重ねると記号や
-   * 歌詞が沈む）。帯はブロックの上下端をはみ出さない。
-   * -------------------------------------------------------- */
-  function shadedLayout(options) {
-    return buildLayout({ rowShadingId: 'even', ...options });
-  }
-
-  function threeRows() {
-    return [0, 1, 2].map((rowIndex) => [
-      { grid: { keys: [], layer2Keys: [], text: '' }, index: rowIndex },
-    ]);
-  }
-
-  function bandRects(result) {
-    return result.svg.children.filter(
-      (child) => child.nodeName === 'rect' && child.getAttribute('opacity') !== null,
-    );
-  }
-
-  it('既定では網掛けの帯を描かない', () => {
-    const result = withSvgDocument(() => buildPageSvg(
-      stubDoc(), threeRows(), 1, palette, 'PDF-Font', gridStyle, typography, buildLayout(), 0,
-    ));
-    expect(bandRects(result)).toHaveLength(0);
-  });
-
-  it('有効のとき、2行目だけの帯をグリッドより前に置く', () => {
-    const layoutWithShading = shadedLayout();
-    const result = withSvgDocument(() => buildPageSvg(
-      stubDoc(), threeRows(), 1, palette, 'PDF-Font', gridStyle, typography, layoutWithShading, 0,
-    ));
-
-    const bands = bandRects(result);
-    expect(bands).toHaveLength(1);
-    // 帯はSVGの先頭（＝すべてのグリッドより前）にある
-    expect(result.svg.children[0]).toBe(bands[0]);
-    expect(bands[0].getAttribute('fill')).toBe('#000000');
-    expect(Number(bands[0].getAttribute('width'))).toBe(
-      Number(result.svg.getAttribute('width')),
-    );
-
-    const rowPitch = layoutWithShading.gridBaseHeight + layoutWithShading.gridVerticalSpacing;
-    expect(Number(bands[0].getAttribute('y')))
-      .toBeCloseTo(rowPitch - layoutWithShading.gridVerticalSpacing / 2, 6);
-    expect(Number(bands[0].getAttribute('height')))
-      .toBeCloseTo(layoutWithShading.gridBaseHeight + layoutWithShading.gridVerticalSpacing, 6);
-  });
-
-  it('最終行が偶数行でも帯はブロックの下端を越えない', () => {
-    const layoutWithShading = shadedLayout();
-    const result = withSvgDocument(() => buildPageSvg(
-      stubDoc(),
-      threeRows().slice(0, 2),
-      1,
-      palette,
-      'PDF-Font',
-      gridStyle,
-      typography,
-      layoutWithShading,
-      0,
-    ));
-
-    const [band] = bandRects(result);
-    const svgHeight = Number(result.svg.getAttribute('height'));
-    expect(Number(band.getAttribute('y')) + Number(band.getAttribute('height')))
-      .toBeCloseTo(svgHeight, 6);
-  });
-
-  it('網掛け行では鍵盤の面が同じ割合だけ暗くなり、枠・記号は変わらない', () => {
-    const rows = [
-      [{ grid: { keys: [0], layer2Keys: [], text: '' }, index: 0 }],
-      [{ grid: { keys: [0], layer2Keys: [], text: '' }, index: 1 }],
-    ];
-    const result = withSvgDocument(() => buildPageSvg(
-      stubDoc(), rows, 1, palette, 'PDF-Font', gridStyle, typography, shadedLayout(), 0,
-    ));
-
-    const grids = result.svg.children.filter((child) => child.nodeName === 'g');
-    const fills = grids.map((group) => cellRects({ svg: { children: [group] } })
-      .map((rect) => rect.getAttribute('fill')));
-    const strokes = grids.map((group) => cellRects({ svg: { children: [group] } })
-      .map((rect) => rect.getAttribute('stroke')));
-
-    // 1行目は素のパレット、2行目（偶数行）は暗くした面
-    expect(fills[0]).toContain(palette.cellFill);
-    expect(fills[1]).not.toContain(palette.cellFill);
-    expect(fills[1].every((fill) => fill !== undefined && fill !== null)).toBe(true);
-    // 押鍵の面も暗くする
-    expect(fills[0]).toContain(palette.cellFillHighlight);
-    expect(fills[1]).not.toContain(palette.cellFillHighlight);
-    // 枠線は両方の行で同じ
-    expect(strokes[1]).toEqual(strokes[0]);
-  });
-
-  it('暗い紙面色では帯の半透明度を上げる', () => {
-    const dark = buildPdfPalette(PDF_PRESETS.winterDark);
-    const light = withSvgDocument(() => buildPageSvg(
-      stubDoc(), threeRows(), 1, palette, 'PDF-Font', gridStyle, typography, shadedLayout(), 0,
-    ));
-    const shaded = withSvgDocument(() => buildPageSvg(
-      stubDoc(), threeRows(), 1, dark, 'PDF-Font', gridStyle, typography, shadedLayout(), 0,
-    ));
-
-    expect(Number(bandRects(shaded)[0].getAttribute('opacity')))
-      .toBeGreaterThan(Number(bandRects(light)[0].getAttribute('opacity')));
-  });
 
   it('無音かつ無歌詞のグリッドは通常色のまま全体を50%不透明にする', () => {
     const result = withSvgDocument(() => buildPageSvg(
